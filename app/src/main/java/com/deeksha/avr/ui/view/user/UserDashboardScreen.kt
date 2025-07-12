@@ -1,0 +1,681 @@
+package com.deeksha.avr.ui.view.user
+
+import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.*
+import androidx.compose.ui.graphics.drawscope.DrawScope
+import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.deeksha.avr.model.Expense
+import com.deeksha.avr.model.ExpenseSummary
+import com.deeksha.avr.viewmodel.AuthViewModel
+import com.deeksha.avr.viewmodel.ExpenseViewModel
+import com.deeksha.avr.utils.FormatUtils
+import java.text.NumberFormat
+import java.text.SimpleDateFormat
+import java.util.*
+import kotlin.math.cos
+import kotlin.math.sin
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun UserDashboardScreen(
+    onNavigateToProjectSelection: () -> Unit,
+    onNavigateToAddExpense: () -> Unit,
+    onNavigateToExpenseList: () -> Unit,
+    onNavigateToTrackSubmissions: () -> Unit,
+    authViewModel: AuthViewModel = hiltViewModel(),
+    expenseViewModel: ExpenseViewModel = hiltViewModel()
+) {
+    val authState by authViewModel.authState.collectAsState()
+    val expenseSummary by expenseViewModel.expenseSummary.collectAsState(initial = ExpenseSummary())
+    val isLoading by expenseViewModel.isLoading.collectAsState()
+    val error by expenseViewModel.error.collectAsState()
+
+    // Load user expenses when screen opens
+    LaunchedEffect(authState.user?.uid) {
+        authState.user?.uid?.let { userId ->
+            expenseViewModel.loadUserExpenses(userId)
+        }
+    }
+
+    // Auto-refresh every 30 seconds to get latest approved expenses
+    LaunchedEffect(authState.user?.uid) {
+        while (true) {
+            kotlinx.coroutines.delay(30000) // 30 seconds
+            authState.user?.uid?.let { userId ->
+                expenseViewModel.refreshData(userId)
+            }
+        }
+    }
+
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = {
+                    Text(
+                        text = "AVR ENTERTAINMENT",
+                        fontSize = 30.sp, // Made bigger as requested
+                        fontWeight = FontWeight.Bold,
+                        color = Color.White
+                    )
+                },
+                colors = TopAppBarDefaults.topAppBarColors(
+                    containerColor = Color(0xFF4285F4),
+                    titleContentColor = Color.White
+                ),
+                actions = {
+                    IconButton(
+                        onClick = {
+                            authState.user?.uid?.let { userId ->
+                                expenseViewModel.refreshData(userId)
+                            }
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh",
+                            tint = Color.White
+                        )
+                    }
+                }
+            )
+        }
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(paddingValues)
+                .background(Color(0xFFF5F5F5))
+        ) {
+            if (isLoading) {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(color = Color(0xFF4285F4))
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    contentPadding = PaddingValues(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(16.dp)
+                ) {
+                    // Welcome Section
+                    item {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(12.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFF4285F4))
+                        ) {
+                            Column(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(20.dp)
+                            ) {
+                                Text(
+                                    text = "Welcome back!",
+                                    fontSize = 16.sp,
+                                    color = Color.White.copy(alpha = 0.9f)
+                                )
+                                Text(
+                                    text = authState.user?.name ?: "User",
+                                    fontSize = 24.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.White
+                                )
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text(
+                                    text = "Track and manage your project expenses",
+                                    fontSize = 14.sp,
+                                    color = Color.White.copy(alpha = 0.8f)
+                                )
+                            }
+                        }
+                    }
+
+                    // Quick Actions
+                    item {
+                        Text(
+                            text = "Quick Actions",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
+
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            ActionCard(
+                                modifier = Modifier.weight(1f),
+                                title = "Add Expense",
+                                subtitle = "Submit new",
+                                icon = Icons.Default.Add,
+                                onClick = onNavigateToAddExpense
+                            )
+                            
+                            ActionCard(
+                                modifier = Modifier.weight(1f),
+                                title = "View Expenses",
+                                subtitle = "See all",
+                                icon = Icons.Default.List,
+                                onClick = onNavigateToExpenseList
+                            )
+                        }
+                    }
+
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            ActionCard(
+                                modifier = Modifier.weight(1f),
+                                title = "Track Status",
+                                subtitle = "Check approvals",
+                                icon = Icons.Default.DateRange,
+                                onClick = onNavigateToTrackSubmissions
+                            )
+                            
+                            ActionCard(
+                                modifier = Modifier.weight(1f),
+                                title = "Select Project",
+                                subtitle = "Change project",
+                                icon = Icons.Default.LocationOn,
+                                onClick = onNavigateToProjectSelection
+                            )
+                        }
+                    }
+
+                    // Expense Analytics Section
+                    item {
+                        Text(
+                            text = "Your Expense Analytics",
+                            fontSize = 20.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
+
+                    // Summary Cards
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            ExpenseSummaryCard(
+                                modifier = Modifier.weight(1f),
+                                title = "Approved",
+                                amount = expenseSummary.totalApproved,
+                                count = expenseSummary.approvedCount,
+                                icon = Icons.Default.CheckCircle,
+                                color = Color(0xFF4CAF50)
+                            )
+                            
+                            ExpenseSummaryCard(
+                                modifier = Modifier.weight(1f),
+                                title = "Pending",
+                                amount = expenseSummary.totalPending,
+                                count = expenseSummary.pendingCount,
+                                icon = Icons.Default.Warning,
+                                color = Color(0xFFFF9800)
+                            )
+                            
+                            ExpenseSummaryCard(
+                                modifier = Modifier.weight(1f),
+                                title = "Rejected",
+                                amount = expenseSummary.totalRejected,
+                                count = expenseSummary.rejectedCount,
+                                icon = Icons.Default.Close,
+                                color = Color(0xFFF44336)
+                            )
+                        }
+                    }
+
+                    // Budget Allocation Pie Chart - Only show if there are approved expenses
+                    if (expenseSummary.expensesByCategory.isNotEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Approved Expenses by Category",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    
+                                    Row(
+                                        modifier = Modifier.fillMaxWidth()
+                                    ) {
+                                        // Pie Chart
+                                        PieChart(
+                                            data = expenseSummary.expensesByCategory,
+                                            modifier = Modifier.size(120.dp)
+                                        )
+                                        
+                                        Spacer(modifier = Modifier.width(16.dp))
+                                        
+                                        // Legend
+                                        Column(
+                                            modifier = Modifier.weight(1f)
+                                        ) {
+                                            expenseSummary.expensesByCategory.entries.forEachIndexed { index, (category, amount) ->
+                                                ChartLegendItem(
+                                                    color = getChartColor(index),
+                                                    category = category,
+                                                    amount = amount
+                                                )
+                                                if (index < expenseSummary.expensesByCategory.size - 1) {
+                                                    Spacer(modifier = Modifier.height(8.dp))
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Project-wise Breakdown - Only show if there are approved expenses
+                    if (expenseSummary.expensesByProject.isNotEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Approved Expenses by Project",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                    
+                                    expenseSummary.expensesByProject.entries.forEach { (project, amount) ->
+                                        Row(
+                                            modifier = Modifier
+                                                .fillMaxWidth()
+                                                .padding(vertical = 4.dp),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = project,
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Medium,
+                                                color = Color.Black,
+                                                modifier = Modifier.weight(1f)
+                                            )
+                                            Text(
+                                                text = FormatUtils.formatCurrency(amount),
+                                                fontSize = 14.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = Color(0xFF4CAF50)
+                                            )
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Recent Approved Expenses - Only show if there are any
+                    if (expenseSummary.recentExpenses.isNotEmpty()) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color.White)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Recent Approved Expenses",
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                    Spacer(modifier = Modifier.height(12.dp))
+                                }
+                            }
+                        }
+                    }
+
+                    // Recent Approved Expense Items
+                    items(expenseSummary.recentExpenses) { expense ->
+                        RecentExpenseItem(expense = expense)
+                    }
+
+                    // Show motivational message if no approved expenses yet
+                    if (expenseSummary.approvedCount == 0 && expenseSummary.pendingCount == 0) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                shape = RoundedCornerShape(12.dp),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                            ) {
+                                Column(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(24.dp),
+                                    horizontalAlignment = Alignment.CenterHorizontally
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = null,
+                                        modifier = Modifier.size(48.dp),
+                                        tint = Color(0xFF4285F4)
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Text(
+                                        text = "Start Your Expense Journey!",
+                                        fontSize = 20.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF4285F4),
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Submit your first expense to see analytics and track your spending",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF4285F4),
+                                        textAlign = TextAlign.Center
+                                    )
+                                    Spacer(modifier = Modifier.height(16.dp))
+                                    Button(
+                                        onClick = onNavigateToAddExpense,
+                                        colors = ButtonDefaults.buttonColors(
+                                            containerColor = Color(0xFF4285F4)
+                                        )
+                                    ) {
+                                        Icon(Icons.Default.Add, contentDescription = null)
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Add First Expense")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Error handling
+                    error?.let {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color.Red.copy(alpha = 0.1f))
+                            ) {
+                                Text(
+                                    text = it,
+                                    color = Color.Red,
+                                    modifier = Modifier.padding(16.dp),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun ActionCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    subtitle: String,
+    icon: ImageVector,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = modifier
+            .clickableCardAnimation()
+            .height(120.dp),
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        onClick = onClick
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Icon(
+                icon,
+                contentDescription = title,
+                modifier = Modifier.size(32.dp),
+                tint = Color(0xFF4285F4)
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black,
+                textAlign = TextAlign.Center
+            )
+            Text(
+                text = subtitle,
+                fontSize = 12.sp,
+                color = Color.Gray,
+                textAlign = TextAlign.Center
+            )
+        }
+    }
+}
+
+@Composable
+fun ExpenseSummaryCard(
+    modifier: Modifier = Modifier,
+    title: String,
+    amount: Double,
+    count: Int,
+    icon: ImageVector,
+    color: Color
+) {
+    Card(
+        modifier = modifier,
+        shape = RoundedCornerShape(12.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                icon,
+                contentDescription = title,
+                modifier = Modifier.size(32.dp),
+                tint = color
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = title,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black
+            )
+            Text(
+                text = FormatUtils.formatCurrency(amount),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = color
+            )
+            Text(
+                text = "$count item${if (count != 1) "s" else ""}",
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
+fun PieChart(
+    data: Map<String, Double>,
+    modifier: Modifier = Modifier
+) {
+    val total = data.values.sum()
+    
+    Canvas(modifier = modifier) {
+        if (total > 0) {
+            var startAngle = -90f
+            data.entries.forEachIndexed { index, (_, value) ->
+                val sweepAngle = (value / total * 360).toFloat()
+                drawArc(
+                    color = getChartColor(index),
+                    startAngle = startAngle,
+                    sweepAngle = sweepAngle,
+                    useCenter = true
+                )
+                startAngle += sweepAngle
+            }
+        }
+    }
+}
+
+@Composable
+fun ChartLegendItem(
+    color: Color,
+    category: String,
+    amount: Double
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Box(
+            modifier = Modifier
+                .size(12.dp)
+                .background(color, RoundedCornerShape(2.dp))
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                text = category,
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
+                text = FormatUtils.formatCurrency(amount),
+                fontSize = 10.sp,
+                color = Color.Gray
+            )
+        }
+    }
+}
+
+@Composable
+fun RecentExpenseItem(expense: Expense) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.CheckCircle,
+                contentDescription = "Approved",
+                tint = Color(0xFF4CAF50),
+                modifier = Modifier.size(24.dp)
+            )
+            
+            Spacer(modifier = Modifier.width(12.dp))
+            
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = expense.category,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Black
+                )
+                Text(
+                    text = expense.department,
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+                expense.reviewedAt?.let {
+                    Text(
+                        text = "Approved: ${FormatUtils.formatDate(it)}",
+                        fontSize = 11.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+            
+            Text(
+                text = FormatUtils.formatCurrency(expense.amount),
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF4CAF50)
+            )
+        }
+    }
+}
+
+fun getChartColor(index: Int): Color {
+    val colors = listOf(
+        Color(0xFF4285F4), // Blue
+        Color(0xFF34A853), // Green
+        Color(0xFFEA4335), // Red
+        Color(0xFFFBBC05), // Yellow
+        Color(0xFF9C27B0), // Purple
+        Color(0xFFFF9800), // Orange
+        Color(0xFF795548), // Brown
+        Color(0xFF607D8B)  // Blue Grey
+    )
+    return colors[index % colors.size]
+}
+
+// Extension function for clickable card animation
+@Composable
+fun Modifier.clickableCardAnimation(): Modifier {
+    return this.clickable { }
+} 

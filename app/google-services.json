@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "1096496081114",
+    "project_id": "avr-entertainment",
+    "storage_bucket": "avr-entertainment.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1096496081114:android:98d2873547bdc3d7629de3",
+        "android_client_info": {
+          "package_name": "com.deeksha.avr"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdg2s2uK6quM95uhp2LHU_J1iyh2XWbz8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1096496081114:android:90b82e8ea3cd4c1f629de3",
+        "android_client_info": {
+          "package_name": "com.deeksha.avrentertainment"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCdg2s2uK6quM95uhp2LHU_J1iyh2XWbz8"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
