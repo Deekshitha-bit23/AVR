@@ -709,6 +709,89 @@ class ExpenseRepository @Inject constructor(
         }
     }
     
+    // Method to get ALL expenses for a project (for debugging)
+    suspend fun getAllExpensesForProject(projectId: String): List<Expense> {
+        return try {
+            Log.d("ExpenseRepository", "🔄 Loading ALL expenses for project: $projectId")
+            
+            // First verify the project exists
+            val projectDoc = firestore.collection("projects")
+                .document(projectId)
+                .get()
+                .await()
+            
+            if (!projectDoc.exists()) {
+                Log.e("ExpenseRepository", "❌ Project $projectId does not exist")
+                return emptyList()
+            }
+            
+            // Query all expenses without status filter
+            Log.d("ExpenseRepository", "🔍 Querying all expenses for project: $projectId")
+            val snapshot = firestore.collection("projects")
+                .document(projectId)
+                .collection("expenses")
+                .orderBy("submittedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
+                .get()
+                .await()
+            
+            Log.d("ExpenseRepository", "📊 Found ${snapshot.documents.size} total expense documents")
+            
+            val expenses = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val expenseData = doc.data ?: run {
+                        Log.w("ExpenseRepository", "⚠️ Empty data for expense document ${doc.id}")
+                        return@mapNotNull null
+                    }
+                    
+                    // Log raw data for debugging
+                    Log.d("ExpenseRepository", "📝 Raw expense data for ${doc.id}: $expenseData")
+                    
+                    Expense(
+                        id = doc.id,
+                        projectId = projectId,
+                        userId = expenseData["userId"] as? String ?: "",
+                        userName = expenseData["userName"] as? String ?: "",
+                        date = expenseData["date"] as? Timestamp,
+                        amount = (expenseData["amount"] as? Number)?.toDouble() ?: 0.0,
+                        department = expenseData["department"] as? String ?: "",
+                        category = expenseData["category"] as? String ?: "",
+                        description = expenseData["description"] as? String ?: "",
+                        modeOfPayment = expenseData["modeOfPayment"] as? String ?: "",
+                        tds = (expenseData["tds"] as? Number)?.toDouble() ?: 0.0,
+                        gst = (expenseData["gst"] as? Number)?.toDouble() ?: 0.0,
+                        netAmount = (expenseData["netAmount"] as? Number)?.toDouble() ?: 0.0,
+                        attachmentUrl = expenseData["attachmentUrl"] as? String ?: "",
+                        attachmentFileName = expenseData["attachmentFileName"] as? String ?: "",
+                        status = when (expenseData["status"] as? String) {
+                            "APPROVED" -> ExpenseStatus.APPROVED
+                            "REJECTED" -> ExpenseStatus.REJECTED
+                            "DRAFT" -> ExpenseStatus.DRAFT
+                            else -> ExpenseStatus.PENDING
+                        },
+                        submittedAt = expenseData["submittedAt"] as? Timestamp,
+                        reviewedAt = expenseData["reviewedAt"] as? Timestamp,
+                        reviewedBy = expenseData["reviewedBy"] as? String ?: "",
+                        reviewComments = expenseData["reviewComments"] as? String ?: "",
+                        receiptNumber = expenseData["receiptNumber"] as? String ?: ""
+                    ).also {
+                        Log.d("ExpenseRepository", "✅ Successfully mapped expense: ${it.id} - Status: ${it.status} - ₹${it.amount} - ${it.category}")
+                    }
+                } catch (e: Exception) {
+                    Log.e("ExpenseRepository", "❌ Error mapping expense document ${doc.id}: ${e.message}")
+                    e.printStackTrace()
+                    null
+                }
+            }
+            
+            Log.d("ExpenseRepository", "✅ Successfully loaded ${expenses.size} total expenses for project $projectId")
+            expenses
+        } catch (e: Exception) {
+            Log.e("ExpenseRepository", "❌ Error loading all expenses for project $projectId: ${e.message}")
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+    
     // NEW: Method to check if there are any approved expenses in the system
     suspend fun hasAnyApprovedExpenses(): Boolean {
         return try {

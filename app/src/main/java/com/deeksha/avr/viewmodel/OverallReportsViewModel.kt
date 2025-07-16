@@ -311,19 +311,50 @@ class OverallReportsViewModel @Inject constructor(
             val allExpenses = mutableListOf<Expense>()
             var errorCount = 0
             
-            android.util.Log.d("OverallReportsViewModel", "🔄 Loading approved expenses from ${allProjects.size} projects...")
+            android.util.Log.d("OverallReportsViewModel", "🔄 Loading expenses from ${allProjects.size} projects...")
             
             allProjects.forEach { project ->
                 try {
                     android.util.Log.d("OverallReportsViewModel", "📊 Loading expenses for project: ${project.name} (${project.id})")
-                    val projectExpenses = expenseRepository.getApprovedExpensesForProject(project.id)
-                    android.util.Log.d("OverallReportsViewModel", "💰 Found ${projectExpenses.size} approved expenses for ${project.name}")
                     
-                    if (projectExpenses.isNotEmpty()) {
-                        allExpenses.addAll(projectExpenses)
+                    // First try to get approved expenses
+                    val approvedExpenses = expenseRepository.getApprovedExpensesForProject(project.id)
+                    android.util.Log.d("OverallReportsViewModel", "💰 Found ${approvedExpenses.size} approved expenses for ${project.name}")
+                    
+                    if (approvedExpenses.isNotEmpty()) {
+                        allExpenses.addAll(approvedExpenses)
                         // Log sample expense for verification
-                        projectExpenses.firstOrNull()?.let { expense ->
-                            android.util.Log.d("OverallReportsViewModel", "📝 Sample expense from ${project.name}: ${expense.category} - ₹${expense.amount}")
+                        approvedExpenses.firstOrNull()?.let { expense ->
+                            android.util.Log.d("OverallReportsViewModel", "📝 Sample approved expense from ${project.name}: ${expense.category} - ₹${expense.amount}")
+                        }
+                    } else {
+                        // If no approved expenses, try to get all expenses and filter for reportable ones
+                        android.util.Log.d("OverallReportsViewModel", "🔍 No approved expenses found for ${project.name}, checking all expenses...")
+                        try {
+                            val allProjectExpenses = expenseRepository.getAllExpensesForProject(project.id)
+                            android.util.Log.d("OverallReportsViewModel", "📊 Found ${allProjectExpenses.size} total expenses for ${project.name}")
+                            
+                            // Filter for expenses that should be shown in reports (APPROVED, PENDING, or any with amount > 0)
+                            val reportableExpenses = allProjectExpenses.filter { expense ->
+                                expense.status == ExpenseStatus.APPROVED || 
+                                expense.status == ExpenseStatus.PENDING ||
+                                expense.amount > 0
+                            }
+                            
+                            android.util.Log.d("OverallReportsViewModel", "📋 Found ${reportableExpenses.size} reportable expenses for ${project.name}")
+                            
+                            if (reportableExpenses.isNotEmpty()) {
+                                allExpenses.addAll(reportableExpenses)
+                                reportableExpenses.forEach { expense ->
+                                    android.util.Log.d("OverallReportsViewModel", "📝 Reportable expense: ${expense.id} - Status: ${expense.status} - Category: ${expense.category} - Amount: ₹${expense.amount}")
+                                }
+                            } else {
+                                allProjectExpenses.forEach { expense ->
+                                    android.util.Log.d("OverallReportsViewModel", "📝 All expense: ${expense.id} - Status: ${expense.status} - Category: ${expense.category} - Amount: ₹${expense.amount}")
+                                }
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("OverallReportsViewModel", "❌ Error loading all expenses for ${project.name}: ${e.message}")
                         }
                     }
                 } catch (e: Exception) {
@@ -338,12 +369,12 @@ class OverallReportsViewModel @Inject constructor(
                 android.util.Log.w("OverallReportsViewModel", "⚠️ Failed to load expenses for $errorCount projects")
             }
             
-            android.util.Log.d("OverallReportsViewModel", "✅ Successfully loaded ${allExpenses.size} total approved expenses")
+            android.util.Log.d("OverallReportsViewModel", "✅ Successfully loaded ${allExpenses.size} total reportable expenses")
             
             // Sort by date descending
             allExpenses.sortedByDescending { it.submittedAt?.toDate()?.time ?: 0L }
         } catch (e: Exception) {
-            android.util.Log.e("OverallReportsViewModel", "❌ Critical error loading approved expenses: ${e.message}")
+            android.util.Log.e("OverallReportsViewModel", "❌ Critical error loading expenses: ${e.message}")
             e.printStackTrace()
             emptyList()
         }
@@ -472,6 +503,9 @@ class OverallReportsViewModel @Inject constructor(
     
     fun getCategoryData(): List<CategoryData> {
         val categoryMap = _reportData.value.expensesByCategory
+        android.util.Log.d("OverallReportsViewModel", "📊 Getting category data for project: ${_selectedProject.value}")
+        android.util.Log.d("OverallReportsViewModel", "📊 Category map: $categoryMap")
+        
         return categoryMap.map { (category, amount) ->
             CategoryData(
                 category = category,
@@ -506,6 +540,19 @@ class OverallReportsViewModel @Inject constructor(
     fun getProjectFilters(): List<ProjectFilter> {
         return listOf(ProjectFilter("All Projects", "all")) + 
                allProjects.map { ProjectFilter(it.name, it.id) }
+    }
+    
+    // Method to generate sample data for testing/demonstration
+    fun generateSampleData() {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                android.util.Log.d("OverallReportsViewModel", "🧪 Generating sample data for demonstration...")
+                createSampleReportData()
+            } finally {
+                _isLoading.value = false
+            }
+        }
     }
     
     private fun createSampleReportData() {
