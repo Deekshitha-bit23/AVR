@@ -21,6 +21,7 @@ import java.text.SimpleDateFormat
 import java.util.*
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.google.firebase.Timestamp
 
 @Singleton
 class ExportRepository @Inject constructor(
@@ -29,8 +30,13 @@ class ExportRepository @Inject constructor(
     
     suspend fun exportToPDF(exportData: ExportData): Result<File> {
         return try {
+            android.util.Log.d("ExportRepository", "🔄 Starting PDF export...")
+            android.util.Log.d("ExportRepository", "📊 Export data: ${exportData.detailedExpenses.size} expenses, ₹${exportData.totalSpent}")
+            
             val fileName = "expense_report_${getCurrentTimestamp()}.pdf"
             val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
+            
+            android.util.Log.d("ExportRepository", "📁 Creating PDF file at: ${file.absolutePath}")
             
             val writer = PdfWriter(file)
             val pdf = PdfDocument(writer)
@@ -73,6 +79,7 @@ class ExportRepository @Inject constructor(
             
             // Category Breakdown
             if (exportData.categoryBreakdown.isNotEmpty()) {
+                android.util.Log.d("ExportRepository", "📊 Adding category breakdown: ${exportData.categoryBreakdown.size} categories")
                 document.add(Paragraph("Category Breakdown").setBold().setFontSize(14f))
                 val categoryTable = Table(2)
                 categoryTable.addCell("Category")
@@ -88,6 +95,7 @@ class ExportRepository @Inject constructor(
             
             // Detailed Expenses
             if (exportData.detailedExpenses.isNotEmpty()) {
+                android.util.Log.d("ExportRepository", "📋 Adding detailed expenses: ${exportData.detailedExpenses.size} expenses")
                 document.add(Paragraph("Detailed Expenses").setBold().setFontSize(14f))
                 val expenseTable = Table(5)
                 expenseTable.addCell("Date")
@@ -111,16 +119,26 @@ class ExportRepository @Inject constructor(
             
             document.close()
             
+            android.util.Log.d("ExportRepository", "✅ PDF export completed successfully: ${file.absolutePath}")
+            android.util.Log.d("ExportRepository", "📏 File size: ${file.length()} bytes")
+            
             Result.success(file)
         } catch (e: Exception) {
+            android.util.Log.e("ExportRepository", "❌ PDF export failed: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }
     
     suspend fun exportToCSV(exportData: ExportData): Result<File> {
         return try {
+            android.util.Log.d("ExportRepository", "🔄 Starting CSV export...")
+            android.util.Log.d("ExportRepository", "📊 Export data: ${exportData.detailedExpenses.size} expenses, ₹${exportData.totalSpent}")
+            
             val fileName = "expense_report_${getCurrentTimestamp()}.csv"
             val file = File(context.getExternalFilesDir(Environment.DIRECTORY_DOCUMENTS), fileName)
+            
+            android.util.Log.d("ExportRepository", "📁 Creating CSV file at: ${file.absolutePath}")
             
             val writer = BufferedWriter(FileWriter(file))
             
@@ -134,6 +152,7 @@ class ExportRepository @Inject constructor(
             
             // Category Breakdown
             if (exportData.categoryBreakdown.isNotEmpty()) {
+                android.util.Log.d("ExportRepository", "📊 Adding category breakdown: ${exportData.categoryBreakdown.size} categories")
                 writer.write("Category Breakdown\n")
                 writer.write("Category,Amount\n")
                 
@@ -145,6 +164,7 @@ class ExportRepository @Inject constructor(
             
             // Detailed Expenses
             if (exportData.detailedExpenses.isNotEmpty()) {
+                android.util.Log.d("ExportRepository", "📋 Adding detailed expenses: ${exportData.detailedExpenses.size} expenses")
                 writer.write("Detailed Expenses\n")
                 writer.write("Date,Invoice,By,Amount,Department,Mode of Payment\n")
                 
@@ -158,8 +178,13 @@ class ExportRepository @Inject constructor(
             
             writer.close()
             
+            android.util.Log.d("ExportRepository", "✅ CSV export completed successfully: ${file.absolutePath}")
+            android.util.Log.d("ExportRepository", "📏 File size: ${file.length()} bytes")
+            
             Result.success(file)
         } catch (e: Exception) {
+            android.util.Log.e("ExportRepository", "❌ CSV export failed: ${e.message}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }
@@ -170,11 +195,17 @@ class ExportRepository @Inject constructor(
     
     fun shareFile(file: File, mimeType: String): Intent? {
         return try {
+            android.util.Log.d("ExportRepository", "📤 Creating share intent for file: ${file.absolutePath}")
+            android.util.Log.d("ExportRepository", "📁 File exists: ${file.exists()}")
+            android.util.Log.d("ExportRepository", "📏 File size: ${file.length()} bytes")
+            
             val uri = FileProvider.getUriForFile(
                 context,
                 "${context.packageName}.fileprovider",
                 file
             )
+            
+            android.util.Log.d("ExportRepository", "🔗 File URI: $uri")
             
             val shareIntent = Intent(Intent.ACTION_SEND).apply {
                 type = mimeType
@@ -184,9 +215,62 @@ class ExportRepository @Inject constructor(
                 addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
             }
             
-            Intent.createChooser(shareIntent, "Share Report")
+            val chooserIntent = Intent.createChooser(shareIntent, "Share Report")
+            android.util.Log.d("ExportRepository", "✅ Share intent created successfully")
+            
+            chooserIntent
         } catch (e: Exception) {
+            android.util.Log.e("ExportRepository", "❌ Failed to create share intent: ${e.message}")
+            e.printStackTrace()
             null
+        }
+    }
+    
+    // Test function to verify export functionality
+    suspend fun testExport(): Result<File> {
+        return try {
+            android.util.Log.d("ExportRepository", "🧪 Testing export functionality...")
+            
+            val testData = ExportData(
+                totalSpent = 50000.0,
+                timeRange = "This Month",
+                department = "Test Department",
+                categoryBreakdown = mapOf(
+                    "Travel" to 20000.0,
+                    "Equipment" to 15000.0,
+                    "Supplies" to 10000.0,
+                    "Other" to 5000.0
+                ),
+                detailedExpenses = listOf(
+                    DetailedExpense(
+                        id = "test1",
+                        date = Timestamp.now(),
+                        invoice = "INV001",
+                        by = "John Doe",
+                        amount = 20000.0,
+                        department = "Test Department",
+                        modeOfPayment = "UPI"
+                    ),
+                    DetailedExpense(
+                        id = "test2",
+                        date = Timestamp.now(),
+                        invoice = "INV002",
+                        by = "Jane Smith",
+                        amount = 15000.0,
+                        department = "Test Department",
+                        modeOfPayment = "Cash"
+                    )
+                ),
+                generatedAt = Timestamp.now()
+            )
+            
+            val result = exportToPDF(testData)
+            android.util.Log.d("ExportRepository", "🧪 Test export result: ${result.isSuccess}")
+            result
+        } catch (e: Exception) {
+            android.util.Log.e("ExportRepository", "❌ Test export failed: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
         }
     }
 } 

@@ -419,6 +419,9 @@ class OverallReportsViewModel @Inject constructor(
         viewModelScope.launch {
             _isExporting.value = true
             try {
+                android.util.Log.d("OverallReportsViewModel", "🔄 Starting PDF export...")
+                android.util.Log.d("OverallReportsViewModel", "📊 Current report data: ${_reportData.value}")
+                
                 val exportData = ExportData(
                     totalSpent = _reportData.value.totalSpent,
                     timeRange = _reportData.value.timeRange,
@@ -438,17 +441,26 @@ class OverallReportsViewModel @Inject constructor(
                     generatedAt = Timestamp.now()
                 )
                 
+                android.util.Log.d("OverallReportsViewModel", "📋 Export data prepared: ${exportData.detailedExpenses.size} expenses, ₹${exportData.totalSpent}")
+                android.util.Log.d("OverallReportsViewModel", "🏷️ Categories: ${exportData.categoryBreakdown.size}")
+                
                 val result = exportRepository.exportToPDF(exportData)
                 result.fold(
                     onSuccess = { file ->
+                        android.util.Log.d("OverallReportsViewModel", "✅ PDF export successful: ${file.absolutePath}")
                         val shareIntent = exportRepository.shareFile(file, "application/pdf")
+                        android.util.Log.d("OverallReportsViewModel", "📤 Share intent created: ${shareIntent != null}")
                         onSuccess(shareIntent)
                     },
                     onFailure = { exception ->
+                        android.util.Log.e("OverallReportsViewModel", "❌ PDF export failed: ${exception.message}")
+                        exception.printStackTrace()
                         onError("Failed to export PDF: ${exception.message}")
                     }
                 )
             } catch (e: Exception) {
+                android.util.Log.e("OverallReportsViewModel", "❌ PDF export exception: ${e.message}")
+                e.printStackTrace()
                 onError("Failed to export PDF: ${e.message}")
             } finally {
                 _isExporting.value = false
@@ -460,6 +472,9 @@ class OverallReportsViewModel @Inject constructor(
         viewModelScope.launch {
             _isExporting.value = true
             try {
+                android.util.Log.d("OverallReportsViewModel", "🔄 Starting CSV export...")
+                android.util.Log.d("OverallReportsViewModel", "📊 Current report data: ${_reportData.value}")
+                
                 val exportData = ExportData(
                     totalSpent = _reportData.value.totalSpent,
                     timeRange = _reportData.value.timeRange,
@@ -479,17 +494,26 @@ class OverallReportsViewModel @Inject constructor(
                     generatedAt = Timestamp.now()
                 )
                 
+                android.util.Log.d("OverallReportsViewModel", "📋 Export data prepared: ${exportData.detailedExpenses.size} expenses, ₹${exportData.totalSpent}")
+                android.util.Log.d("OverallReportsViewModel", "🏷️ Categories: ${exportData.categoryBreakdown.size}")
+                
                 val result = exportRepository.exportToCSV(exportData)
                 result.fold(
                     onSuccess = { file ->
+                        android.util.Log.d("OverallReportsViewModel", "✅ CSV export successful: ${file.absolutePath}")
                         val shareIntent = exportRepository.shareFile(file, "text/csv")
+                        android.util.Log.d("OverallReportsViewModel", "📤 Share intent created: ${shareIntent != null}")
                         onSuccess(shareIntent)
                     },
                     onFailure = { exception ->
+                        android.util.Log.e("OverallReportsViewModel", "❌ CSV export failed: ${exception.message}")
+                        exception.printStackTrace()
                         onError("Failed to export CSV: ${exception.message}")
                     }
                 )
             } catch (e: Exception) {
+                android.util.Log.e("OverallReportsViewModel", "❌ CSV export exception: ${e.message}")
+                e.printStackTrace()
                 onError("Failed to export CSV: ${e.message}")
             } finally {
                 _isExporting.value = false
@@ -499,6 +523,37 @@ class OverallReportsViewModel @Inject constructor(
     
     fun clearError() {
         _error.value = null
+    }
+    
+    // Test export function to verify functionality
+    fun testExport(onSuccess: (android.content.Intent?) -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            _isExporting.value = true
+            try {
+                android.util.Log.d("OverallReportsViewModel", "🧪 Testing export functionality...")
+                
+                val result = exportRepository.testExport()
+                result.fold(
+                    onSuccess = { file ->
+                        android.util.Log.d("OverallReportsViewModel", "✅ Test export successful: ${file.absolutePath}")
+                        val shareIntent = exportRepository.shareFile(file, "application/pdf")
+                        android.util.Log.d("OverallReportsViewModel", "📤 Test share intent created: ${shareIntent != null}")
+                        onSuccess(shareIntent)
+                    },
+                    onFailure = { exception ->
+                        android.util.Log.e("OverallReportsViewModel", "❌ Test export failed: ${exception.message}")
+                        exception.printStackTrace()
+                        onError("Test export failed: ${exception.message}")
+                    }
+                )
+            } catch (e: Exception) {
+                android.util.Log.e("OverallReportsViewModel", "❌ Test export exception: ${e.message}")
+                e.printStackTrace()
+                onError("Test export exception: ${e.message}")
+            } finally {
+                _isExporting.value = false
+            }
+        }
     }
     
     fun getCategoryData(): List<CategoryData> {
