@@ -112,6 +112,10 @@ class ReportsViewModel @Inject constructor(
                 
                 android.util.Log.d("ReportsViewModel", "📋 Detailed expenses: ${detailedExpenses.size}")
                 
+                // Update FilterOptions with project departments
+                val projectDepartments = project?.departmentBudgets?.keys?.toList() ?: emptyList()
+                FilterOptions.updateDepartments(projectDepartments)
+                
                 // Update state
                 _reportData.value = ReportData(
                     totalSpent = totalSpent,
@@ -286,7 +290,7 @@ class ReportsViewModel @Inject constructor(
             CategoryData(
                 category = category,
                 amount = amount,
-                color = FilterOptions.categoryColors[category] ?: 0xFF9E9E9E
+                color = FilterOptions.getCategoryColor(category)
             )
         }.sortedByDescending { it.amount }
     }

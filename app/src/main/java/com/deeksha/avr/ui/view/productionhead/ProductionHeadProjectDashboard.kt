@@ -25,7 +25,7 @@ fun ProductionHeadProjectDashboard(
     onNavigateToAddExpense: (String) -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToProjectNotifications: (String) -> Unit = {},
-    onNavigateToCategoryDetail: (String, String) -> Unit = { _, _ -> }
+    onNavigateToDepartmentDetail: (String, String) -> Unit = { _, _ -> }
 ) {
     // Directly embed the existing ApproverProjectDashboardScreen without any wrapper
     ApproverProjectDashboardScreen(
@@ -35,6 +35,6 @@ fun ProductionHeadProjectDashboard(
         onNavigateToAddExpense = { onNavigateToAddExpense(projectId) },
         onNavigateToReports = { _ -> onNavigateToReports() },
         onNavigateToProjectNotifications = onNavigateToProjectNotifications,
-        onNavigateToCategoryDetail = onNavigateToCategoryDetail
+        onNavigateToDepartmentDetail = onNavigateToDepartmentDetail
     )
 } 

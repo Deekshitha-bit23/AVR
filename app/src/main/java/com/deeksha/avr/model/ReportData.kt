@@ -65,36 +65,42 @@ object FilterOptions {
         TimeRangeFilter("All Time", "all_time")
     )
     
-    val departments = listOf(
-        DepartmentFilter("All Departments", "all"),
-        DepartmentFilter("Production", "Production"),
-        DepartmentFilter("Direction", "Direction"),
-        DepartmentFilter("Cinematography", "Cinematography"),
-        DepartmentFilter("Art Department", "Art Department"),
-        DepartmentFilter("Costumes", "Costumes"),
-        DepartmentFilter("Makeup", "Makeup"),
-        DepartmentFilter("Sound", "Sound"),
-        DepartmentFilter("Editing", "Editing"),
-        DepartmentFilter("VFX", "VFX"),
-        DepartmentFilter("Administration", "Administration")
+    // This will be populated dynamically based on project departments
+    val departments = mutableListOf<DepartmentFilter>()
+    
+    fun updateDepartments(projectDepartments: List<String>) {
+        departments.clear()
+        departments.add(DepartmentFilter("All Departments", "all"))
+        departments.addAll(projectDepartments.map { DepartmentFilter(it, it) })
+    }
+    
+    // Dynamic category colors - will be generated as needed
+    private val categoryColors = mutableMapOf<String, Long>()
+    private val categoryColorPalette = listOf(
+        0xFF4285F4, 0xFF34A853, 0xFFFBBC05, 0xFFEA4335, 0xFF9C27B0,
+        0xFF607D8B, 0xFF3F51B5, 0xFFFF9800, 0xFF4CAF50, 0xFF2196F3,
+        0xFFFF5722, 0xFF795548, 0xFF009688, 0xFFE91E63, 0xFF673AB7
     )
     
-    val categoryColors = mapOf(
-        "Wages & Crew Payments" to 0xFF4285F4,
-        "Equipment Rental" to 0xFF34A853,
-        "Catering & Food" to 0xFFFBBC05,
-        "Transportation" to 0xFFEA4335,
-        "Costumes & Makeup" to 0xFF9C27B0,
-        "Post Production" to 0xFF607D8B,
-        "Marketing & Promotion" to 0xFF3F51B5,
-        "Other" to 0xFFFF9800,
-        "Production" to 0xFF4CAF50,
-        "Direction" to 0xFF2196F3,
-        "Cinematography" to 0xFFFF5722,
-        "Art Department" to 0xFF795548,
-        "Sound" to 0xFF009688,
-        "Editing" to 0xFFE91E63,
-        "VFX" to 0xFF673AB7,
-        "Administration" to 0xFF795548
+    fun getCategoryColor(category: String): Long {
+        return categoryColors.getOrPut(category) {
+            val index = categoryColors.size % categoryColorPalette.size
+            categoryColorPalette[index]
+        }
+    }
+    
+    // Dynamic department colors - will be generated as needed
+    private val departmentColors = mutableMapOf<String, Long>()
+    private val colorPalette = listOf(
+        0xFF4CAF50, 0xFF2196F3, 0xFFFF5722, 0xFF795548, 0xFF009688, 
+        0xFFE91E63, 0xFF673AB7, 0xFF795548, 0xFF3F51B5, 0xFF607D8B,
+        0xFF9C27B0, 0xFFFF9800, 0xFF4285F4, 0xFF34A853, 0xFFFBBC05
     )
+    
+    fun getDepartmentColor(department: String): Long {
+        return departmentColors.getOrPut(department) {
+            val index = departmentColors.size % colorPalette.size
+            colorPalette[index]
+        }
+    }
 } 

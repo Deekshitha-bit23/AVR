@@ -63,13 +63,12 @@ fun NewProjectScreen(
     var totalBudget by remember { mutableStateOf("") }
     var departmentName by remember { mutableStateOf("") }
     var departmentBudgetAmount by remember { mutableStateOf("") }
-    var showDepartmentDropdown by remember { mutableStateOf(false) }
     
-    // Predefined departments
-    val predefinedDepartments = listOf(
-        "Costumes", "Camera", "Lighting", "Sound", "Art", "Other", 
-        "Direction", "Production", "Post-Production", "Marketing", "Finance"
-    )
+    // Categories
+    var categoryName by remember { mutableStateOf("") }
+    var projectCategories by remember { mutableStateOf<List<String>>(emptyList()) }
+    
+    // No predefined departments - users can type any department name
     
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -564,59 +563,20 @@ fun NewProjectScreen(
                     modifier = Modifier.fillMaxWidth(),
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Department Dropdown with manual input
-                    ExposedDropdownMenuBox(
-                        expanded = showDepartmentDropdown,
-                        onExpandedChange = { showDepartmentDropdown = it },
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        OutlinedTextField(
-                            value = departmentName,
-                            onValueChange = { departmentName = it },
-                            label = { Text("Select Department") },
-                            placeholder = { Text("Choose or type...") },
-                            trailingIcon = {
-                                ExposedDropdownMenuDefaults.TrailingIcon(expanded = showDepartmentDropdown)
-                            },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .menuAnchor(),
-                            shape = RoundedCornerShape(8.dp),
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF4285F4),
-                                unfocusedBorderColor = Color(0xFFE0E0E0)
-                            ),
-                            singleLine = true
-                        )
-                        
-                        ExposedDropdownMenu(
-                            expanded = showDepartmentDropdown,
-                            onDismissRequest = { showDepartmentDropdown = false }
-                        ) {
-                            predefinedDepartments.forEach { department ->
-                                DropdownMenuItem(
-                                    text = { 
-                                        Text(
-                                            text = department,
-                                            fontWeight = FontWeight.Medium
-                                        ) 
-                                    },
-                                    onClick = {
-                                        departmentName = department
-                                        showDepartmentDropdown = false
-                                    },
-                                    leadingIcon = {
-                                        Icon(
-                                            Icons.Default.Build,
-                                            contentDescription = "Department",
-                                            tint = Color(0xFF4285F4),
-                                            modifier = Modifier.size(20.dp)
-                                        )
-                                    }
-                                )
-                            }
-                        }
-                    }
+                    // Department input field - users can type any department name
+                    OutlinedTextField(
+                        value = departmentName,
+                        onValueChange = { departmentName = it },
+                        label = { Text("Department Name") },
+                        placeholder = { Text("Enter department name...") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF4285F4),
+                            unfocusedBorderColor = Color(0xFFE0E0E0)
+                        ),
+                        singleLine = true
+                    )
                     
                     OutlinedTextField(
                         value = departmentBudgetAmount,
@@ -665,6 +625,74 @@ fun NewProjectScreen(
                     }
                 }
                 
+                // CATEGORIES Section
+                Spacer(modifier = Modifier.height(24.dp))
+                SectionHeader(
+                    icon = Icons.Default.List,
+                    title = "CATEGORIES (OPTIONAL)"
+                )
+                
+                Text(
+                    text = "Add custom expense categories for this project. If none are added, default categories will be used.",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                // Category Entry
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = categoryName,
+                        onValueChange = { categoryName = it },
+                        label = { Text("Category Name") },
+                        placeholder = { Text("Enter category name...") },
+                        modifier = Modifier.weight(1f),
+                        shape = RoundedCornerShape(8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF4285F4),
+                            unfocusedBorderColor = Color(0xFFE0E0E0)
+                        ),
+                        singleLine = true
+                    )
+                    
+                    IconButton(
+                        onClick = {
+                            if (categoryName.isNotEmpty()) {
+                                projectCategories = projectCategories + categoryName
+                                categoryName = ""
+                            }
+                        },
+                        modifier = Modifier
+                            .size(56.dp)
+                            .background(
+                                Color(0xFF4285F4),
+                                RoundedCornerShape(8.dp)
+                            )
+                    ) {
+                        Icon(
+                            Icons.Default.Add,
+                            contentDescription = "Add Category",
+                            tint = Color.White
+                        )
+                    }
+                }
+                
+                // Category List
+                if (projectCategories.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    projectCategories.forEach { category ->
+                        CategoryItem(
+                            category = category,
+                            onRemove = { 
+                                projectCategories = projectCategories.filter { it != category }
+                            }
+                        )
+                    }
+                }
+                
                 // Budget Summary
                 Spacer(modifier = Modifier.height(16.dp))
                 BudgetSummaryCard(
@@ -685,7 +713,8 @@ fun NewProjectScreen(
                                 totalBudget = totalBudget.toDoubleOrNull() ?: 0.0,
                                 managerId = selectedApprover!!.uid,
                                 teamMemberIds = selectedTeamMembers.map { it.uid },
-                                departmentBudgets = departmentBudgets
+                                departmentBudgets = departmentBudgets,
+                                categories = projectCategories
                             )
                         }
                     },
@@ -1135,6 +1164,46 @@ fun DepartmentBudgetItem(
                 )
             }
             
+            IconButton(onClick = onRemove) {
+                Icon(
+                    Icons.Default.Delete,
+                    contentDescription = "Remove",
+                    tint = Color(0xFFD32F2F)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+fun CategoryItem(
+    category: String,
+    onRemove: () -> Unit
+) {
+    Card(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(bottom = 8.dp),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF3E5F5)),
+        shape = RoundedCornerShape(8.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                Icons.Default.List,
+                contentDescription = "Category",
+                tint = Color(0xFF9C27B0),
+                modifier = Modifier.size(20.dp)
+            )
+            Spacer(modifier = Modifier.width(12.dp))
+            Text(
+                text = category,
+                fontWeight = FontWeight.Medium,
+                color = Color(0xFF424242)
+            )
+            Spacer(modifier = Modifier.weight(1f))
             IconButton(onClick = onRemove) {
                 Icon(
                     Icons.Default.Delete,

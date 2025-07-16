@@ -35,6 +35,7 @@ import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.ui.common.NotificationBadgeComponent
 import com.deeksha.avr.utils.FormatUtils
 import com.deeksha.avr.model.CategoryBudget
+import com.deeksha.avr.model.DepartmentBudgetBreakdown
 import com.deeksha.avr.model.ProjectBudgetSummary
 import kotlinx.coroutines.launch
 import java.text.NumberFormat
@@ -50,7 +51,7 @@ fun ApproverProjectDashboardScreen(
     onNavigateToPendingApprovals: (String) -> Unit,
     onNavigateToAddExpense: () -> Unit = {},
     onNavigateToReports: (String) -> Unit = {},
-    onNavigateToCategoryDetail: (String, String) -> Unit = { _, _ -> },
+    onNavigateToDepartmentDetail: (String, String) -> Unit = { _, _ -> },
     onNavigateToProjectNotifications: (String) -> Unit = {},
     approverProjectViewModel: ApproverProjectViewModel = hiltViewModel(),
     notificationViewModel: NotificationViewModel = hiltViewModel(),
@@ -383,18 +384,18 @@ fun ApproverProjectDashboardScreen(
                             }
                         }
                         
-                        // Category Cards - Show only if there are expenses or show "No expenses" message
-                        if (projectBudgetSummary.categoryBreakdown.any { it.spent > 0 }) {
+                        // Department Cards - Show only if there are expenses or show "No expenses" message
+                        if (projectBudgetSummary.departmentBreakdown.any { it.spent > 0 }) {
                             LazyRow(
                                 horizontalArrangement = Arrangement.spacedBy(12.dp),
                                 modifier = Modifier.padding(bottom = 16.dp)
                             ) {
-                                items(projectBudgetSummary.categoryBreakdown.filter { it.spent > 0 }) { category ->
-                                    CategoryCard(
-                                        category = category,
+                                items(projectBudgetSummary.departmentBreakdown.filter { it.spent > 0 }) { department ->
+                                    DepartmentCard(
+                                        department = department,
                                         modifier = Modifier.width(160.dp),
                                         onClick = {
-                                            onNavigateToCategoryDetail(projectId, category.category)
+                                            onNavigateToDepartmentDetail(projectId, department.department)
                                         }
                                     )
                                 }
@@ -441,9 +442,9 @@ fun ApproverProjectDashboardScreen(
                         
                         Spacer(modifier = Modifier.height(16.dp))
                         
-                        // Budget Allocated Section
+                        // Department Budget Allocation Section
                         Text(
-                            text = "Budget Allocated",
+                            text = "Department Budget Allocation",
                             fontSize = 20.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Black,
@@ -473,24 +474,24 @@ fun ApproverProjectDashboardScreen(
                                         contentAlignment = Alignment.Center
                                     ) {
                                         PieChart(
-                                            data = projectBudgetSummary.categoryBreakdown.filter { it.spent > 0 },
+                                            data = projectBudgetSummary.departmentBreakdown.filter { it.spent > 0 },
                                             modifier = Modifier.size(120.dp)
                                         )
                                     }
                                     
-                                    // Legend - Only show categories with expenses
+                                    // Legend - Only show departments with expenses
                                     Column(
                                         modifier = Modifier.weight(1f)
                                     ) {
-                                        val categoriesWithExpenses = projectBudgetSummary.categoryBreakdown.filter { it.spent > 0 }
-                                        if (categoriesWithExpenses.isNotEmpty()) {
-                                            categoriesWithExpenses.take(3).forEachIndexed { index, category ->
+                                        val departmentsWithExpenses = projectBudgetSummary.departmentBreakdown.filter { it.spent > 0 }
+                                        if (departmentsWithExpenses.isNotEmpty()) {
+                                            departmentsWithExpenses.take(3).forEachIndexed { index, department ->
                                                 LegendItem(
-                                                    color = getCategoryColor(category.category),
-                                                    category = category.category,
-                                                    amount = category.spent
+                                                    color = getDepartmentColor(department.department),
+                                                    department = department.department,
+                                                    amount = department.spent
                                                 )
-                                                if (index < categoriesWithExpenses.size - 1 && index < 2) Spacer(modifier = Modifier.height(8.dp))
+                                                if (index < departmentsWithExpenses.size - 1 && index < 2) Spacer(modifier = Modifier.height(8.dp))
                                             }
                                         } else {
                                             Text(
@@ -588,8 +589,8 @@ private fun DrawerMenuItem(
 }
 
 @Composable
-private fun CategoryCard(
-    category: CategoryBudget,
+private fun DepartmentCard(
+    department: DepartmentBudgetBreakdown,
     modifier: Modifier = Modifier,
     onClick: () -> Unit = {}
 ) {
@@ -598,7 +599,7 @@ private fun CategoryCard(
             .height(120.dp)
             .clickable { onClick() }, // Fixed height, reduced width via modifier
         colors = CardDefaults.cardColors(
-            containerColor = getAttractiveCategoryColor(category.category)
+            containerColor = getAttractiveDepartmentColor(department.department)
         ),
         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
         shape = RoundedCornerShape(16.dp)
@@ -610,7 +611,7 @@ private fun CategoryCard(
             verticalArrangement = Arrangement.SpaceBetween
         ) {
             Text(
-                text = category.category,
+                text = department.department,
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color.White
@@ -618,7 +619,7 @@ private fun CategoryCard(
             
             Column {
                 Text(
-                    text = "Total: ${FormatUtils.formatCurrency(category.budgetAllocated)}",
+                    text = "Total: ${FormatUtils.formatCurrency(department.budgetAllocated)}",
                     fontSize = 12.sp,
                     color = Color.White.copy(alpha = 0.9f)
                 )
@@ -626,14 +627,14 @@ private fun CategoryCard(
                 Spacer(modifier = Modifier.height(8.dp))
                 
                 Text(
-                    text = "Spent: ${FormatUtils.formatCurrency(category.spent)}",
+                    text = "Spent: ${FormatUtils.formatCurrency(department.spent)}",
                     fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color.White
                 )
                 
                 Text(
-                    text = "Remaining: ${FormatUtils.formatCurrency(category.remaining)}",
+                    text = "Remaining: ${FormatUtils.formatCurrency(department.remaining)}",
                     fontSize = 11.sp,
                     color = Color.White.copy(alpha = 0.8f)
                 )
@@ -645,7 +646,7 @@ private fun CategoryCard(
 @Composable
 private fun LegendItem(
     color: Color,
-    category: String,
+    department: String,
     amount: Double
 ) {
     Row(
@@ -659,7 +660,7 @@ private fun LegendItem(
         Spacer(modifier = Modifier.width(8.dp))
         Column {
             Text(
-                text = category,
+                text = department,
                 fontSize = 12.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color.Black
@@ -675,7 +676,7 @@ private fun LegendItem(
 
 @Composable
 private fun PieChart(
-    data: List<CategoryBudget>,
+    data: List<DepartmentBudgetBreakdown>,
     modifier: Modifier = Modifier
 ) {
     val total = data.sumOf { it.spent }
@@ -708,15 +709,15 @@ private fun PieChart(
     }
 }
 
-private fun DrawScope.drawPieChart(data: List<CategoryBudget>, total: Double) {
+private fun DrawScope.drawPieChart(data: List<DepartmentBudgetBreakdown>, total: Double) {
     var startAngle = -90f
     val radius = size.minDimension / 2
     
-    data.forEachIndexed { index, category ->
-        val sweepAngle = ((category.spent / total) * 360).toFloat()
+    data.forEachIndexed { index, department ->
+        val sweepAngle = ((department.spent / total) * 360).toFloat()
         if (sweepAngle > 0) {
             drawArc(
-                color = getCategoryColor(category.category),
+                color = getDepartmentColor(department.department),
                 startAngle = startAngle,
                 sweepAngle = sweepAngle,
                 useCenter = true
@@ -771,5 +772,47 @@ private fun getAttractiveCategoryColor(categoryName: String): Color {
     
     // Use category name hash to consistently assign the same color to the same category
     val colorIndex = kotlin.math.abs(categoryName.hashCode()) % attractiveColors.size
+    return attractiveColors[colorIndex]
+}
+
+// Dynamic color assignment for departments
+private fun getDepartmentColor(departmentName: String): Color {
+    val colors = listOf(
+        Color(0xFF4285F4), // Blue
+        Color(0xFF4CAF50), // Green
+        Color(0xFFFF9800), // Orange
+        Color(0xFF9C27B0), // Purple
+        Color(0xFFFF5722), // Red-Orange
+        Color(0xFF607D8B), // Blue-Grey
+        Color(0xFF795548), // Brown
+        Color(0xFF3F51B5), // Indigo
+        Color(0xFF009688), // Teal
+        Color(0xFFE91E63)  // Pink
+    )
+    
+    // Use department name hash to consistently assign the same color to the same department
+    val colorIndex = kotlin.math.abs(departmentName.hashCode()) % colors.size
+    return colors[colorIndex]
+}
+
+// More attractive gradient-like colors for department cards
+private fun getAttractiveDepartmentColor(departmentName: String): Color {
+    val attractiveColors = listOf(
+        Color(0xFF6366F1), // Modern Indigo
+        Color(0xFF10B981), // Emerald Green
+        Color(0xFFF59E0B), // Amber
+        Color(0xFFEF4444), // Red
+        Color(0xFF8B5CF6), // Violet
+        Color(0xFF06B6D4), // Cyan
+        Color(0xFFEC4899), // Pink
+        Color(0xFF84CC16), // Lime
+        Color(0xFFF97316), // Orange
+        Color(0xFF3B82F6), // Blue
+        Color(0xFF14B8A6), // Teal
+        Color(0xFFA855F7)  // Purple
+    )
+    
+    // Use department name hash to consistently assign the same color to the same department
+    val colorIndex = kotlin.math.abs(departmentName.hashCode()) % attractiveColors.size
     return attractiveColors[colorIndex]
 } 

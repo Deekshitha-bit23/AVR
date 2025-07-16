@@ -56,6 +56,7 @@ import com.deeksha.avr.ui.view.productionhead.ProductionHeadOverallReports
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadCategoryDetail
 import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.viewmodel.ProjectViewModel
+import com.deeksha.avr.ui.view.approver.DepartmentDetailScreen
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -525,7 +526,7 @@ fun AppNavHost(
                     AddExpenseScreen(
                         project = selectedProject,
                         userId = authState.user?.uid ?: "",
-                        userName = authState.user?.name ?: "Unknown User",
+                        userName = authState.user?.name?.ifEmpty { "Deeksha" } ?: "Deeksha",
                         onNavigateBack = { navController.popBackStack() },
                         onExpenseAdded = {
                             navController.popBackStack() // Go back to expense list
@@ -713,8 +714,8 @@ fun AppNavHost(
                 onNavigateToReports = { projectId ->
                     navController.navigate(Screen.ApproverReports.createRoute(projectId))
                 },
-                onNavigateToCategoryDetail = { projectId, categoryName ->
-                    navController.navigate(Screen.CategoryDetail.createRoute(projectId, categoryName))
+                onNavigateToDepartmentDetail = { projectId, departmentName ->
+                    navController.navigate(Screen.DepartmentDetail.createRoute(projectId, departmentName))
                 },
                 onNavigateToProjectNotifications = { projectId ->
                     navController.navigate(Screen.ProjectNotifications.createRoute(projectId))
@@ -734,6 +735,22 @@ fun AppNavHost(
             CategoryDetailScreen(
                 projectId = projectId,
                 categoryName = categoryName,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(
+            route = Screen.DepartmentDetail.route,
+            arguments = listOf(
+                navArgument("projectId") { type = NavType.StringType },
+                navArgument("departmentName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            val departmentName = backStackEntry.arguments?.getString("departmentName") ?: ""
+            DepartmentDetailScreen(
+                projectId = projectId,
+                departmentName = departmentName,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
@@ -902,8 +919,8 @@ fun AppNavHost(
                 onNavigateToProjectNotifications = { projectId ->
                     navController.navigate(Screen.ProjectNotifications.createRoute(projectId))
                 },
-                onNavigateToCategoryDetail = { projectId, categoryName ->
-                    navController.navigate(Screen.ProductionHeadCategoryDetail.createRoute(projectId, categoryName))
+                onNavigateToDepartmentDetail = { projectId, departmentName ->
+                    navController.navigate(Screen.DepartmentDetail.createRoute(projectId, departmentName))
                 }
             )
         }

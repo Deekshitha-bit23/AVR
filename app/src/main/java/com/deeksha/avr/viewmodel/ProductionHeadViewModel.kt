@@ -109,7 +109,8 @@ class ProductionHeadViewModel @Inject constructor(
         totalBudget: Double,
         managerId: String,
         teamMemberIds: List<String>,
-        departmentBudgets: List<DepartmentBudget>
+        departmentBudgets: List<DepartmentBudget>,
+        categories: List<String> = emptyList()
     ) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -134,7 +135,8 @@ class ProductionHeadViewModel @Inject constructor(
                     createdAt = Timestamp.now(),
                     updatedAt = Timestamp.now(),
                     code = generateProjectCode(projectName),
-                    departmentBudgets = budgetMap
+                    departmentBudgets = budgetMap,
+                    categories = categories
                 )
                 
                 val result = projectRepository.createProject(project)

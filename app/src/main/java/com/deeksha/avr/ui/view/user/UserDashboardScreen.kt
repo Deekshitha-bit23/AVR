@@ -49,6 +49,7 @@ fun UserDashboardScreen(
     val expenseSummary by expenseViewModel.expenseSummary.collectAsState(initial = ExpenseSummary())
     val isLoading by expenseViewModel.isLoading.collectAsState()
     val error by expenseViewModel.error.collectAsState()
+    val successMessage by expenseViewModel.successMessage.collectAsState()
 
     // Load user expenses when screen opens
     LaunchedEffect(authState.user?.uid) {
@@ -151,6 +152,92 @@ fun UserDashboardScreen(
                             }
                         }
                     }
+                    
+                    // Success Message
+                    if (successMessage != null) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFF4CAF50)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.CheckCircle,
+                                        contentDescription = "Success",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = successMessage!!,
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = { expenseViewModel.clearSuccessMessage() }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Close",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Error Message
+                    if (error != null) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF44336)),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Row(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .padding(16.dp),
+                                    verticalAlignment = Alignment.CenterVertically
+                                ) {
+                                    Icon(
+                                        Icons.Default.Warning,
+                                        contentDescription = "Error",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(24.dp)
+                                    )
+                                    Spacer(modifier = Modifier.width(12.dp))
+                                    Text(
+                                        text = error!!,
+                                        color = Color.White,
+                                        fontSize = 14.sp,
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.weight(1f)
+                                    )
+                                    IconButton(
+                                        onClick = { expenseViewModel.clearExpenseError() }
+                                    ) {
+                                        Icon(
+                                            Icons.Default.Close,
+                                            contentDescription = "Close",
+                                            tint = Color.White,
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
 
                     // Quick Actions
                     item {
@@ -204,6 +291,35 @@ fun UserDashboardScreen(
                                 subtitle = "Change project",
                                 icon = Icons.Default.LocationOn,
                                 onClick = onNavigateToProjectSelection
+                            )
+                        }
+                    }
+                    
+                    // Update User Names Button (for development/testing)
+                    item {
+                        Button(
+                            onClick = {
+                                authState.user?.uid?.let { userId ->
+                                    authState.selectedProject?.id?.let { projectId ->
+                                        expenseViewModel.updateExistingExpenseUserNames(
+                                            projectId = projectId,
+                                            userId = userId,
+                                            userName = "Deeksha"
+                                        )
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF9C27B0)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Update Existing Expenses with User Name",
+                                color = Color.White,
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }

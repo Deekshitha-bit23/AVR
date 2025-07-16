@@ -14,6 +14,7 @@ import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.deeksha.avr.model.CategoryBudget
+import com.deeksha.avr.model.DepartmentBudgetBreakdown
 import com.deeksha.avr.model.ProjectBudgetSummary
 
 @HiltViewModel
@@ -113,6 +114,10 @@ class ApproverProjectViewModel @Inject constructor(
                     val categoryBreakdown = calculateCategoryBreakdown(expenses, totalBudget)
                     Log.d("ApproverProjectVM", "📈 Category breakdown: ${categoryBreakdown.size} categories")
                     
+                    // Calculate department breakdown
+                    val departmentBreakdown = calculateDepartmentBreakdown(expenses, totalBudget)
+                    Log.d("ApproverProjectVM", "🏢 Department breakdown: ${departmentBreakdown.size} departments")
+                    
                     // Get recent expenses (last 5)
                     val recentExpenses = expenses.sortedByDescending { 
                         it.submittedAt?.toDate()?.time ?: 0L 
@@ -129,6 +134,7 @@ class ApproverProjectViewModel @Inject constructor(
                         totalRemaining = totalRemaining,
                         spentPercentage = spentPercentage,
                         categoryBreakdown = categoryBreakdown,
+                        departmentBreakdown = departmentBreakdown,
                         recentExpenses = recentExpenses,
                         pendingApprovalsCount = pendingCount,
                         approvedExpensesCount = approvedCount
@@ -194,6 +200,57 @@ class ApproverProjectViewModel @Inject constructor(
         }.sortedByDescending { it.spent } // Sort by highest spending first
         
         Log.d("ApproverProjectVM", "✅ Dynamic category breakdown complete: ${result.size} categories")
+        return result
+    }
+    
+    private fun calculateDepartmentBreakdown(expenses: List<Expense>, totalBudget: Double): List<DepartmentBudgetBreakdown> {
+        Log.d("ApproverProjectVM", "🔄 Calculating dynamic department breakdown for ${expenses.size} expenses")
+        
+        // Get approved expenses and group by department
+        val approvedExpenses = expenses.filter { it.status.name == "APPROVED" }
+        val expensesByDepartment = approvedExpenses.groupBy { it.department.trim() }
+            .filter { it.key.isNotEmpty() } // Remove empty departments
+        
+        Log.d("ApproverProjectVM", "📊 Found ${expensesByDepartment.size} departments with expenses: ${expensesByDepartment.keys}")
+        
+        if (expensesByDepartment.isEmpty()) {
+            Log.d("ApproverProjectVM", "✅ No departments with expenses found")
+            return emptyList()
+        }
+        
+        // Calculate total spent across all departments
+        val totalSpent = approvedExpenses.sumOf { it.amount }
+        
+        // Create dynamic department budget breakdown
+        val result = expensesByDepartment.map { (department, departmentExpenses) ->
+            val spent = departmentExpenses.sumOf { it.amount }
+            
+            // Calculate allocated budget proportionally based on actual spending
+            // If no expenses yet, use equal distribution; otherwise use proportional allocation
+            val allocatedBudget = if (totalSpent > 0) {
+                // Proportional allocation based on spending pattern
+                val spendingRatio = spent / totalSpent
+                totalBudget * spendingRatio
+            } else {
+                // Equal distribution if no spending yet
+                totalBudget / expensesByDepartment.size
+            }
+            
+            val remaining = maxOf(0.0, allocatedBudget - spent) // Ensure non-negative
+            val usedPercentage = if (allocatedBudget > 0) (spent / allocatedBudget) * 100 else 0.0
+            
+            Log.d("ApproverProjectVM", "📈 $department: allocated=$allocatedBudget, spent=$spent, remaining=$remaining, ${departmentExpenses.size} expenses")
+            
+            DepartmentBudgetBreakdown(
+                department = department,
+                budgetAllocated = allocatedBudget,
+                spent = spent,
+                remaining = remaining,
+                percentage = usedPercentage
+            )
+        }.sortedByDescending { it.spent } // Sort by highest spending first
+        
+        Log.d("ApproverProjectVM", "✅ Dynamic department breakdown complete: ${result.size} departments")
         return result
     }
     

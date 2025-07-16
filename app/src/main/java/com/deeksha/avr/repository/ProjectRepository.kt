@@ -64,10 +64,14 @@ class ProjectRepository @Inject constructor(
                             teamMembers = teamMembers,
                             createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
                             updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
-                            code = code
+                            code = code,
+                            departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues { 
+                                (it.value as? Number)?.toDouble() ?: 0.0 
+                            } ?: emptyMap(),
+                            categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
                         )
                         
-                        Log.d("ProjectRepository", "✅ Successfully parsed project: ${project.name} (Status: ${project.status})")
+                        Log.d("ProjectRepository", "✅ Successfully parsed project: ${project.name} (Status: ${project.status}, Departments: ${project.departmentBudgets.keys})")
                         
                         // Filter active projects (including null/empty status as active)
                         if (project.status.equals("ACTIVE", ignoreCase = true) || 
@@ -126,7 +130,11 @@ class ProjectRepository @Inject constructor(
                             teamMembers = projectData["teamMembers"] as? List<String> ?: emptyList(),
                             createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
                             updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
-                            code = projectData["code"] as? String ?: ""
+                            code = projectData["code"] as? String ?: "",
+                            departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues { 
+                                (it.value as? Number)?.toDouble() ?: 0.0 
+                            } ?: emptyMap(),
+                            categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
                         )
                     } catch (e: Exception) {
                         Log.e("ProjectRepository", "Error parsing user project document ${doc.id}: ${e.message}")
@@ -164,10 +172,14 @@ class ProjectRepository @Inject constructor(
                     teamMembers = projectData["teamMembers"] as? List<String> ?: emptyList(),
                     createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
                     updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
-                    code = projectData["code"] as? String ?: ""
+                    code = projectData["code"] as? String ?: "",
+                    departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues { 
+                        (it.value as? Number)?.toDouble() ?: 0.0 
+                    } ?: emptyMap(),
+                    categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
                 )
                 
-                Log.d("ProjectRepository", "✅ Successfully parsed project: ${project.name} (Budget: ${project.budget})")
+                Log.d("ProjectRepository", "✅ Successfully parsed project: ${project.name} (Budget: ${project.budget}, Departments: ${project.departmentBudgets.keys})")
                 project
             } else {
                 Log.w("ProjectRepository", "❌ Project document not found for ID: $projectId")
@@ -221,7 +233,11 @@ class ProjectRepository @Inject constructor(
                         teamMembers = projectData["teamMembers"] as? List<String> ?: emptyList(),
                         createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
                         updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
-                        code = projectData["code"] as? String ?: ""
+                        code = projectData["code"] as? String ?: "",
+                        departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues { 
+                            (it.value as? Number)?.toDouble() ?: 0.0 
+                        } ?: emptyMap(),
+                        categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
                     )
                 } catch (e: Exception) {
                     Log.e("ProjectRepository", "Error parsing project document ${doc.id}: ${e.message}")
@@ -229,7 +245,10 @@ class ProjectRepository @Inject constructor(
                 }
             }
             
-            Log.d("ProjectRepository", "✅ Found ${projects.size} projects in total")
+                            Log.d("ProjectRepository", "✅ Found ${projects.size} projects in total")
+                projects.forEach { project ->
+                    Log.d("ProjectRepository", "  📋 Project: ${project.name} (Departments: ${project.departmentBudgets.keys})")
+                }
             projects
         } catch (e: Exception) {
             Log.e("ProjectRepository", "❌ Error getting all projects: ${e.message}")

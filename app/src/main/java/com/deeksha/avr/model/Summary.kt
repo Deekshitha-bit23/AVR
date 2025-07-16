@@ -48,6 +48,15 @@ data class CategoryBudget(
     val percentage: Double
 )
 
+// Project budget and department breakdown
+data class DepartmentBudgetBreakdown(
+    val department: String,
+    val budgetAllocated: Double,
+    val spent: Double,
+    val remaining: Double,
+    val percentage: Double
+)
+
 // Project budget summary with detailed breakdown
 data class ProjectBudgetSummary(
     val project: Project? = null,
@@ -56,6 +65,7 @@ data class ProjectBudgetSummary(
     val totalRemaining: Double = 0.0,
     val spentPercentage: Double = 0.0,
     val categoryBreakdown: List<CategoryBudget> = emptyList(),
+    val departmentBreakdown: List<DepartmentBudgetBreakdown> = emptyList(),
     val recentExpenses: List<Expense> = emptyList(),
     val pendingApprovalsCount: Int = 0,
     val approvedExpensesCount: Int = 0

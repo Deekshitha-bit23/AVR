@@ -15,6 +15,7 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import com.google.firebase.firestore.ListenerRegistration
 
+
 @Singleton
 class ExpenseRepository @Inject constructor(
     private val firestore: FirebaseFirestore
@@ -587,6 +588,46 @@ class ExpenseRepository @Inject constructor(
             Log.e("ExpenseRepository", "❌ Full error: $e")
             e.printStackTrace()
             throw e
+        }
+    }
+    
+    // Method to update user names for existing expenses
+    suspend fun updateExpenseUserNames(projectId: String, userId: String, userName: String): Result<Int> {
+        return try {
+            Log.d("ExpenseRepository", "🔄 Updating user names for project: $projectId, user: $userId, name: $userName")
+            
+            // Get all expenses for this user in this project
+            val snapshot = firestore.collection("projects")
+                .document(projectId)
+                .collection("expenses")
+                .whereEqualTo("userId", userId)
+                .get()
+                .await()
+            
+            var updatedCount = 0
+            for (doc in snapshot.documents) {
+                val expenseData = doc.data
+                val currentUserName = expenseData?.get("userName") as? String ?: ""
+                
+                // Only update if userName is empty or different
+                if (currentUserName.isEmpty() || currentUserName != userName) {
+                    firestore.collection("projects")
+                        .document(projectId)
+                        .collection("expenses")
+                        .document(doc.id)
+                        .update("userName", userName)
+                        .await()
+                    
+                    updatedCount++
+                    Log.d("ExpenseRepository", "✅ Updated expense ${doc.id} with userName: $userName")
+                }
+            }
+            
+            Log.d("ExpenseRepository", "✅ Updated $updatedCount expenses with userName: $userName")
+            Result.success(updatedCount)
+        } catch (e: Exception) {
+            Log.e("ExpenseRepository", "❌ Error updating expense user names: ${e.message}")
+            Result.failure(e)
         }
     }
     

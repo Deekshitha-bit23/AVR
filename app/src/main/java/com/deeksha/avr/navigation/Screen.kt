@@ -49,6 +49,9 @@ sealed class Screen(val route: String) {
     object CategoryDetail : Screen("category_detail/{projectId}/{categoryName}") {
         fun createRoute(projectId: String, categoryName: String) = "category_detail/$projectId/$categoryName"
     }
+    object DepartmentDetail : Screen("department_detail/{projectId}/{departmentName}") {
+        fun createRoute(projectId: String, departmentName: String) = "department_detail/$projectId/$departmentName"
+    }
     object OverallReports : Screen("overall_reports")
     
     // Admin Flow Screens

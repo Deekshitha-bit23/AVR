@@ -476,7 +476,7 @@ class OverallReportsViewModel @Inject constructor(
             CategoryData(
                 category = category,
                 amount = amount,
-                color = FilterOptions.categoryColors[category] ?: 0xFF9E9E9E
+                color = FilterOptions.getCategoryColor(category)
             )
         }.sortedByDescending { it.amount }
     }
@@ -498,7 +498,7 @@ class OverallReportsViewModel @Inject constructor(
                 category = category,
                 spent = amount,
                 budgetAllocated = budgetAllocation,
-                color = FilterOptions.categoryColors[category] ?: 0xFF9E9E9E
+                color = FilterOptions.getCategoryColor(category)
             )
         }.sortedByDescending { it.spent }
     }
@@ -529,25 +529,34 @@ class OverallReportsViewModel @Inject constructor(
         
         // Sample category breakdown (only for specific projects)
         val sampleCategoryExpenses = if (!isAllProjects) {
-            mapOf(
-                "Wages & Crew Payments" to 30000.0,
-                "Equipment Rental" to 20000.0,
-                "Catering & Food" to 10000.0,
-                "Transportation" to 12000.0,
-                "Costumes & Makeup" to 8000.0
-            )
+            val projectCategories = allProjects.find { it.id == _selectedProject.value }?.categories ?: emptyList()
+            if (projectCategories.isNotEmpty()) {
+                projectCategories.associateWith { (8000..30000).random().toDouble() }
+            } else {
+                emptyMap() // No hardcoded fallback - use empty map if no categories
+            }
         } else {
             emptyMap()
         }
         
-        // Sample department breakdown
-        val sampleDepartmentExpenses = mapOf(
-            "Production" to if (isAllProjects) 100000.0 else 35000.0,
-            "Direction" to if (isAllProjects) 50000.0 else 20000.0,
-            "Cinematography" to if (isAllProjects) 60000.0 else 25000.0,
-            "Art Department" to if (isAllProjects) 25000.0 else 0.0,
-            "Sound" to if (isAllProjects) 15000.0 else 0.0
-        ).filter { it.value > 0 }
+        // Sample department breakdown - use actual project departments
+        val projectDepartments = if (isAllProjects) {
+            allProjects.flatMap { it.departmentBudgets.keys }.distinct()
+        } else {
+            allProjects.find { it.id == _selectedProject.value }?.departmentBudgets?.keys?.toList() ?: emptyList()
+        }
+        
+        val sampleDepartmentExpenses = if (projectDepartments.isNotEmpty()) {
+            projectDepartments.associateWith { dept ->
+                if (isAllProjects) {
+                    (20000..100000).random().toDouble()
+                } else {
+                    (15000..50000).random().toDouble()
+                }
+            }
+        } else {
+            emptyMap()
+        }
         
         // Sample project breakdown (only for All Projects)
         val sampleProjectExpenses = if (isAllProjects) {
@@ -608,9 +617,11 @@ class OverallReportsViewModel @Inject constructor(
             listOf(projectName)
         }
         
-        val departments = listOf("Production", "Direction", "Cinematography", "Art Department", "Sound", "Editing")
+        // Get departments dynamically from projects
+        val departments = allProjects.flatMap { it.departmentBudgets.keys }.distinct()
         val users = listOf("John Doe", "Jane Smith", "Mike Johnson", "Sarah Wilson", "Tom Brown", "Lisa Davis")
-        val categories = listOf("Wages & Crew Payments", "Equipment Rental", "Catering & Food", "Transportation", "Costumes & Makeup")
+        // Get categories dynamically from projects
+        val categories = allProjects.flatMap { it.categories }.distinct()
         
         // Generate 25 sample expenses for better pagination testing
         for (i in 1..25) {

@@ -66,30 +66,21 @@ class ExpenseViewModel @Inject constructor(
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
 
-    // Categories and departments - these could be loaded from Firebase in real app
-    val categories = listOf(
-        "Wages & Crew Payments",
-        "Equipment Rental",
-        "Catering & Food",
-        "Transportation",
-        "Costumes & Makeup",
-        "Post Production",
-        "Marketing & Promotion",
-        "Other"
-    )
+    // Get categories dynamically from selected project only
+    val categories: List<String>
+        get() {
+            val projectCategories = _selectedProject.value?.categories ?: emptyList()
+            Log.d("ExpenseViewModel", "🔍 Getting categories: $projectCategories from project: ${_selectedProject.value?.name}")
+            return projectCategories
+        }
 
-    val departments = listOf(
-        "Production",
-        "Direction",
-        "Cinematography", 
-        "Art Department",
-        "Costumes",
-        "Makeup",
-        "Sound",
-        "Editing",
-        "VFX",
-        "Administration"
-    )
+    // Get departments dynamically from selected project
+    val departments: List<String>
+        get() {
+            val depts = _selectedProject.value?.departmentBudgets?.keys?.toList() ?: emptyList()
+            Log.d("ExpenseViewModel", "🔍 Getting departments: $depts from project: ${_selectedProject.value?.name}")
+            return depts
+        }
 
     val paymentModes = listOf(
         "cash" to "By Cash",
@@ -133,6 +124,11 @@ class ExpenseViewModel @Inject constructor(
                 _isLoading.value = false
             }
         }
+    }
+
+    fun setSelectedProject(project: Project) {
+        _selectedProject.value = project
+        Log.d("ExpenseViewModel", "✅ Set selected project: ${project.name} with departments: ${project.departmentBudgets.keys}")
     }
 
     fun loadProjectExpenses(projectId: String) {
@@ -215,7 +211,11 @@ class ExpenseViewModel @Inject constructor(
                 }
                 
                 if (formData.category.isEmpty()) {
-                    _error.value = "Please select a category"
+                    if (categories.isEmpty()) {
+                        _error.value = "No categories configured for this project. Please contact the project manager to add categories."
+                    } else {
+                        _error.value = "Please select a category"
+                    }
                     _isSubmitting.value = false
                     return@launch
                 }
@@ -281,11 +281,37 @@ class ExpenseViewModel @Inject constructor(
     fun clearSuccessMessage() {
         _successMessage.value = null
     }
+    
+    fun clearExpenseError() {
+        _error.value = null
+    }
 
     fun resetForm() {
         _formData.value = ExpenseFormData()
         _error.value = null
         _successMessage.value = null
+    }
+    
+    // Method to update user names for existing expenses
+    fun updateExistingExpenseUserNames(projectId: String, userId: String, userName: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ExpenseViewModel", "🔄 Updating existing expense user names...")
+                val result = expenseRepository.updateExpenseUserNames(projectId, userId, userName)
+                
+                if (result.isSuccess) {
+                    val updatedCount = result.getOrNull() ?: 0
+                    Log.d("ExpenseViewModel", "✅ Updated $updatedCount expenses with userName: $userName")
+                    _successMessage.value = "Updated $updatedCount expenses with user name: $userName"
+                } else {
+                    Log.e("ExpenseViewModel", "❌ Failed to update expense user names: ${result.exceptionOrNull()?.message}")
+                    _error.value = "Failed to update expense user names: ${result.exceptionOrNull()?.message}"
+                }
+            } catch (e: Exception) {
+                Log.e("ExpenseViewModel", "❌ Error updating expense user names: ${e.message}")
+                _error.value = "Error updating expense user names: ${e.message}"
+            }
+        }
     }
 
     private fun calculateUserSummary(expenses: List<Expense>) {
@@ -361,10 +387,6 @@ class ExpenseViewModel @Inject constructor(
         )
         
         Log.d("ExpenseViewModel", "📊 Project Summary - Total Approved: $totalExpenses, Approved: ${approved.size}, Pending: ${pending.size}, Rejected: ${rejected.size}")
-    }
-
-    fun clearError() {
-        _error.value = null
     }
 
     fun refreshData(userId: String) {
@@ -660,10 +682,148 @@ class ExpenseViewModel @Inject constructor(
         Log.d("ExpenseViewModel", "🧹 Cleared all expense data")
     }
     
+    // Method to manually recalculate status counts from current expenses
+    fun recalculateStatusCounts() {
+        val currentExpenses = _expenses.value
+        Log.d("ExpenseViewModel", "🔄 Manually recalculating status counts from ${currentExpenses.size} expenses")
+        calculateUserProjectSummary(currentExpenses)
+    }
+    
+    // Force refresh all data for dynamic updates
+    fun forceRefreshData(projectId: String, userId: String) {
+        viewModelScope.launch {
+            Log.d("ExpenseViewModel", "🔄 Force refreshing data for project: $projectId, user: $userId")
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                // Clear existing data
+                _expenses.value = emptyList()
+                _filteredExpenses.value = emptyList()
+                _statusCounts.value = StatusCounts()
+                _selectedStatusFilter.value = null
+                
+                // Reload project details
+                val project = projectRepository.getProjectById(projectId)
+                _selectedProject.value = project
+                
+                // Force reload expenses with fresh data
+                val expenses = expenseRepository.getUserExpensesForProjectDirect(projectId, userId)
+                Log.d("ExpenseViewModel", "📊 Force refresh received ${expenses.size} expenses")
+                
+                // Update all state
+                _expenses.value = expenses
+                _filteredExpenses.value = expenses
+                calculateUserProjectSummary(expenses)
+                
+                Log.d("ExpenseViewModel", "✅ Force refresh completed successfully")
+                
+            } catch (e: Exception) {
+                Log.e("ExpenseViewModel", "❌ Force refresh failed: ${e.message}")
+                _error.value = "Failed to refresh data: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    // Update status counts immediately when expenses change
+    private fun updateStatusCountsImmediately() {
+        val currentExpenses = _expenses.value
+        Log.d("ExpenseViewModel", "⚡ Updating status counts immediately for ${currentExpenses.size} expenses")
+        calculateUserProjectSummary(currentExpenses)
+    }
+    
+    // Enhanced method to handle real-time status updates
+    fun handleStatusUpdate(expenseId: String, newStatus: ExpenseStatus, reviewerName: String, comments: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ExpenseViewModel", "🔄 Handling status update: $expenseId -> $newStatus")
+                
+                // Update the expense in the local list
+                val updatedExpenses = _expenses.value.map { expense ->
+                    if (expense.id == expenseId) {
+                        expense.copy(
+                            status = newStatus,
+                            reviewedAt = com.google.firebase.Timestamp.now(),
+                            reviewedBy = reviewerName,
+                            reviewComments = comments
+                        )
+                    } else {
+                        expense
+                    }
+                }
+                
+                // Update state immediately for instant UI feedback
+                _expenses.value = updatedExpenses
+                
+                // Update filtered expenses if needed
+                if (_selectedStatusFilter.value != null) {
+                    _filteredExpenses.value = updatedExpenses.filter { it.status == _selectedStatusFilter.value }
+                } else {
+                    _filteredExpenses.value = updatedExpenses
+                }
+                
+                // Recalculate status counts
+                updateStatusCountsImmediately()
+                
+                Log.d("ExpenseViewModel", "✅ Status update handled successfully")
+                
+            } catch (e: Exception) {
+                Log.e("ExpenseViewModel", "❌ Error handling status update: ${e.message}")
+                _error.value = "Failed to update status: ${e.message}"
+            }
+        }
+    }
+    
+    // Listen for real-time status updates from approval process
+    fun listenForStatusUpdates(projectId: String, userId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ExpenseViewModel", "🎧 Setting up status update listener for project: $projectId, user: $userId")
+                
+                expenseRepository.getUserExpensesForProject(projectId, userId)
+                    .collect { expenses ->
+                        Log.d("ExpenseViewModel", "📡 Real-time status update received: ${expenses.size} expenses")
+                        
+                        // Update expenses state
+                        _expenses.value = expenses
+                        
+                        // Update filtered expenses if filter is active
+                        if (_selectedStatusFilter.value != null) {
+                            _filteredExpenses.value = expenses.filter { it.status == _selectedStatusFilter.value }
+                        } else {
+                            _filteredExpenses.value = expenses
+                        }
+                        
+                        // Recalculate status counts
+                        calculateUserProjectSummary(expenses)
+                        
+                        Log.d("ExpenseViewModel", "✅ Real-time status update processed successfully")
+                    }
+            } catch (e: Exception) {
+                Log.e("ExpenseViewModel", "❌ Error in status update listener: ${e.message}")
+                _error.value = "Failed to listen for status updates: ${e.message}"
+            }
+        }
+    }
+    
     fun addDemoExpenses(projectId: String, userId: String, userName: String) {
         viewModelScope.launch {
             try {
                 Log.d("ExpenseViewModel", "🎬 Adding demo expenses for testing...")
+                
+                // Get project departments and categories dynamically
+                val project = projectRepository.getProjectById(projectId)
+                val projectDepartments = project?.departmentBudgets?.keys?.toList() ?: emptyList()
+                val projectCategories = project?.categories ?: emptyList()
+                
+                // Only create demo expenses if project has categories and departments
+                if (projectCategories.isEmpty() || projectDepartments.isEmpty()) {
+                    Log.w("ExpenseViewModel", "⚠️ Cannot add demo expenses: Project has no categories or departments")
+                    _error.value = "Cannot add demo expenses: Project must have categories and departments configured"
+                    return@launch
+                }
                 
                 val demoExpenses = listOf(
                     Expense(
@@ -673,8 +833,8 @@ class ExpenseViewModel @Inject constructor(
                         userName = userName,
                         date = Timestamp.now(),
                         amount = 5000.0,
-                        department = "Production",
-                        category = "Wages & Crew Payments",
+                        department = projectDepartments.first(),
+                        category = projectCategories.first(),
                         description = "Camera operator payment",
                         modeOfPayment = "cash",
                         status = ExpenseStatus.APPROVED,
@@ -688,8 +848,8 @@ class ExpenseViewModel @Inject constructor(
                         userName = userName,
                         date = Timestamp.now(),
                         amount = 3000.0,
-                        department = "Art Department",
-                        category = "Equipment Rental",
+                        department = projectDepartments.getOrNull(1) ?: projectDepartments.first(),
+                        category = projectCategories.getOrNull(1) ?: projectCategories.first(),
                         description = "Lighting equipment rental",
                         modeOfPayment = "upi",
                         status = ExpenseStatus.PENDING,
@@ -703,8 +863,8 @@ class ExpenseViewModel @Inject constructor(
                         userName = userName,
                         date = Timestamp.now(),
                         amount = 1500.0,
-                        department = "Catering",
-                        category = "Catering & Food",
+                        department = projectDepartments.getOrNull(2) ?: projectDepartments.first(),
+                        category = projectCategories.getOrNull(2) ?: projectCategories.first(),
                         description = "Lunch for crew",
                         modeOfPayment = "cash",
                         status = ExpenseStatus.REJECTED,
@@ -719,8 +879,8 @@ class ExpenseViewModel @Inject constructor(
                         userName = userName,
                         date = Timestamp.now(),
                         amount = 2500.0,
-                        department = "Transportation",
-                        category = "Transportation",
+                        department = projectDepartments.getOrNull(3) ?: projectDepartments.first(),
+                        category = projectCategories.getOrNull(3) ?: projectCategories.first(),
                         description = "Vehicle rental for location",
                         modeOfPayment = "check",
                         status = ExpenseStatus.APPROVED,
@@ -734,8 +894,8 @@ class ExpenseViewModel @Inject constructor(
                         userName = userName,
                         date = Timestamp.now(),
                         amount = 800.0,
-                        department = "Costumes",
-                        category = "Costumes & Makeup",
+                        department = projectDepartments.getOrNull(4) ?: projectDepartments.first(),
+                        category = projectCategories.getOrNull(4) ?: projectCategories.first(),
                         description = "Costume materials",
                         modeOfPayment = "upi",
                         status = ExpenseStatus.PENDING,

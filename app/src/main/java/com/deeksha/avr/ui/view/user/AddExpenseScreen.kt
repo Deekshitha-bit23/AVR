@@ -63,6 +63,11 @@ fun AddExpenseScreen(
     
     val context = LocalContext.current
     
+    // Set the selected project in the view model so departments can be loaded
+    LaunchedEffect(project) {
+        expenseViewModel.setSelectedProject(project)
+    }
+    
     // Activity result launchers for attachment selection
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
@@ -228,6 +233,7 @@ fun AddExpenseScreen(
             
             // Department Dropdown
             item {
+                
                 ExposedDropdownMenuBox(
                     expanded = showDepartmentDropdown,
                     onExpandedChange = { showDepartmentDropdown = !showDepartmentDropdown }
@@ -254,20 +260,27 @@ fun AddExpenseScreen(
                         expanded = showDepartmentDropdown,
                         onDismissRequest = { showDepartmentDropdown = false }
                     ) {
-                        expenseViewModel.departments.forEach { department ->
+                        if (expenseViewModel.departments.isEmpty()) {
                             DropdownMenuItem(
-                                text = { Text(department) },
-                                onClick = {
-                                    expenseViewModel.updateFormField("department", department)
-                                    showDepartmentDropdown = false
-                                }
+                                text = { Text("No departments available") },
+                                onClick = { }
                             )
+                        } else {
+                            expenseViewModel.departments.forEach { department ->
+                                DropdownMenuItem(
+                                    text = { Text(department) },
+                                    onClick = {
+                                        expenseViewModel.updateFormField("department", department)
+                                        showDepartmentDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }
             }
             
-            // Category Dropdown
+            // Category Input with Dropdown Suggestions
             item {
                 ExposedDropdownMenuBox(
                     expanded = showCategoryDropdown,
@@ -275,10 +288,16 @@ fun AddExpenseScreen(
                 ) {
                     OutlinedTextField(
                         value = formData.category,
-                        onValueChange = { },
-                        readOnly = true,
+                        onValueChange = { expenseViewModel.updateFormField("category", it) },
                         label = { Text("Category") },
-                        placeholder = { Text("Select category") },
+                        placeholder = { 
+                            Text(
+                                if (expenseViewModel.categories.isEmpty()) 
+                                    "No categories configured - contact project manager" 
+                                else 
+                                    "Type or select category..."
+                            ) 
+                        },
                         trailingIcon = {
                             Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                         },
@@ -295,14 +314,31 @@ fun AddExpenseScreen(
                         expanded = showCategoryDropdown,
                         onDismissRequest = { showCategoryDropdown = false }
                     ) {
-                        expenseViewModel.categories.forEach { category ->
+                        // Show available categories that match the input
+                        val availableCategories = expenseViewModel.categories.filter { 
+                            it.contains(formData.category, ignoreCase = true) || formData.category.isEmpty()
+                        }
+                        
+                        if (expenseViewModel.categories.isEmpty()) {
                             DropdownMenuItem(
-                                text = { Text(category) },
-                                onClick = {
-                                    expenseViewModel.updateFormField("category", category)
-                                    showCategoryDropdown = false
-                                }
+                                text = { Text("No categories configured for this project") },
+                                onClick = { }
                             )
+                        } else if (availableCategories.isEmpty()) {
+                            DropdownMenuItem(
+                                text = { Text("No matching categories") },
+                                onClick = { }
+                            )
+                        } else {
+                            availableCategories.forEach { category ->
+                                DropdownMenuItem(
+                                    text = { Text(category) },
+                                    onClick = {
+                                        expenseViewModel.updateFormField("category", category)
+                                        showCategoryDropdown = false
+                                    }
+                                )
+                            }
                         }
                     }
                 }

@@ -18,29 +18,29 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.model.DetailedExpense
+
 import com.deeksha.avr.utils.FormatUtils
 import com.deeksha.avr.viewmodel.ReportsViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-fun CategoryDetailScreen(
+fun DepartmentDetailScreen(
     projectId: String,
-    categoryName: String,
+    departmentName: String,
     onNavigateBack: () -> Unit,
     reportsViewModel: ReportsViewModel = hiltViewModel()
 ) {
     val reportData by reportsViewModel.reportData.collectAsState()
     val isLoading by reportsViewModel.isLoading.collectAsState()
     
-    // Filter expenses for this specific category
-    val categoryExpenses = remember(reportData.detailedExpenses, categoryName) {
+    // Filter expenses for this specific department
+    val departmentExpenses = remember(reportData.detailedExpenses, departmentName) {
         reportData.detailedExpenses.filter { expense ->
-            expense.department.equals(categoryName, ignoreCase = true) ||
-            reportData.expensesByCategory.contains(categoryName)
+            expense.department.equals(departmentName, ignoreCase = true)
         }
     }
     
-    val categoryAmount = reportData.expensesByCategory[categoryName] ?: 0.0
+    val departmentAmount = reportData.expensesByDepartment[departmentName] ?: 0.0
     
     LaunchedEffect(projectId) {
         if (reportData.detailedExpenses.isEmpty()) {
@@ -57,7 +57,7 @@ fun CategoryDetailScreen(
         TopAppBar(
             title = {
                 Text(
-                    text = "Category Details",
+                    text = "Department Details",
                     fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.White
@@ -73,7 +73,7 @@ fun CategoryDetailScreen(
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = getAttractiveCategoryColor(categoryName)
+                containerColor = Color(0xFF4285F4)
             )
         )
         
@@ -82,7 +82,7 @@ fun CategoryDetailScreen(
                 modifier = Modifier.fillMaxSize(),
                 contentAlignment = Alignment.Center
             ) {
-                CircularProgressIndicator(color = Color(0xFF8B5FBF))
+                CircularProgressIndicator(color = Color(0xFF4285F4))
             }
         } else {
             LazyColumn(
@@ -90,12 +90,12 @@ fun CategoryDetailScreen(
                 contentPadding = PaddingValues(16.dp),
                 verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                // Category Summary Card
+                // Department Summary Card
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth(),
                         colors = CardDefaults.cardColors(
-                            containerColor = getAttractiveCategoryColor(categoryName)
+                            containerColor = Color(0xFF4285F4)
                         ),
                         elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
                         shape = RoundedCornerShape(16.dp)
@@ -107,7 +107,7 @@ fun CategoryDetailScreen(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
                             Text(
-                                text = categoryName,
+                                text = departmentName,
                                 fontSize = 24.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -122,7 +122,7 @@ fun CategoryDetailScreen(
                             )
                             
                             Text(
-                                text = FormatUtils.formatCurrency(categoryAmount),
+                                text = FormatUtils.formatCurrency(departmentAmount),
                                 fontSize = 32.sp,
                                 fontWeight = FontWeight.Bold,
                                 color = Color.White
@@ -131,7 +131,7 @@ fun CategoryDetailScreen(
                             Spacer(modifier = Modifier.height(8.dp))
                             
                             Text(
-                                text = "${categoryExpenses.size} expenses",
+                                text = "${departmentExpenses.size} expenses",
                                 fontSize = 14.sp,
                                 color = Color.White.copy(alpha = 0.8f)
                             )
@@ -149,8 +149,8 @@ fun CategoryDetailScreen(
                     )
                 }
                 
-                if (categoryExpenses.isNotEmpty()) {
-                    items(categoryExpenses) { expense ->
+                if (departmentExpenses.isNotEmpty()) {
+                    items(departmentExpenses) { expense ->
                         ExpenseDetailCard(expense = expense)
                     }
                 } else {
@@ -174,7 +174,7 @@ fun CategoryDetailScreen(
                                 )
                                 Spacer(modifier = Modifier.height(8.dp))
                                 Text(
-                                    text = "No expenses found for this category",
+                                    text = "No expenses found for this department",
                                     fontSize = 14.sp,
                                     color = Color.Gray,
                                     textAlign = TextAlign.Center
@@ -256,26 +256,4 @@ private fun ExpenseDetailCard(expense: DetailedExpense) {
             }
         }
     }
-}
-
-// More attractive gradient-like colors for category cards (duplicate function for this screen)
-private fun getAttractiveCategoryColor(categoryName: String): Color {
-    val attractiveColors = listOf(
-        Color(0xFF6366F1), // Modern Indigo
-        Color(0xFF10B981), // Emerald Green
-        Color(0xFFF59E0B), // Amber
-        Color(0xFFEF4444), // Red
-        Color(0xFF8B5CF6), // Violet
-        Color(0xFF06B6D4), // Cyan
-        Color(0xFFEC4899), // Pink
-        Color(0xFF84CC16), // Lime
-        Color(0xFFF97316), // Orange
-        Color(0xFF3B82F6), // Blue
-        Color(0xFF14B8A6), // Teal
-        Color(0xFFA855F7)  // Purple
-    )
-    
-    // Use category name hash to consistently assign the same color to the same category
-    val colorIndex = kotlin.math.abs(categoryName.hashCode()) % attractiveColors.size
-    return attractiveColors[colorIndex]
 } 
