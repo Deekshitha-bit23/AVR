@@ -398,6 +398,51 @@ class ExpenseViewModel @Inject constructor(
         loadProjectExpenses(projectId)
     }
     
+    // Simple direct loading method for testing
+    fun loadUserExpensesForProjectDirect(projectId: String, userId: String) {
+        viewModelScope.launch {
+            Log.d("ExpenseViewModel", "🔍 DIRECT LOADING: project=$projectId, user=$userId")
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                // Load project details
+                val project = projectRepository.getProjectById(projectId)
+                _selectedProject.value = project
+                
+                if (project == null) {
+                    Log.e("ExpenseViewModel", "❌ Project not found: $projectId")
+                    _error.value = "Project not found"
+                    _isLoading.value = false
+                    return@launch
+                }
+                
+                // Use direct query
+                val expenses = expenseRepository.getUserExpensesForProjectDirect(projectId, userId)
+                Log.d("ExpenseViewModel", "📊 Direct loading received ${expenses.size} expenses")
+                
+                // Update all state
+                _expenses.value = expenses
+                _filteredExpenses.value = expenses
+                calculateUserProjectSummary(expenses)
+                
+                Log.d("ExpenseViewModel", "✅ Direct loading completed successfully")
+                _isLoading.value = false
+                
+            } catch (e: Exception) {
+                Log.e("ExpenseViewModel", "❌ Direct loading failed: ${e.message}")
+                e.printStackTrace()
+                _error.value = "Failed to load expenses: ${e.message}"
+                _isLoading.value = false
+                
+                // Reset state
+                _expenses.value = emptyList()
+                _filteredExpenses.value = emptyList()
+                _statusCounts.value = StatusCounts()
+            }
+        }
+    }
+    
     fun loadUserExpensesForProject(projectId: String, userId: String) {
         viewModelScope.launch {
             Log.d("ExpenseViewModel", "🚀 STARTING loadUserExpensesForProject: project=$projectId, user=$userId")
@@ -424,28 +469,19 @@ class ExpenseViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // Set up real-time listener for user's expenses in this project
+                // Try real-time listener first
                 Log.d("ExpenseViewModel", "🔄 Setting up real-time listener for user expenses...")
-                
-                // Use a timeout to detect if the listener is not working
-                var listenerTimeout: kotlinx.coroutines.Job? = null
                 
                 try {
                     expenseRepository.getUserExpensesForProject(projectId, userId)
                         .catch { exception ->
-                            Log.e("ExpenseViewModel", "❌ Error in expenses flow: ${exception.message}")
+                            Log.e("ExpenseViewModel", "❌ Error in real-time listener: ${exception.message}")
                             exception.printStackTrace()
-                            _error.value = "Failed to load expenses: ${exception.message}"
-                            _isLoading.value = false
-                            
-                            // Try fallback method
+                            // Try fallback method immediately
                             loadUserExpensesForProjectFallback(projectId, userId)
                         }
                         .collect { expenses ->
                             Log.d("ExpenseViewModel", "📊 Received ${expenses.size} expenses from real-time listener")
-                            
-                            // Cancel timeout since we received data
-                            listenerTimeout?.cancel()
                             
                             // Update expenses state
                             _expenses.value = expenses
@@ -493,13 +529,6 @@ class ExpenseViewModel @Inject constructor(
                     loadUserExpensesForProjectFallback(projectId, userId)
                 }
                 
-                // Set up timeout to detect if listener is not working
-                listenerTimeout = launch {
-                    delay(10000) // 10 seconds timeout
-                    Log.w("ExpenseViewModel", "⏰ Real-time listener timeout - trying fallback method")
-                    loadUserExpensesForProjectFallback(projectId, userId)
-                }
-                
             } catch (e: Exception) {
                 Log.e("ExpenseViewModel", "❌ Error loading user expenses: ${e.message}")
                 e.printStackTrace()
@@ -519,6 +548,7 @@ class ExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             Log.d("ExpenseViewModel", "🔄 Using fallback method for loading user expenses")
             _isLoading.value = true
+            _error.value = null
             
             try {
                 // Use direct query as fallback

@@ -1,5 +1,6 @@
 package com.deeksha.avr.navigation
 
+import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -20,6 +21,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
+import com.deeksha.avr.model.AuthState
 import com.deeksha.avr.model.Project
 import com.deeksha.avr.model.UserRole
 import com.deeksha.avr.repository.ExpenseRepository
@@ -57,6 +59,8 @@ import com.deeksha.avr.ui.view.productionhead.ProductionHeadCategoryDetail
 import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.viewmodel.ProjectViewModel
 import com.deeksha.avr.ui.view.approver.DepartmentDetailScreen
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.FirebaseUser
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -523,15 +527,24 @@ fun AppNavHost(
                     }
                 }
                 selectedProject != null -> {
-                    AddExpenseScreen(
-                        project = selectedProject,
-                        userId = authState.user?.uid ?: "",
-                        userName = authState.user?.name?.ifEmpty { "Deeksha" } ?: "Deeksha",
-                        onNavigateBack = { navController.popBackStack() },
-                        onExpenseAdded = {
-                            navController.popBackStack() // Go back to expense list
-                        }
-                    )
+//                    val currentUser = FirebaseAuth.getInstance().currentUser
+
+//                    if (currentUser != null) {
+//                        Log.d("AddExpenseScreen", "🔥 Proceeding with userId: ${currentUser.uid}")
+                        AddExpenseScreen(
+                            project = selectedProject,
+                            userId = "AuthState.id",
+                            userName = "AuthState.displayName?.",
+                            onNavigateBack = { navController.popBackStack() },
+                            onExpenseAdded = {
+                                navController.popBackStack()
+                            }
+                        )
+//                    }
+//                    else {
+//                        Log.w("AddExpenseScreen", "⚠️ FirebaseAuth.currentUser is NULL")
+//                        Text("Loading user info...")
+//                    }
                 }
                 else -> {
                     // Project not found - show error and back button
@@ -659,7 +672,7 @@ fun AppNavHost(
                     navController.navigate(Screen.ProjectSelection.route)
                 },
                 onNavigateToTrackSubmissions = {
-                    navController.navigate(Screen.TrackSubmissions.route)
+                    navController.navigate(Screen.ProjectSelection.route)
                 }
             )
         }

@@ -123,15 +123,66 @@ fun TrackSubmissionsScreen(
 
     // Load user's expenses for this project when screen starts
     LaunchedEffect(project.id, authState.user?.uid, refreshTrigger) {
-        authState.user?.let { user ->
+//        authState.user?.let { user ->
+            Log.d("TrackSubmissionsScreen", "🚀 Loading expenses from subcollection: projects/${project.id}/expenses for user: nH6HRRTo2Xhhb5D8nR1iEzlrf7A2")
+            
             // Clear any existing data first
             expenseViewModel.clearFilter()
             
-            // Load user expenses
-            expenseViewModel.loadUserExpensesForProject(project.id, user.uid)
+            // Use direct loading method for immediate results
+            expenseViewModel.loadUserExpensesForProjectDirect(project.id,"nH6HRRTo2Xhhb5D8nR1iEzlrf7A2")
             
             // Set up real-time status update listener
-            expenseViewModel.listenForStatusUpdates(project.id, user.uid)
+            expenseViewModel.listenForStatusUpdates(project.id, "nH6HRRTo2Xhhb5D8nR1iEzlrf7A2")
+//        }
+    }
+    
+    // Debug: Monitor expenses state (raw data from Firestore)
+    LaunchedEffect(Unit) {
+        expenseViewModel.expenses.collect { expenses ->
+            Log.d("TrackSubmissionsScreen", "📊 Raw expenses from Firestore: ${expenses.size} expenses")
+            if (expenses.isNotEmpty()) {
+                expenses.forEach { expense ->
+                    Log.d("TrackSubmissionsScreen", "  💰 ${expense.id}: ${expense.category} - ${expense.status} - ₹${expense.amount} - User: ${expense.userId}")
+                }
+            } else {
+                Log.d("TrackSubmissionsScreen", "📭 No expenses found in Firestore subcollection")
+            }
+        }
+    }
+
+    // Debug: Monitor filtered expenses state (what UI shows)
+    LaunchedEffect(Unit) {
+        expenseViewModel.filteredExpenses.collect { filteredExpenses ->
+            Log.d("TrackSubmissionsScreen", "📋 Filtered expenses for UI: ${filteredExpenses.size} expenses")
+            if (filteredExpenses.isNotEmpty()) {
+                filteredExpenses.forEach { expense ->
+                    Log.d("TrackSubmissionsScreen", "  🎯 ${expense.id}: ${expense.category} - ${expense.status} - ₹${expense.amount}")
+                }
+            } else {
+                Log.d("TrackSubmissionsScreen", "📭 No filtered expenses - UI will show empty state")
+            }
+        }
+    }
+
+    // Debug: Monitor status counts
+    LaunchedEffect(Unit) {
+        expenseViewModel.statusCounts.collect { statusCounts ->
+            Log.d("TrackSubmissionsScreen", "📊 Status counts: A=${statusCounts.approved}, P=${statusCounts.pending}, R=${statusCounts.rejected}, T=${statusCounts.total}")
+        }
+    }
+
+    // Debug: Monitor selected filter
+    LaunchedEffect(Unit) {
+        expenseViewModel.selectedStatusFilter.collect { filter ->
+            Log.d("TrackSubmissionsScreen", "🔍 Status filter: ${filter?.name ?: "None"}")
+        }
+    }
+
+    // Debug: Monitor loading state
+    LaunchedEffect(Unit) {
+        expenseViewModel.isLoading.collect { loading ->
+            Log.d("TrackSubmissionsScreen", "⏳ Loading state: $loading")
         }
     }
     
@@ -320,315 +371,304 @@ fun TrackSubmissionsScreen(
                             fontSize = 12.sp,
                             color = if (isRealTimeConnected) Color(0xFF4CAF50) else Color.Gray
                         )
+                        
+                                                // Debug information
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Debug: Total expenses: ${filteredExpenses.size}, Status filter: ${selectedStatusFilter?.name ?: "None"}",
+                            fontSize = 10.sp,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "Status counts: A=${statusCounts.approved}, P=${statusCounts.pending}, R=${statusCounts.rejected}",
+                            fontSize = 10.sp,
+                            color = Color.Gray
+                        )
+                        Text(
+                            text = "Loading: $isLoading, Real-time: $isRealTimeConnected",
+                            fontSize = 10.sp,
+                            color = Color.Gray
+                        )
+                        
+                        // Test buttons
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            Button(
+                                onClick = { 
+                                    authState.user?.let { user ->
+                                        scope.launch {
+                                            Log.d("TrackSubmissionsScreen", "🧪 Adding test data to subcollection...")
+                                            expenseViewModel.addDemoExpenses(project.id, user.uid, user.name)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF9C27B0)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "Add Test Data",
+                                    color = Color.White,
+                                    fontSize = 12.sp
+                                )
+                            }
+                            
+                            Button(
+                                onClick = {
+                                    authState.user?.let { user ->
+                                        scope.launch {
+                                            Log.d("TrackSubmissionsScreen", "🔍 Direct load test...")
+                                            expenseViewModel.loadUserExpensesForProjectDirect(project.id, user.uid)
+                                        }
+                                    }
+                                },
+                                modifier = Modifier.weight(1f),
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFFF5722)
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            ) {
+                                Text(
+                                    text = "Direct Load",
+                                    color = Color.White,
+                                    fontSize = 12.sp
+                                )
+                            }
+                        }
+                        
+                        // Force refresh button
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Button(
+                            onClick = {
+                                authState.user?.let { user ->
+                                    scope.launch {
+                                        Log.d("TrackSubmissionsScreen", "🔄 Force refresh...")
+                                        expenseViewModel.forceRefreshData(project.id, user.uid)
+                                    }
+                                }
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF2196F3)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
+                        ) {
+                            Text(
+                                text = "Force Refresh Data",
+                                color = Color.White,
+                                fontSize = 12.sp
+                            )
+                        }
                     }
                 }
             }
             
             // Status Cards Row with dynamic counts
             item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    // Approved Card
-                    StatusCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Approved",
-                        count = statusCounts.approved,
-                        icon = Icons.Default.CheckCircle,
-                        backgroundColor = Color(0xFF4CAF50),
-                        isSelected = selectedStatusFilter == ExpenseStatus.APPROVED,
-                        onClick = { 
-                            if (selectedStatusFilter == ExpenseStatus.APPROVED) {
-                                expenseViewModel.clearFilter()
-                            } else {
-                                expenseViewModel.filterByStatus(ExpenseStatus.APPROVED)
-                            }
-                        }
-                    )
-                    
-                    // Pending Card
-                    StatusCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Pending",
-                        count = statusCounts.pending,
-                        icon = Icons.Default.Notifications,
-                        backgroundColor = Color(0xFFFF9800),
-                        isSelected = selectedStatusFilter == ExpenseStatus.PENDING,
-                        onClick = { 
-                            if (selectedStatusFilter == ExpenseStatus.PENDING) {
-                                expenseViewModel.clearFilter()
-                            } else {
-                                expenseViewModel.filterByStatus(ExpenseStatus.PENDING)
-                            }
-                        }
-                    )
-                    
-                    // Rejected Card
-                    StatusCard(
-                        modifier = Modifier.weight(1f),
-                        title = "Rejected",
-                        count = statusCounts.rejected,
-                        icon = Icons.Default.Close,
-                        backgroundColor = Color(0xFFF44336),
-                        isSelected = selectedStatusFilter == ExpenseStatus.REJECTED,
-                        onClick = { 
-                            if (selectedStatusFilter == ExpenseStatus.REJECTED) {
-                                expenseViewModel.clearFilter()
-                            } else {
-                                expenseViewModel.filterByStatus(ExpenseStatus.REJECTED)
-                            }
-                        }
-                    )
-                }
-                
-                // Status update indicator
-                if (isRefreshing || isLoading) {
+                Column {
                     Row(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(16.dp),
-                            color = Color(0xFF4285F4),
-                            strokeWidth = 2.dp
-                        )
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text(
-                            text = if (isRefreshing) "Refreshing..." else "Updating...",
-                            fontSize = 12.sp,
-                            color = Color(0xFF4285F4),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-            
-            // Show All Button (only when filter is active)
-            if (selectedStatusFilter != null) {
-                item {
-                    Button(
-                        onClick = { expenseViewModel.clearFilter() },
-                        modifier = Modifier
-                            .fillMaxWidth()
                             .padding(bottom = 8.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4285F4)
-                        ),
-                        shape = RoundedCornerShape(24.dp)
+                        horizontalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text(
-                            text = "📊 Show All (${statusCounts.total})",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
+                        // Approved Card
+                        StatusCard(
+                            modifier = Modifier.weight(1f),
+                            title = "Approved",
+                            count = statusCounts.approved,
+                            icon = Icons.Default.CheckCircle,
+                            backgroundColor = Color(0xFF4CAF50),
+                            isSelected = selectedStatusFilter == ExpenseStatus.APPROVED,
+                            onClick = { 
+                                if (selectedStatusFilter == ExpenseStatus.APPROVED) {
+                                    expenseViewModel.clearFilter()
+                                } else {
+                                    expenseViewModel.filterByStatus(ExpenseStatus.APPROVED)
+                                }
+                            }
                         )
+                        // Pending Card
+                        StatusCard(
+                            modifier = Modifier.weight(1f),
+                            title = "Pending",
+                            count = statusCounts.pending,
+                            icon = Icons.Default.Notifications,
+                            backgroundColor = Color(0xFFFF9800),
+                            isSelected = selectedStatusFilter == ExpenseStatus.PENDING,
+                            onClick = { 
+                                if (selectedStatusFilter == ExpenseStatus.PENDING) {
+                                    expenseViewModel.clearFilter()
+                                } else {
+                                    expenseViewModel.filterByStatus(ExpenseStatus.PENDING)
+                                }
+                            }
+                        )
+                        // Rejected Card
+                        StatusCard(
+                            modifier = Modifier.weight(1f),
+                            title = "Rejected",
+                            count = statusCounts.rejected,
+                            icon = Icons.Default.Close,
+                            backgroundColor = Color(0xFFF44336),
+                            isSelected = selectedStatusFilter == ExpenseStatus.REJECTED,
+                            onClick = { 
+                                if (selectedStatusFilter == ExpenseStatus.REJECTED) {
+                                    expenseViewModel.clearFilter()
+                                } else {
+                                    expenseViewModel.filterByStatus(ExpenseStatus.REJECTED)
+                                }
+                            }
+                        )
+                    }
+                    // Status update indicator
+                    if (isRefreshing || isLoading) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(top = 8.dp),
+                            horizontalArrangement = Arrangement.Center,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(16.dp),
+                                color = Color(0xFF4285F4),
+                                strokeWidth = 2.dp
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = if (isRefreshing) "Refreshing..." else "Updating...",
+                                fontSize = 12.sp,
+                                color = Color(0xFF4285F4),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    // Show All Button (only when filter is active)
+                    if (selectedStatusFilter != null) {
+                        Button(
+                            onClick = { expenseViewModel.clearFilter() },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 8.dp),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4285F4)
+                            ),
+                            shape = RoundedCornerShape(24.dp)
+                        ) {
+                            Text(
+                                text = "📊 Show All (${statusCounts.total})",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }
-            
-            // Test dynamic status update (for demonstration)
-            if (filteredExpenses.isNotEmpty()) {
+            // Dynamic Expense List Below Cards
+            if (isLoading) {
+                item {
+                    Box(
+                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF4285F4))
+                    }
+                }
+            } else if (filteredExpenses.isEmpty()) {
                 item {
                     Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+                        modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
                     ) {
                         Column(
-                            modifier = Modifier.padding(16.dp)
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(24.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally
                         ) {
+                            Icon(
+                                Icons.Default.Notifications,
+                                contentDescription = null,
+                                modifier = Modifier.size(48.dp),
+                                tint = Color.Gray
+                            )
+                            Spacer(modifier = Modifier.height(16.dp))
                             Text(
-                                text = "🧪 Test Dynamic Status Updates",
+                                text = when (selectedStatusFilter) {
+                                    ExpenseStatus.APPROVED -> "No approved submissions found"
+                                    ExpenseStatus.PENDING -> "No pending submissions found" 
+                                    ExpenseStatus.REJECTED -> "No rejected submissions found"
+                                    else -> "No submissions found"
+                                },
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
+                            )
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Text(
+                                text = "Submit your first expense to see it here",
                                 fontSize = 14.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF1976D2)
+                                color = Color.Gray,
+                                textAlign = TextAlign.Center
                             )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Text(
-                                text = "Click below to simulate a status change and see real-time updates:",
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                            Spacer(modifier = Modifier.height(8.dp))
-                            Row(
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                Button(
-                                    onClick = {
-                                        // Simulate approving the first pending expense
-                                        val pendingExpense = filteredExpenses.find { it.status == ExpenseStatus.PENDING }
-                                        pendingExpense?.let { expense ->
-                                            expenseViewModel.handleStatusUpdate(
-                                                expenseId = expense.id,
-                                                newStatus = ExpenseStatus.APPROVED,
-                                                reviewerName = "Test Approver",
-                                                comments = "Test approval for dynamic status demonstration"
-                                            )
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFF4CAF50)
-                                    ),
-                                    enabled = filteredExpenses.any { it.status == ExpenseStatus.PENDING }
-                                ) {
-                                    Text(
-                                        text = "Approve One",
-                                        fontSize = 12.sp,
-                                        color = Color.White
-                                    )
-                                }
-                                
-                                Button(
-                                    onClick = {
-                                        // Simulate rejecting the first pending expense
-                                        val pendingExpense = filteredExpenses.find { it.status == ExpenseStatus.PENDING }
-                                        pendingExpense?.let { expense ->
-                                            expenseViewModel.handleStatusUpdate(
-                                                expenseId = expense.id,
-                                                newStatus = ExpenseStatus.REJECTED,
-                                                reviewerName = "Test Reviewer",
-                                                comments = "Test rejection for dynamic status demonstration"
-                                            )
-                                        }
-                                    },
-                                    modifier = Modifier.weight(1f),
-                                    colors = ButtonDefaults.buttonColors(
-                                        containerColor = Color(0xFFF44336)
-                                    ),
-                                    enabled = filteredExpenses.any { it.status == ExpenseStatus.PENDING }
-                                ) {
-                                    Text(
-                                        text = "Reject One",
-                                        fontSize = 12.sp,
-                                        color = Color.White
-                                    )
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Submissions Header with dynamic content
-            item {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column {
-                        Text(
-                            text = when (selectedStatusFilter) {
-                                ExpenseStatus.APPROVED -> "Approved Submissions (${statusCounts.approved})"
-                                ExpenseStatus.PENDING -> "Pending Submissions (${statusCounts.pending})"
-                                ExpenseStatus.REJECTED -> "Rejected Submissions (${statusCounts.rejected})"
-                                else -> "Recent Submissions (${statusCounts.total})"
-                            },
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.Black
-                        )
-                        
-                        // Show latest activity with dynamic time
-                        if (filteredExpenses.isNotEmpty()) {
-                            val latestExpense = filteredExpenses.first()
-                            val latestTime = latestExpense.submittedAt?.toDate()?.time ?: 0L
-                            val timeAgo = System.currentTimeMillis() - latestTime
-                            val minutesAgo = timeAgo / (1000 * 60)
                             
-                            if (minutesAgo < 60L) {
-                                Text(
-                                    text = "Last activity: ${if (minutesAgo == 0L) "just now" else "$minutesAgo min ago"}",
-                                    fontSize = 12.sp,
-                                    color = Color.Gray,
-                                    fontWeight = FontWeight.Normal
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Content based on loading state and data availability
-            when {
-                isLoading -> {
-                    item {
-                        Box(
-                            modifier = Modifier.fillMaxSize(),
-                            contentAlignment = Alignment.Center
-                        ) {
-                            Column(
-                                horizontalAlignment = Alignment.CenterHorizontally
+                            // Debug information
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
                             ) {
-                                CircularProgressIndicator(
-                                    color = Color(0xFF4285F4)
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = "Loading your submissions...",
-                                    fontSize = 16.sp,
-                                    color = Color.Gray
-                                )
+                                Column(
+                                    modifier = Modifier.padding(12.dp)
+                                ) {
+                                    Text(
+                                        text = "Debug Information:",
+                                        fontSize = 12.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Gray
+                                    )
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    Text(
+                                        text = "• Project ID: ${project.id}",
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text(
+                                        text = "• User ID: ${authState.user?.uid ?: "Not logged in"}",
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text(
+                                        text = "• Loading: $isLoading",
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text(
+                                        text = "• Real-time: $isRealTimeConnected",
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text(
+                                        text = "• Status Filter: ${selectedStatusFilter?.name ?: "None"}",
+                                        fontSize = 10.sp,
+                                        color = Color.Gray
+                                    )
+                                }
                             }
                         }
                     }
                 }
-                
-                filteredExpenses.isEmpty() -> {
-                    item {
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-                        ) {
-                            Column(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(24.dp),
-                                horizontalAlignment = Alignment.CenterHorizontally
-                            ) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = null,
-                                    modifier = Modifier.size(48.dp),
-                                    tint = Color.Gray
-                                )
-                                Spacer(modifier = Modifier.height(16.dp))
-                                Text(
-                                    text = when (selectedStatusFilter) {
-                                        ExpenseStatus.APPROVED -> "No approved submissions found"
-                                        ExpenseStatus.PENDING -> "No pending submissions found" 
-                                        ExpenseStatus.REJECTED -> "No rejected submissions found"
-                                        else -> "No submissions found"
-                                    },
-                                    fontSize = 16.sp,
-                                    fontWeight = FontWeight.Medium,
-                                    color = Color.Gray,
-                                    textAlign = TextAlign.Center
-                                )
-                                Spacer(modifier = Modifier.height(8.dp))
-                                Text(
-                                    text = "Submit your first expense to see it here",
-                                    fontSize = 14.sp,
-                                    color = Color.Gray,
-                                    textAlign = TextAlign.Center
-                                )
-                            }
-                        }
-                    }
-                }
-                
-                else -> {
-                    items(filteredExpenses) { expense ->
-                        ExpenseSubmissionCard(expense = expense)
-                    }
+            } else {
+                items(filteredExpenses) { expense ->
+                    ExpenseSubmissionCard(expense = expense)
                 }
             }
         }

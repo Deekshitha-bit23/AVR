@@ -211,7 +211,7 @@ fun ExpenseListScreen(
                     shape = RoundedCornerShape(28.dp)
                 ) {
                     Text(
-                        text = "Add Expense",
+                        text = "Add Expenses",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold
                     )
