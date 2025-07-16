@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.google.firebase.firestore.ListenerRegistration
 
 @Singleton
 class ExpenseRepository @Inject constructor(
@@ -666,6 +667,49 @@ class ExpenseRepository @Inject constructor(
             emptyList()
         }
     }
+    
+    // NEW: Method to check if there are any approved expenses in the system
+    suspend fun hasAnyApprovedExpenses(): Boolean {
+        return try {
+            Log.d("ExpenseRepository", "🔍 Checking if there are any approved expenses in the system...")
+            
+            // Get all projects
+            val projectsSnapshot = firestore.collection("projects").get().await()
+            val projectIds = projectsSnapshot.documents.map { it.id }
+            
+            if (projectIds.isEmpty()) {
+                Log.d("ExpenseRepository", "📭 No projects found")
+                return false
+            }
+            
+            // Check each project for approved expenses
+            for (projectId in projectIds) {
+                try {
+                    val snapshot = firestore.collection("projects")
+                        .document(projectId)
+                        .collection("expenses")
+                        .whereEqualTo("status", "APPROVED")
+                        .limit(1) // We only need to know if any exist
+                        .get()
+                        .await()
+                    
+                    if (!snapshot.isEmpty) {
+                        Log.d("ExpenseRepository", "✅ Found approved expenses in project $projectId")
+                        return true
+                    }
+                } catch (e: Exception) {
+                    Log.w("ExpenseRepository", "⚠️ Error checking project $projectId: ${e.message}")
+                    continue
+                }
+            }
+            
+            Log.d("ExpenseRepository", "❌ No approved expenses found in any project")
+            false
+        } catch (e: Exception) {
+            Log.e("ExpenseRepository", "❌ Error checking for approved expenses: ${e.message}")
+            false
+        }
+    }
 
     suspend fun getExpenseById(expenseId: String): Expense? {
         return try {
@@ -1024,5 +1068,57 @@ class ExpenseRepository @Inject constructor(
             e.printStackTrace()
             emptyList()
         }
+    }
+
+    fun getAllApprovedExpensesRealtime(projectIds: List<String>): kotlinx.coroutines.flow.Flow<List<Expense>> = callbackFlow {
+        val listeners = mutableListOf<ListenerRegistration>()
+        val allExpensesMap = mutableMapOf<String, List<Expense>>()
+
+        projectIds.forEach { projectId ->
+            val listener = firestore.collection("projects")
+                .document(projectId)
+                .collection("expenses")
+                .whereEqualTo("status", "APPROVED")
+                .addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        close(error)
+                        return@addSnapshotListener
+                    }
+                    val expenses = snapshot?.documents?.mapNotNull { doc ->
+                        try {
+                            val data = doc.data ?: return@mapNotNull null
+                            Expense(
+                                id = doc.id,
+                                projectId = projectId,
+                                userId = data["userId"] as? String ?: "",
+                                userName = data["userName"] as? String ?: "",
+                                date = data["date"] as? com.google.firebase.Timestamp,
+                                amount = (data["amount"] as? Number)?.toDouble() ?: 0.0,
+                                department = data["department"] as? String ?: "",
+                                category = data["category"] as? String ?: "",
+                                description = data["description"] as? String ?: "",
+                                modeOfPayment = data["modeOfPayment"] as? String ?: "",
+                                tds = (data["tds"] as? Number)?.toDouble() ?: 0.0,
+                                gst = (data["gst"] as? Number)?.toDouble() ?: 0.0,
+                                netAmount = (data["netAmount"] as? Number)?.toDouble() ?: 0.0,
+                                attachmentUrl = data["attachmentUrl"] as? String ?: "",
+                                attachmentFileName = data["attachmentFileName"] as? String ?: "",
+                                status = ExpenseStatus.APPROVED,
+                                submittedAt = data["submittedAt"] as? com.google.firebase.Timestamp,
+                                reviewedAt = data["reviewedAt"] as? com.google.firebase.Timestamp,
+                                reviewedBy = data["reviewedBy"] as? String ?: "",
+                                reviewComments = data["reviewComments"] as? String ?: "",
+                                receiptNumber = data["receiptNumber"] as? String ?: ""
+                            )
+                        } catch (e: Exception) {
+                            null
+                        }
+                    } ?: emptyList()
+                    allExpensesMap[projectId] = expenses
+                    trySend(allExpensesMap.values.flatten())
+                }
+            listeners.add(listener)
+        }
+        awaitClose { listeners.forEach { it.remove() } }
     }
 } 

@@ -140,6 +140,18 @@ fun TrackSubmissionsScreen(
             .fillMaxSize()
             .background(Color(0xFFF5F5F5))
     ) {
+        // Print the current User ID at the very top
+        authState.user?.let { user ->
+            Text(
+                text = "Current User ID: ${user.uid}",
+                fontSize = 14.sp,
+                color = Color(0xFF1976D2),
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(8.dp),
+                fontWeight = FontWeight.Bold
+            )
+        }
         // Snackbar Host
         SnackbarHost(hostState = snackbarHostState)
         // Top Bar

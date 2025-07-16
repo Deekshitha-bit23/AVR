@@ -57,7 +57,7 @@ fun OverallReportsScreen(
     
     // Load data when screen opens
     LaunchedEffect(Unit) {
-        overallReportsViewModel.loadOverallReports()
+        overallReportsViewModel.loadDataOnce() // Use loadDataOnce for better performance
     }
     
     Column(
@@ -80,6 +80,18 @@ fun OverallReportsScreen(
                     Icon(
                         Icons.Default.ArrowBack,
                         contentDescription = "Back",
+                        tint = Color.White
+                    )
+                }
+            },
+            actions = {
+                IconButton(
+                    onClick = { overallReportsViewModel.refreshData() },
+                    enabled = !isLoading
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Refresh",
                         tint = Color.White
                     )
                 }
@@ -121,7 +133,7 @@ fun OverallReportsScreen(
                         Button(
                             onClick = { 
                                 overallReportsViewModel.clearError()
-                                overallReportsViewModel.loadOverallReports() 
+                                overallReportsViewModel.loadDataOnce() 
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF8B5FBF)
@@ -138,6 +150,56 @@ fun OverallReportsScreen(
                     contentPadding = PaddingValues(16.dp),
                     verticalArrangement = Arrangement.spacedBy(16.dp)
                 ) {
+                    // Debug Section (only show if no data)
+                    if (reportData.detailedExpenses.isEmpty() && !isLoading) {
+                        item {
+                            Card(
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = CardDefaults.cardColors(containerColor = Color(0xFFFFF3CD)),
+                                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+                            ) {
+                                Column(
+                                    modifier = Modifier.padding(16.dp)
+                                ) {
+                                    Text(
+                                        text = "Debug Information",
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color(0xFF856404)
+                                    )
+                                    Spacer(modifier = Modifier.height(8.dp))
+                                    Text(
+                                        text = "Available Projects: ${reportData.availableProjects.size}",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF856404)
+                                    )
+                                    Text(
+                                        text = "Total Budget: ₹${FormatUtils.formatCurrency(reportData.totalBudget)}",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF856404)
+                                    )
+                                    Text(
+                                        text = "Total Spent: ₹${FormatUtils.formatCurrency(reportData.totalSpent)}",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF856404)
+                                    )
+                                    Text(
+                                        text = "Detailed Expenses: ${reportData.detailedExpenses.size}",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF856404)
+                                    )
+                                    if (error != null) {
+                                        Text(
+                                            text = "Error: $error",
+                                            fontSize = 14.sp,
+                                            color = Color.Red
+                                        )
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
                     // Filters Section
                     item {
                         Card(

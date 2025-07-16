@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import java.util.*
 import javax.inject.Inject
@@ -673,6 +674,77 @@ class OverallReportsViewModel @Inject constructor(
          }
      }
      
+     // NEW: Real-time observation method for overall reports
+     fun observeAllApprovedExpensesRealtime() {
+         viewModelScope.launch {
+             _isLoading.value = true
+             _error.value = null
+             
+             try {
+                 android.util.Log.d("OverallReportsViewModel", "🔄 Setting up real-time observation for all approved expenses...")
+                 
+                 // Load all projects first
+                 allProjects = projectRepository.getAllProjects()
+                 android.util.Log.d("OverallReportsViewModel", "📊 Loaded ${allProjects.size} projects")
+                 
+                 if (allProjects.isEmpty()) {
+                     android.util.Log.w("OverallReportsViewModel", "⚠️ No projects found")
+                     _error.value = "No projects found in the system"
+                     return@launch
+                 }
+                 
+                 // Set up real-time listeners for all projects
+                 setupRealTimeListeners()
+                 
+             } catch (e: Exception) {
+                 android.util.Log.e("OverallReportsViewModel", "❌ Failed to setup real-time observation: ${e.message}")
+                 _error.value = "Failed to setup real-time observation: ${e.message}"
+             } finally {
+                 _isLoading.value = false
+             }
+         }
+     }
+     
+     private fun setupRealTimeListeners() {
+         viewModelScope.launch {
+             try {
+                 android.util.Log.d("OverallReportsViewModel", "🔥 Setting up real-time listeners for ${allProjects.size} projects...")
+                 
+                 // Create a map to store all expenses by project
+                 val allExpensesMap = mutableMapOf<String, List<Expense>>()
+                 
+                 // Set up listeners for each project using launch for concurrent collection
+                 allProjects.forEach { project ->
+                     launch {
+                         expenseRepository.getProjectExpenses(project.id)
+                             .collect { projectExpenses ->
+                                 // Filter for approved expenses only
+                                 val approvedExpenses = projectExpenses.filter { it.status.name == "APPROVED" }
+                                 
+                                 android.util.Log.d("OverallReportsViewModel", "📊 Project ${project.name}: ${approvedExpenses.size} approved expenses")
+                                 
+                                 // Update the map
+                                 allExpensesMap[project.id] = approvedExpenses
+                                 
+                                 // Combine all approved expenses
+                                 allExpenses = allExpensesMap.values.flatten()
+                                     .sortedByDescending { it.submittedAt?.toDate()?.time ?: 0L }
+                                 
+                                 android.util.Log.d("OverallReportsViewModel", "💰 Total approved expenses across all projects: ${allExpenses.size}")
+                                 
+                                 // Apply current filters and update report
+                                 applyFiltersAndUpdateReport()
+                             }
+                     }
+                 }
+                 
+             } catch (e: Exception) {
+                 android.util.Log.e("OverallReportsViewModel", "❌ Error in real-time listeners: ${e.message}")
+                 _error.value = "Failed to setup real-time listeners: ${e.message}"
+             }
+         }
+     }
+     
      // Pagination methods
      private fun updatePaginatedExpenses() {
          val totalExpenses = filteredExpenses.size
@@ -719,4 +791,85 @@ class OverallReportsViewModel @Inject constructor(
      fun getTotalExpenseCount(): Int = filteredExpenses.size
      fun getCurrentPageNumber(): Int = _currentPage.value + 1
      fun getTotalPages(): Int = (filteredExpenses.size + pageSize - 1) / pageSize
+     
+     // Method to refresh data manually
+     fun refreshData() {
+         viewModelScope.launch {
+             _isLoading.value = true
+             try {
+                 android.util.Log.d("OverallReportsViewModel", "🔄 Manual refresh triggered")
+                 
+                 // Reload projects
+                 allProjects = projectRepository.getAllProjects()
+                 
+                 // Reload expenses
+                 allExpenses = loadAllApprovedExpenses()
+                 
+                 // Apply filters and update
+                 applyFiltersAndUpdateReport()
+                 
+                 android.util.Log.d("OverallReportsViewModel", "✅ Manual refresh completed")
+             } catch (e: Exception) {
+                 android.util.Log.e("OverallReportsViewModel", "❌ Manual refresh failed: ${e.message}")
+                 _error.value = "Failed to refresh data: ${e.message}"
+             } finally {
+                 _isLoading.value = false
+             }
+         }
+     }
+     
+     // Method to load data without real-time observation (for better performance)
+     fun loadDataOnce() {
+         viewModelScope.launch {
+             _isLoading.value = true
+             _error.value = null
+             
+             try {
+                 android.util.Log.d("OverallReportsViewModel", "🔄 Loading data once (no real-time observation)...")
+                 
+                 // Load all projects first
+                 allProjects = projectRepository.getAllProjects()
+                 android.util.Log.d("OverallReportsViewModel", "📊 Loaded ${allProjects.size} projects")
+                 
+                 if (allProjects.isEmpty()) {
+                     android.util.Log.w("OverallReportsViewModel", "⚠️ No projects found")
+                     _error.value = "No projects found in the system"
+                     return@launch
+                 }
+                 
+                 // Check if there are any approved expenses in the system
+                 val hasApprovedExpenses = expenseRepository.hasAnyApprovedExpenses()
+                 android.util.Log.d("OverallReportsViewModel", "🔍 System has approved expenses: $hasApprovedExpenses")
+                 
+                 if (!hasApprovedExpenses) {
+                     android.util.Log.w("OverallReportsViewModel", "⚠️ No approved expenses found in any project")
+                     // Show empty state with budget info
+                     val totalBudget = allProjects.sumOf { it.budget }
+                     _reportData.value = OverallReportData(
+                         totalSpent = 0.0,
+                         totalBudget = totalBudget,
+                         budgetUsagePercentage = 0.0,
+                         timeRange = "This Year",
+                         selectedProject = "All Projects",
+                         availableProjects = allProjects,
+                         expensesByProject = allProjects.associate { it.name to 0.0 }
+                     )
+                     return@launch
+                 }
+                 
+                 // Load all approved expenses across all projects
+                 allExpenses = loadAllApprovedExpenses()
+                 android.util.Log.d("OverallReportsViewModel", "💰 Loaded ${allExpenses.size} approved expenses")
+                 
+                 // Apply current filters and update report data
+                 applyFiltersAndUpdateReport()
+                 
+             } catch (e: Exception) {
+                 android.util.Log.e("OverallReportsViewModel", "❌ Failed to load data: ${e.message}")
+                 _error.value = "Failed to load data: ${e.message}"
+             } finally {
+                 _isLoading.value = false
+             }
+         }
+     }
 }  
