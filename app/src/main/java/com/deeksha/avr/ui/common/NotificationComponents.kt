@@ -21,6 +21,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import com.deeksha.avr.model.Notification
 import com.deeksha.avr.model.NotificationBadge
 import com.deeksha.avr.model.NotificationType
@@ -49,6 +50,32 @@ fun NotificationBadgeComponent(
                 fontWeight = FontWeight.Bold
             )
         }
+    }
+}
+
+@Composable
+fun NotificationPulseIndicator(
+    hasUnread: Boolean,
+    modifier: Modifier = Modifier
+) {
+    if (hasUnread) {
+        var isAnimating by remember { mutableStateOf(true) }
+        
+        LaunchedEffect(Unit) {
+            while (true) {
+                delay(1000)
+                isAnimating = !isAnimating
+            }
+        }
+        
+        Box(
+            modifier = modifier
+                .size(12.dp)
+                .background(
+                    color = if (isAnimating) Color.Red else Color.Red.copy(alpha = 0.6f),
+                    shape = CircleShape
+                )
+        )
     }
 }
 

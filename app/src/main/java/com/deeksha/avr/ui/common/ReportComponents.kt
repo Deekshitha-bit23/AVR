@@ -9,6 +9,7 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.KeyboardArrowDown
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -377,6 +378,9 @@ fun OverallReportsContent(
                                 ExpenseTable(
                                     expenses = reportData.detailedExpenses,
                                     showProject = selectedProject == "all",
+                                    hasMoreExpenses = overallReportsViewModel.hasMoreExpenses.collectAsState().value,
+                                    isLoadingMore = overallReportsViewModel.isLoadingMore.collectAsState().value,
+                                    onLoadMore = { overallReportsViewModel.loadNextPage() },
                                     modifier = Modifier.fillMaxWidth()
                                 )
                             }
@@ -544,6 +548,9 @@ fun CategoryChart(
 fun ExpenseTable(
     expenses: List<DetailedExpenseWithProject>,
     showProject: Boolean,
+    hasMoreExpenses: Boolean = false,
+    isLoadingMore: Boolean = false,
+    onLoadMore: () -> Unit = {},
     modifier: Modifier = Modifier
 ) {
     Column(modifier = modifier) {
@@ -604,7 +611,7 @@ fun ExpenseTable(
         }
         
         // Table Rows
-        expenses.take(20).forEach { expense ->
+        expenses.forEach { expense ->
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -661,9 +668,62 @@ fun ExpenseTable(
             }
         }
         
-        if (expenses.size > 20) {
+        // Load More Button
+        if (hasMoreExpenses) {
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            Button(
+                onClick = onLoadMore,
+                enabled = !isLoadingMore,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF8B5FBF)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                if (isLoadingMore) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            strokeWidth = 2.dp,
+                            color = Color.White
+                        )
+                        Text(
+                            text = "Loading more expenses...",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                } else {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.KeyboardArrowDown,
+                            contentDescription = null,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Text(
+                            text = "Load More Expenses",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            }
+        }
+        
+        // Show total count if there are expenses
+        if (expenses.isNotEmpty()) {
+            Spacer(modifier = Modifier.height(8.dp))
             Text(
-                text = "Showing top 20 of ${expenses.size} expenses",
+                text = "Showing ${expenses.size} expenses",
                 fontSize = 12.sp,
                 color = Color.Gray,
                 modifier = Modifier.padding(12.dp),

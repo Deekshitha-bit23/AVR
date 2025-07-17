@@ -13,6 +13,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.util.*
 import javax.inject.Inject
 
@@ -78,7 +79,10 @@ class OverallReportsViewModel @Inject constructor(
     private val _hasMoreExpenses = MutableStateFlow(false)
     val hasMoreExpenses: StateFlow<Boolean> = _hasMoreExpenses.asStateFlow()
     
-    private val pageSize = 10
+    private val _isLoadingMore = MutableStateFlow(false)
+    val isLoadingMore: StateFlow<Boolean> = _isLoadingMore.asStateFlow()
+    
+    private val pageSize = 15 // Show 15 expenses per page
     
     private var allProjects: List<Project> = emptyList()
     private var allExpenses: List<Expense> = emptyList()
@@ -858,52 +862,73 @@ class OverallReportsViewModel @Inject constructor(
          }
      }
      
-     // Pagination methods
-     private fun updatePaginatedExpenses() {
-         val totalExpenses = filteredExpenses.size
-         val totalPages = (totalExpenses + pageSize - 1) / pageSize // Ceiling division
-         _hasMoreExpenses.value = _currentPage.value < totalPages - 1
-     }
+         // Pagination methods
+    private fun updatePaginatedExpenses() {
+        val totalExpenses = filteredExpenses.size
+        val totalPages = (totalExpenses + pageSize - 1) / pageSize // Ceiling division
+        _hasMoreExpenses.value = _currentPage.value < totalPages - 1
+        
+        android.util.Log.d("OverallReportsViewModel", "📄 Pagination update: page ${_currentPage.value + 1}/$totalPages, hasMore: ${_hasMoreExpenses.value}")
+    }
+    
+    private fun getCurrentPageExpenses(): List<DetailedExpenseWithProject> {
+        val startIndex = _currentPage.value * pageSize
+        val endIndex = kotlin.math.min(startIndex + pageSize, filteredExpenses.size)
+        return if (startIndex < filteredExpenses.size) {
+            filteredExpenses.subList(startIndex, endIndex)
+        } else {
+            emptyList()
+        }
+    }
+    
+    fun loadNextPage() {
+        if (_hasMoreExpenses.value && !_isLoadingMore.value) {
+            viewModelScope.launch {
+                _isLoadingMore.value = true
+                
+                try {
+                    _currentPage.value += 1
+                    updatePaginatedExpenses()
+                    
+                    // Update report data with new page
+                    val currentPageExpenses = getCurrentPageExpenses()
+                    val currentData = _reportData.value
+                    _reportData.value = currentData.copy(
+                        detailedExpenses = currentData.detailedExpenses + currentPageExpenses
+                    )
+                    
+                    android.util.Log.d("OverallReportsViewModel", "📄 Loaded page ${_currentPage.value + 1}, showing ${currentData.detailedExpenses.size + currentPageExpenses.size} total expenses")
+                    
+                    // Small delay to show loading state
+                    kotlinx.coroutines.delay(300)
+                    
+                } catch (e: Exception) {
+                    android.util.Log.e("OverallReportsViewModel", "❌ Error loading next page: ${e.message}")
+                    // Revert page increment on error
+                    _currentPage.value -= 1
+                    updatePaginatedExpenses()
+                } finally {
+                    _isLoadingMore.value = false
+                }
+            }
+        }
+    }
+    
+    fun resetPagination() {
+        _currentPage.value = 0
+        updatePaginatedExpenses()
+        
+        // Update report data with first page only
+        val currentPageExpenses = getCurrentPageExpenses()
+        val currentData = _reportData.value
+        _reportData.value = currentData.copy(detailedExpenses = currentPageExpenses)
+        
+        android.util.Log.d("OverallReportsViewModel", "🔄 Pagination reset, showing ${currentPageExpenses.size} expenses")
+    }
      
-     private fun getCurrentPageExpenses(): List<DetailedExpenseWithProject> {
-         val startIndex = _currentPage.value * pageSize
-         val endIndex = kotlin.math.min(startIndex + pageSize, filteredExpenses.size)
-         return if (startIndex < filteredExpenses.size) {
-             filteredExpenses.subList(startIndex, endIndex)
-         } else {
-             emptyList()
-         }
-     }
-     
-     fun loadNextPage() {
-         if (_hasMoreExpenses.value) {
-             _currentPage.value += 1
-             updatePaginatedExpenses()
-             
-             // Update report data with new page
-             val currentPageExpenses = getCurrentPageExpenses()
-             val currentData = _reportData.value
-             _reportData.value = currentData.copy(
-                 detailedExpenses = currentData.detailedExpenses + currentPageExpenses
-             )
-             
-             android.util.Log.d("OverallReportsViewModel", "📄 Loaded page ${_currentPage.value + 1}, showing ${currentData.detailedExpenses.size + currentPageExpenses.size} total expenses")
-         }
-     }
-     
-     fun resetPagination() {
-         _currentPage.value = 0
-         updatePaginatedExpenses()
-         
-         // Update report data with first page only
-         val currentPageExpenses = getCurrentPageExpenses()
-         val currentData = _reportData.value
-         _reportData.value = currentData.copy(detailedExpenses = currentPageExpenses)
-     }
-     
-     fun getTotalExpenseCount(): Int = filteredExpenses.size
-     fun getCurrentPageNumber(): Int = _currentPage.value + 1
-     fun getTotalPages(): Int = (filteredExpenses.size + pageSize - 1) / pageSize
+         fun getTotalExpenseCount(): Int = filteredExpenses.size
+    fun getCurrentPageNumber(): Int = _currentPage.value + 1
+    fun getTotalPages(): Int = (filteredExpenses.size + pageSize - 1) / pageSize
      
      // Method to refresh data manually
      fun refreshData() {

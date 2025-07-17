@@ -9,6 +9,9 @@ import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.callbackFlow
+import kotlinx.coroutines.channels.awaitClose
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -60,6 +63,54 @@ class NotificationRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e("NotificationRepository", "❌ Error getting notifications: ${e.message}")
             emptyList()
+        }
+    }
+
+    // Get notifications for a specific user with real-time updates
+    fun getNotificationsForUserRealtime(
+        userId: String,
+        limit: Int = 50
+    ): Flow<List<Notification>> {
+        return callbackFlow {
+            try {
+                Log.d("NotificationRepository", "🔄 Setting up real-time notifications for user: $userId")
+                
+                val query = notificationsCollection
+                    .whereEqualTo("recipientId", userId)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                    .limit(limit.toLong())
+                
+                // Listen for real-time updates
+                val listener = query.addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Log.e("NotificationRepository", "❌ Error in real-time listener: ${error.message}")
+                        return@addSnapshotListener
+                    }
+                    
+                    val notifications = snapshot?.documents?.mapNotNull { doc ->
+                        doc.toObject(Notification::class.java)
+                    } ?: emptyList()
+                    
+                    Log.d("NotificationRepository", "📡 Real-time update: ${notifications.size} notifications for user: $userId")
+                    
+                    // Send the notifications through the channel
+                    try {
+                        trySend(notifications)
+                    } catch (e: Exception) {
+                        Log.e("NotificationRepository", "❌ Error sending notifications: ${e.message}")
+                    }
+                }
+                
+                // Clean up listener when flow is cancelled
+                awaitClose {
+                    Log.d("NotificationRepository", "🔄 Cleaning up real-time listener for user: $userId")
+                    listener.remove()
+                }
+                
+            } catch (e: Exception) {
+                Log.e("NotificationRepository", "❌ Error setting up real-time notifications: ${e.message}")
+                close(e)
+            }
         }
     }
 

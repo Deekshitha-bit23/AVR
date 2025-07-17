@@ -253,6 +253,24 @@ fun NewProjectScreen(
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 
+                // Approver availability info
+                Text(
+                    text = "${availableApprovers.size} approvers available",
+                    fontSize = 12.sp,
+                    color = Color(0xFF4285F4),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                
+                // Select Approver label
+                Text(
+                    text = "Select Approver",
+                    fontSize = 14.sp,
+                    color = Color(0xFF757575),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
                 // Selected Approver Display
                 selectedApprover?.let { approver ->
                     Card(
@@ -346,27 +364,7 @@ fun NewProjectScreen(
                                     )
                                 )
                                 
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(top = 8.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = "${availableApprovers.size} approvers available",
-                                        fontSize = 12.sp,
-                                        color = Color(0xFF4285F4),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                    
-                                    Text(
-                                        text = "Select Approver",
-                                        fontSize = 14.sp,
-                                        color = Color(0xFF757575),
-                                        fontWeight = FontWeight.Medium
-                                    )
-                                }
+
                                 
                                 ExposedDropdownMenu(
                                     expanded = showApproverSearch,
@@ -415,6 +413,24 @@ fun NewProjectScreen(
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
                     color = Color(0xFF4285F4),
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                
+                // Team members availability info
+                Text(
+                    text = "${availableUsers.size} team members available",
+                    fontSize = 12.sp,
+                    color = Color(0xFF4285F4),
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(bottom = 4.dp)
+                )
+                
+                // Select Team Members label
+                Text(
+                    text = "Select Team Members",
+                    fontSize = 14.sp,
+                    color = Color(0xFF757575),
+                    fontWeight = FontWeight.Medium,
                     modifier = Modifier.padding(bottom = 8.dp)
                 )
                 
@@ -476,27 +492,7 @@ fun NewProjectScreen(
                                 )
                             )
                             
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(top = 8.dp),
-                                horizontalArrangement = Arrangement.SpaceBetween,
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Text(
-                                    text = "${availableUsers.size} team members available",
-                                    fontSize = 12.sp,
-                                    color = Color(0xFF4285F4),
-                                    fontWeight = FontWeight.Medium
-                                )
-                                
-                                Text(
-                                    text = "Select Team Members",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF757575),
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
+
                             
                             ExposedDropdownMenu(
                                 expanded = showTeamMemberSearch,

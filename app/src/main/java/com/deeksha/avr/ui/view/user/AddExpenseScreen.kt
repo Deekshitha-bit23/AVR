@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Email
+import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -33,9 +34,14 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.core.content.ContextCompat
+import kotlinx.coroutines.delay
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.model.Project
 import com.deeksha.avr.viewmodel.ExpenseViewModel
+import com.deeksha.avr.viewmodel.NotificationViewModel
+import com.deeksha.avr.viewmodel.AuthViewModel
+import com.deeksha.avr.ui.common.NotificationBadgeComponent
+import com.deeksha.avr.ui.common.NotificationPulseIndicator
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -47,12 +53,31 @@ fun AddExpenseScreen(
     userName: String,
     onNavigateBack: () -> Unit,
     onExpenseAdded: () -> Unit,
-    expenseViewModel: ExpenseViewModel = hiltViewModel()
+    onNavigateToNotifications: (String) -> Unit = {},
+    expenseViewModel: ExpenseViewModel = hiltViewModel(),
+    notificationViewModel: NotificationViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val formData by expenseViewModel.formData.collectAsState()
     val error by expenseViewModel.error.collectAsState()
     val isSubmitting by expenseViewModel.isSubmitting.collectAsState()
     val successMessage by expenseViewModel.successMessage.collectAsState()
+    
+    // Notification states
+    val authState by authViewModel.authState.collectAsState()
+    val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
+    val notifications by notificationViewModel.notifications.collectAsState()
+    val isNotificationsLoading by notificationViewModel.isLoading.collectAsState()
+    
+    // Filter notifications for this project
+    val projectNotifications = notifications.filter { it.projectId == project.id }
+    val projectNotificationBadge = remember(projectNotifications) {
+        val unreadCount = projectNotifications.count { !it.isRead }
+        com.deeksha.avr.model.NotificationBadge(
+            count = unreadCount,
+            hasUnread = unreadCount > 0
+        )
+    }
     
     var showDatePicker by remember { mutableStateOf(false) }
     var showAttachmentDialog by remember { mutableStateOf(false) }
@@ -66,6 +91,24 @@ fun AddExpenseScreen(
     // Set the selected project in the view model so departments can be loaded
     LaunchedEffect(project) {
         expenseViewModel.setSelectedProject(project)
+    }
+    
+    // Load notifications when screen opens
+    LaunchedEffect(Unit) {
+        authState.user?.uid?.let { userId ->
+            notificationViewModel.loadNotifications(userId)
+        }
+    }
+    
+    // Refresh notifications when expense is successfully submitted
+    LaunchedEffect(successMessage) {
+        if (successMessage != null) {
+            // Refresh notifications after successful expense submission
+            authState.user?.uid?.let { userId ->
+                delay(1000) // Wait for notification to be created
+                notificationViewModel.onScreenVisible(userId)
+            }
+        }
     }
     
     // Activity result launchers for attachment selection
@@ -138,6 +181,47 @@ fun AddExpenseScreen(
             navigationIcon = {
                 IconButton(onClick = onNavigateBack) {
                     Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                }
+            },
+            actions = {
+                Box {
+                    IconButton(
+                        onClick = { 
+                            authState.user?.uid?.let { userId ->
+                                onNavigateToNotifications(project.id)
+                            }
+                        }
+                    ) {
+                        if (isNotificationsLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFF4285F4)
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Notifications,
+                                contentDescription = "Project Notifications",
+                                tint = Color(0xFF4285F4)
+                            )
+                        }
+                    }
+                    
+                    // Project-specific notification badge - only show when not loading
+                    if (!isNotificationsLoading) {
+                        NotificationBadgeComponent(
+                            badge = projectNotificationBadge,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
+                        
+                        // Pulse indicator for better visibility
+                        NotificationPulseIndicator(
+                            hasUnread = projectNotificationBadge.hasUnread,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .offset(x = (-4).dp, y = (-4).dp)
+                        )
+                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(

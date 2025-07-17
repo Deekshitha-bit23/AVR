@@ -144,18 +144,6 @@ fun ProjectSelectionScreen(
                     )
                 }
                 
-                // Debug button (temporary)
-                IconButton(onClick = { 
-                    println("🔍 Debug button clicked")
-                    notificationViewModel.debugNotificationState(currentUserId)
-                }) {
-                    Text(
-                        text = "🔍",
-                        fontSize = 16.sp,
-                        color = Color(0xFF4285F4)
-                    )
-                }
-                
                 Box {
                     IconButton(onClick = { onNotificationClick(currentUserId) }) {
                         if (isNotificationsLoading) {

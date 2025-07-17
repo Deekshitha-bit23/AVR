@@ -12,6 +12,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import javax.inject.Inject
 
 @HiltViewModel
@@ -32,9 +33,12 @@ class NotificationViewModel @Inject constructor(
     val error: StateFlow<String?> = _error.asStateFlow()
 
     private var currentUserId: String? = null
+    private var notificationListener: kotlinx.coroutines.Job? = null
 
     fun loadNotifications(userId: String) {
-        // Always load notifications to ensure badge is updated
+        // Cancel any existing listener
+        notificationListener?.cancel()
+        
         currentUserId = userId
         viewModelScope.launch {
             _isLoading.value = true
@@ -43,20 +47,27 @@ class NotificationViewModel @Inject constructor(
             try {
                 Log.d("NotificationViewModel", "🔄 Loading notifications for user: $userId")
                 
-                val notifications = notificationRepository.getNotificationsForUser(userId)
-                Log.d("NotificationViewModel", "📋 Found ${notifications.size} notifications for user: $userId")
-                
-                // Log each notification for debugging
-                notifications.forEach { notification ->
-                    Log.d("NotificationViewModel", "📋 Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName} - Read: ${notification.isRead}")
+                // Set up real-time listener for notifications
+                notificationListener = viewModelScope.launch {
+                    notificationRepository.getNotificationsForUserRealtime(userId)
+                        .collect { notifications ->
+                            Log.d("NotificationViewModel", "📡 Real-time notification update: ${notifications.size} notifications")
+                            
+                            // Log each notification for debugging
+                            notifications.forEach { notification ->
+                                Log.d("NotificationViewModel", "📋 Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName} - Read: ${notification.isRead}")
+                            }
+                            
+                            _notifications.value = notifications
+                            
+                            // Update badge immediately after loading notifications
+                            updateNotificationBadge(userId)
+                            
+                            Log.d("NotificationViewModel", "✅ Updated ${notifications.size} notifications in real-time")
+                        }
                 }
                 
-                _notifications.value = notifications
-                
-                // Update badge immediately after loading notifications
-                updateNotificationBadge(userId)
-                
-                Log.d("NotificationViewModel", "✅ Loaded ${notifications.size} notifications")
+                Log.d("NotificationViewModel", "✅ Set up real-time notification listener")
                 
             } catch (e: Exception) {
                 Log.e("NotificationViewModel", "❌ Error loading notifications: ${e.message}")
@@ -224,8 +235,30 @@ class NotificationViewModel @Inject constructor(
         loadNotifications(userId)
     }
     
+    fun onScreenVisible(userId: String) {
+        Log.d("NotificationViewModel", "👁️ Screen became visible, refreshing notifications for user: $userId")
+        
+        // Refresh notifications when screen becomes visible
+        viewModelScope.launch {
+            try {
+                // Small delay to ensure smooth transition
+                delay(100)
+                refreshNotifications(userId)
+            } catch (e: Exception) {
+                Log.e("NotificationViewModel", "❌ Error refreshing on screen visible: ${e.message}")
+            }
+        }
+    }
+    
     fun clearError() {
         _error.value = null
+    }
+    
+    override fun onCleared() {
+        super.onCleared()
+        // Clean up the notification listener when ViewModel is cleared
+        notificationListener?.cancel()
+        Log.d("NotificationViewModel", "🧹 Cleaned up notification listener")
     }
     
     fun getUnreadCount(): Int = _notificationBadge.value.count

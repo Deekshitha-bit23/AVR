@@ -20,6 +20,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import kotlinx.coroutines.delay
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.model.Notification
 import com.deeksha.avr.model.NotificationType
@@ -43,11 +44,21 @@ fun NotificationListScreen(
     val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
     val authState by authViewModel.authState.collectAsState()
     
-    // Load notifications when screen opens
+    // Load notifications when screen opens and refresh when screen becomes visible
     LaunchedEffect(Unit) {
         val currentUserId = authState.user?.uid
         if (currentUserId != null) {
             notificationViewModel.loadNotifications(currentUserId)
+        }
+    }
+    
+    // Refresh notifications when screen becomes visible (for better UX)
+    LaunchedEffect(Unit) {
+        val currentUserId = authState.user?.uid
+        if (currentUserId != null) {
+            // Small delay to ensure screen is fully loaded
+            delay(500)
+            notificationViewModel.onScreenVisible(currentUserId)
         }
     }
     

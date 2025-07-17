@@ -274,12 +274,19 @@ private fun ProjectCard(
                 )
                 
                 // Show project end date if available
-                project.endDate?.let {
+                project.endDate?.let { endDate ->
                     Spacer(modifier = Modifier.height(2.dp))
+                    val daysLeft = FormatUtils.calculateDaysLeft(endDate.toDate().time)
+                    val formattedDate = FormatUtils.formatDate(endDate)
+                    val daysText = when {
+                        daysLeft > 0 -> "(${daysLeft} days left)"
+                        daysLeft == 0L -> "(Today)"
+                        else -> "(${kotlin.math.abs(daysLeft)} days overdue)"
+                    }
                     Text(
-                        text = "📅 Ends: ${it}",
+                        text = "📅 Ends: $formattedDate $daysText",
                         fontSize = 12.sp,
-                        color = Color(0xFF4CAF50)
+                        color = if (daysLeft >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
                     )
                 }
             }
