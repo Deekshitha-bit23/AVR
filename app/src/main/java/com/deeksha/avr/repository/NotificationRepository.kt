@@ -38,6 +38,8 @@ class NotificationRepository @Inject constructor(
         limit: Int = 50
     ): List<Notification> {
         return try {
+            Log.d("NotificationRepository", "🔄 Getting notifications for user: $userId")
+            
             val result = notificationsCollection
                 .whereEqualTo("recipientId", userId)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
@@ -45,9 +47,16 @@ class NotificationRepository @Inject constructor(
                 .get()
                 .await()
 
-            result.documents.mapNotNull { doc ->
+            val notifications = result.documents.mapNotNull { doc ->
                 doc.toObject(Notification::class.java)
             }
+            
+            Log.d("NotificationRepository", "📋 Found ${notifications.size} notifications for user: $userId")
+            notifications.forEach { notification ->
+                Log.d("NotificationRepository", "📋 Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName}")
+            }
+            
+            notifications
         } catch (e: Exception) {
             Log.e("NotificationRepository", "❌ Error getting notifications: ${e.message}")
             emptyList()
@@ -300,6 +309,49 @@ class NotificationRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e("NotificationRepository", "❌ Error deleting old notifications: ${e.message}")
             Result.failure(e)
+        }
+    }
+
+    // Update notification recipient (for fixing empty recipient IDs)
+    suspend fun updateNotificationRecipient(notificationId: String, newRecipientId: String): Result<Unit> {
+        return try {
+            Log.d("NotificationRepository", "🔄 Updating notification recipient: $notificationId -> $newRecipientId")
+            
+            notificationsCollection.document(notificationId)
+                .update("recipientId", newRecipientId)
+                .await()
+                
+            Log.d("NotificationRepository", "✅ Updated notification recipient")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("NotificationRepository", "❌ Error updating notification recipient: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // Get all notifications (for debugging)
+    suspend fun getAllNotifications(): List<Notification> {
+        return try {
+            Log.d("NotificationRepository", "🔄 Getting all notifications for debugging")
+            
+            val result = notificationsCollection
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            val notifications = result.documents.mapNotNull { doc ->
+                doc.toObject(Notification::class.java)
+            }
+            
+            Log.d("NotificationRepository", "📋 Found ${notifications.size} total notifications")
+            notifications.forEach { notification ->
+                Log.d("NotificationRepository", "📋 Notification: ${notification.title} - Recipient: '${notification.recipientId}' - Project: ${notification.projectName}")
+            }
+            
+            notifications
+        } catch (e: Exception) {
+            Log.e("NotificationRepository", "❌ Error getting all notifications: ${e.message}")
+            emptyList()
         }
     }
 

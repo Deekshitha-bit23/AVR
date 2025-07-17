@@ -61,6 +61,8 @@ class ProjectRepository @Inject constructor(
                             endDate = projectData["endDate"] as? com.google.firebase.Timestamp,
                             status = status,
                             managerId = managerId,
+                            approverIds = projectData["approverIds"] as? List<String> ?: emptyList(),
+                            productionHeadIds = projectData["productionHeadIds"] as? List<String> ?: emptyList(),
                             teamMembers = teamMembers,
                             createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
                             updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
@@ -127,6 +129,8 @@ class ProjectRepository @Inject constructor(
                             endDate = projectData["endDate"] as? com.google.firebase.Timestamp,
                             status = projectData["status"] as? String ?: "ACTIVE",
                             managerId = projectData["managerId"] as? String ?: "",
+                            approverIds = projectData["approverIds"] as? List<String> ?: emptyList(),
+                            productionHeadIds = projectData["productionHeadIds"] as? List<String> ?: emptyList(),
                             teamMembers = projectData["teamMembers"] as? List<String> ?: emptyList(),
                             createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
                             updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
@@ -169,6 +173,8 @@ class ProjectRepository @Inject constructor(
                     endDate = projectData["endDate"] as? com.google.firebase.Timestamp,
                     status = projectData["status"] as? String ?: "ACTIVE",
                     managerId = projectData["managerId"] as? String ?: "",
+                    approverIds = projectData["approverIds"] as? List<String> ?: emptyList(),
+                    productionHeadIds = projectData["productionHeadIds"] as? List<String> ?: emptyList(),
                     teamMembers = projectData["teamMembers"] as? List<String> ?: emptyList(),
                     createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
                     updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
@@ -210,6 +216,34 @@ class ProjectRepository @Inject constructor(
         }
     }
     
+    // Update project approvers and production heads
+    suspend fun updateProjectAssignments(
+        projectId: String,
+        approverIds: List<String>,
+        productionHeadIds: List<String>
+    ): Result<Unit> {
+        return try {
+            Log.d("ProjectRepository", "🔄 Updating project assignments for project: $projectId")
+            Log.d("ProjectRepository", "📋 Approvers: $approverIds")
+            Log.d("ProjectRepository", "📋 Production Heads: $productionHeadIds")
+            
+            val projectRef = firestore.collection("projects").document(projectId)
+            projectRef.update(
+                mapOf(
+                    "approverIds" to approverIds,
+                    "productionHeadIds" to productionHeadIds,
+                    "updatedAt" to com.google.firebase.Timestamp.now()
+                )
+            ).await()
+            
+            Log.d("ProjectRepository", "✅ Successfully updated project assignments")
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("ProjectRepository", "❌ Error updating project assignments: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
     // Direct method to get all projects for debugging purposes
     suspend fun getAllProjects(): List<Project> {
         return try {
@@ -230,6 +264,8 @@ class ProjectRepository @Inject constructor(
                         endDate = projectData["endDate"] as? com.google.firebase.Timestamp,
                         status = projectData["status"] as? String ?: "ACTIVE",
                         managerId = projectData["managerId"] as? String ?: "",
+                        approverIds = projectData["approverIds"] as? List<String> ?: emptyList(),
+                        productionHeadIds = projectData["productionHeadIds"] as? List<String> ?: emptyList(),
                         teamMembers = projectData["teamMembers"] as? List<String> ?: emptyList(),
                         createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
                         updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,

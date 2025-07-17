@@ -47,18 +47,11 @@ fun ProductionHeadProjectSelectionScreen(
     val isLoading by projectViewModel.isLoading.collectAsState()
     
     val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
-    val projectNotificationSummaries by notificationViewModel.projectNotificationSummaries.collectAsState()
+    val notifications by notificationViewModel.notifications.collectAsState()
     
     LaunchedEffect(Unit) {
         projectViewModel.loadProjects()
-        notificationViewModel.setUserId(currentUserId)
-    }
-    
-    LaunchedEffect(projects) {
-        if (projects.isNotEmpty()) {
-            val projectIds = projects.map { it.id }
-            notificationViewModel.loadProjectNotificationSummaries(projectIds)
-        }
+        notificationViewModel.loadNotifications(currentUserId)
     }
     
     Scaffold(
@@ -182,33 +175,10 @@ fun ProductionHeadProjectSelectionScreen(
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(projects) { project ->
-                        val notificationSummary = projectNotificationSummaries.find { it.projectId == project.id }
-                        if (notificationSummary != null) {
-                            ProjectNotificationSummaryCard(
-                                summary = notificationSummary,
-                                onProjectClick = { onProjectSelected(project.id) },
-                                onNotificationClick = { notification ->
-                                    // Navigate to specific notification target
-                                    when {
-                                        notification.navigationTarget.contains("pending_approvals") -> {
-                                            onProjectSelected(project.id) // Navigate to project dashboard
-                                        }
-                                        notification.navigationTarget.contains("expense_list") -> {
-                                            onProjectSelected(project.id) // Navigate to project dashboard
-                                        }
-                                        else -> {
-                                            onProjectSelected(project.id)
-                                        }
-                                    }
-                                    notificationViewModel.markNotificationAsRead(notification.id)
-                                }
-                            )
-                        } else {
                             ProjectCard(
                                 project = project,
                                 onClick = { onProjectSelected(project.id) }
                             )
-                        }
                     }
                     
                     // Add bottom spacing for FABs

@@ -63,9 +63,18 @@ fun ApproverProjectDashboardScreen(
     val authState by authViewModel.authState.collectAsState()
     
     // Project-specific notifications
-    val projectNotificationBadge by remember(projectId) {
-        notificationViewModel.getProjectNotificationBadge(projectId)
-    }.collectAsState()
+    val notifications by notificationViewModel.notifications.collectAsState()
+    val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
+    
+    // Filter notifications for this project
+    val projectNotifications = notifications.filter { it.projectId == projectId }
+    val projectNotificationBadge = remember(projectNotifications) {
+        val unreadCount = projectNotifications.count { !it.isRead }
+        com.deeksha.avr.model.NotificationBadge(
+            count = unreadCount,
+            hasUnread = unreadCount > 0
+        )
+    }
     
     val drawerState = rememberDrawerState(DrawerValue.Closed)
     val scope = rememberCoroutineScope()
@@ -79,7 +88,7 @@ fun ApproverProjectDashboardScreen(
         approverProjectViewModel.loadProjectBudgetSummary(projectId)
         // Initialize notifications for this user
         authState.user?.uid?.let { userId ->
-            notificationViewModel.setUserId(userId)
+            notificationViewModel.loadNotifications(userId)
         }
     }
     

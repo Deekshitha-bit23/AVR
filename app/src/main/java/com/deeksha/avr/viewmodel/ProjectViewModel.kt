@@ -10,6 +10,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import javax.inject.Inject
+import android.util.Log
 
 @HiltViewModel
 class ProjectViewModel @Inject constructor(
@@ -96,5 +97,32 @@ class ProjectViewModel @Inject constructor(
     
     fun clearError() {
         _error.value = null
+    }
+
+    // Assign approvers and production heads to a project
+    fun assignProjectMembers(
+        projectId: String,
+        approverIds: List<String>,
+        productionHeadIds: List<String>
+    ) {
+        viewModelScope.launch {
+            try {
+                Log.d("ProjectViewModel", "🔄 Assigning project members to project: $projectId")
+                
+                val result = projectRepository.updateProjectAssignments(projectId, approverIds, productionHeadIds)
+                
+                if (result.isSuccess) {
+                    Log.d("ProjectViewModel", "✅ Successfully assigned project members")
+                    // Reload projects to get updated data
+                    loadProjects()
+                } else {
+                    Log.e("ProjectViewModel", "❌ Failed to assign project members: ${result.exceptionOrNull()?.message}")
+                    _error.value = "Failed to assign project members: ${result.exceptionOrNull()?.message}"
+                }
+            } catch (e: Exception) {
+                Log.e("ProjectViewModel", "❌ Error assigning project members: ${e.message}")
+                _error.value = "Error assigning project members: ${e.message}"
+            }
+        }
     }
 } 

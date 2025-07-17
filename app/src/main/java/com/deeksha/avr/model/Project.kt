@@ -13,6 +13,8 @@ data class Project(
     @PropertyName("endDate") val endDate: Timestamp? = null,
     @PropertyName("status") val status: String = "ACTIVE",
     @PropertyName("managerId") val managerId: String = "",
+    @PropertyName("approverIds") val approverIds: List<String> = emptyList(),
+    @PropertyName("productionHeadIds") val productionHeadIds: List<String> = emptyList(),
     @PropertyName("teamMembers") val teamMembers: List<String> = emptyList(),
     @PropertyName("createdAt") val createdAt: Timestamp? = null,
     @PropertyName("updatedAt") val updatedAt: Timestamp? = null,

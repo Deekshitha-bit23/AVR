@@ -20,12 +20,14 @@ import javax.inject.Inject
 import com.deeksha.avr.model.ExpenseFormData
 import com.deeksha.avr.model.StatusCounts
 import com.deeksha.avr.model.ExpenseSummary
+import com.deeksha.avr.service.NotificationService
 
 @HiltViewModel
 class ExpenseViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val projectRepository: ProjectRepository,
-    private val notificationRepository: NotificationRepository
+    private val notificationRepository: NotificationRepository,
+    private val notificationService: NotificationService
 ) : ViewModel() {
 
     private val _expenses = MutableStateFlow<List<Expense>>(emptyList())
@@ -972,27 +974,21 @@ class ExpenseViewModel @Inject constructor(
     private fun sendExpenseSubmissionNotifications(expense: Expense, projectId: String) {
         viewModelScope.launch {
             try {
-                // Get project details to find approvers
-                val project = projectRepository.getProjectById(projectId)
-                val projectName = project?.name ?: "Unknown Project"
+                Log.d("ExpenseViewModel", "🔄 Sending expense submission notifications for expense: ${expense.id}")
                 
-                // Get approvers for the project (manager and any other approvers)
-                val approverIds = mutableListOf<String>()
-                project?.managerId?.let { approverIds.add(it) }
-                
-                // Send notifications to all approvers
-                if (approverIds.isNotEmpty()) {
-                    notificationRepository.createExpenseSubmissionNotification(
+                // Use the new NotificationService to send project-specific notifications
+                notificationService.sendExpenseSubmissionNotification(
                         projectId = projectId,
-                        projectName = projectName,
                         expenseId = expense.id,
                         submittedBy = expense.userName,
                         amount = expense.amount,
-                        approverIds = approverIds
-                    )
-                    
-                    Log.d("ExpenseViewModel", "✅ Sent expense submission notifications to ${approverIds.size} approvers")
+                    category = expense.category
+                ).onSuccess {
+                    Log.d("ExpenseViewModel", "✅ Successfully sent expense submission notifications")
+                }.onFailure { error ->
+                    Log.e("ExpenseViewModel", "❌ Failed to send expense submission notifications: ${error.message}")
                 }
+                
             } catch (e: Exception) {
                 Log.e("ExpenseViewModel", "❌ Error sending expense submission notifications: ${e.message}")
             }

@@ -45,19 +45,44 @@ fun ExpenseListScreen(
     val authState by authViewModel.authState.collectAsState()
     
     // Project-specific notifications
-    val projectNotificationBadge by remember(project.id) {
-        notificationViewModel.getProjectNotificationBadge(project.id)
-    }.collectAsState()
+    val notifications by notificationViewModel.notifications.collectAsState()
+    val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
     
-    val projectExpenseStatusSummary by remember(project.id) {
-        notificationViewModel.getProjectExpenseStatusSummary(project.id)
-    }.collectAsState()
+    // Filter notifications for this project
+    val projectNotifications = notifications.filter { it.projectId == project.id }
+    val projectNotificationBadge = remember(projectNotifications) {
+        val unreadCount = projectNotifications.count { !it.isRead }
+        com.deeksha.avr.model.NotificationBadge(
+            count = unreadCount,
+            hasUnread = unreadCount > 0
+        )
+    }
+    
+    val projectExpenseStatusSummary = remember(projectNotifications) {
+        val approvedCount = projectNotifications.count { 
+            it.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED && !it.isRead 
+        }
+        val rejectedCount = projectNotifications.count { 
+            it.type == com.deeksha.avr.model.NotificationType.EXPENSE_REJECTED && !it.isRead 
+        }
+        val submittedCount = projectNotifications.count { 
+            it.type == com.deeksha.avr.model.NotificationType.EXPENSE_SUBMITTED && !it.isRead 
+        }
+        
+        ExpenseNotificationSummary(
+            approvedCount = approvedCount,
+            rejectedCount = rejectedCount,
+            submittedCount = submittedCount,
+            totalUnread = projectNotifications.count { !it.isRead },
+            hasUpdates = projectNotifications.any { !it.isRead }
+        )
+    }
     
     LaunchedEffect(project.id) {
         expenseViewModel.loadProjectExpenses(project.id)
         // Initialize notifications for this user
         authState.user?.uid?.let { userId ->
-            notificationViewModel.setUserId(userId)
+            notificationViewModel.loadNotifications(userId)
         }
     }
     

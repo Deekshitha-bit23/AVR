@@ -46,19 +46,12 @@ fun ApproverProjectSelectionScreen(
     val error by approverProjectViewModel.error.collectAsState()
     
     val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
-    val projectNotificationSummaries by notificationViewModel.projectNotificationSummaries.collectAsState()
+    val notifications by notificationViewModel.notifications.collectAsState()
     
     // Load projects when screen starts
     LaunchedEffect(Unit) {
         approverProjectViewModel.loadProjects()
-        notificationViewModel.setUserId(currentUserId)
-    }
-    
-    LaunchedEffect(projects) {
-        if (projects.isNotEmpty()) {
-            val projectIds = projects.map { it.id }
-            notificationViewModel.loadProjectNotificationSummaries(projectIds)
-        }
+        notificationViewModel.loadNotifications(currentUserId)
     }
     
     Column(
@@ -208,33 +201,10 @@ fun ApproverProjectSelectionScreen(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(projects) { project ->
-                            val notificationSummary = projectNotificationSummaries.find { it.projectId == project.id }
-                            if (notificationSummary != null) {
-                                ProjectNotificationSummaryCard(
-                                    summary = notificationSummary,
-                                    onProjectClick = { onProjectSelected(project.id) },
-                                    onNotificationClick = { notification ->
-                                        // Navigate to specific notification target
-                                        when {
-                                            notification.navigationTarget.contains("pending_approvals") -> {
-                                                onProjectSelected(project.id) // Navigate to project dashboard
-                                            }
-                                            notification.navigationTarget.contains("expense_list") -> {
-                                                onProjectSelected(project.id) // Navigate to project dashboard
-                                            }
-                                            else -> {
-                                                onProjectSelected(project.id)
-                                            }
-                                        }
-                                        notificationViewModel.markNotificationAsRead(notification.id)
-                                    }
-                                )
-                            } else {
                                 ProjectCard(
                                     project = project,
                                     onProjectClick = { onProjectSelected(project.id) }
                                 )
-                            }
                         }
                         
                         item {

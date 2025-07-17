@@ -46,29 +46,64 @@ fun ProjectSelectionScreen(
     val error by projectViewModel.error.collectAsState()
     
     val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
-    val projectNotificationSummaries by notificationViewModel.projectNotificationSummaries.collectAsState()
+    val notifications by notificationViewModel.notifications.collectAsState()
+    val isNotificationsLoading by notificationViewModel.isLoading.collectAsState()
     
-    // Get expense status summary
-    val expenseStatusSummary: ExpenseNotificationSummary = remember(notificationBadge) {
-        notificationViewModel.getExpenseStatusSummary()
+    // Get expense status summary from notifications
+    val expenseStatusSummary: ExpenseNotificationSummary = remember(notifications) {
+        val approvedCount = notifications.count { 
+            it.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED && !it.isRead 
+        }
+        val rejectedCount = notifications.count { 
+            it.type == com.deeksha.avr.model.NotificationType.EXPENSE_REJECTED && !it.isRead 
+        }
+        val totalUnread = notifications.count { !it.isRead }
+        
+        ExpenseNotificationSummary(
+            approvedCount = approvedCount,
+            rejectedCount = rejectedCount,
+            totalUnread = totalUnread,
+            hasUpdates = totalUnread > 0
+        )
     }
-    val latestExpenseNotifications: List<com.deeksha.avr.model.Notification> = remember(notificationBadge) {
-        notificationViewModel.getLatestExpenseNotifications(3)
+    
+    val latestExpenseNotifications: List<com.deeksha.avr.model.Notification> = remember(notifications) {
+        notifications
+            .filter { 
+                it.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED || 
+                it.type == com.deeksha.avr.model.NotificationType.EXPENSE_REJECTED 
+            }
+            .sortedByDescending { it.createdAt }
+            .take(3)
     }
     
     LaunchedEffect(Unit) {
         println("🎬 ProjectSelectionScreen: Loading projects...")
         projectViewModel.loadProjects()
         
-        // Initialize notifications
-        notificationViewModel.setUserId(currentUserId)
+        // Force load notifications immediately
+        if (currentUserId.isNotEmpty()) {
+            println("🔄 Force loading notifications for user: $currentUserId")
+            notificationViewModel.forceLoadNotifications(currentUserId)
+        }
     }
     
-    LaunchedEffect(projects) {
-        if (projects.isNotEmpty()) {
-            // Load notification summaries for all projects
-            val projectIds = projects.map { it.id }
-            notificationViewModel.loadProjectNotificationSummaries(projectIds)
+    // Auto-refresh notifications when screen becomes visible
+    LaunchedEffect(currentUserId) {
+        if (currentUserId.isNotEmpty()) {
+            println("🔄 Auto-refresh notifications for user: $currentUserId")
+            notificationViewModel.forceLoadNotifications(currentUserId)
+        }
+    }
+    
+    // Set up periodic refresh for notifications (every 10 seconds for better responsiveness)
+    LaunchedEffect(Unit) {
+        while (true) {
+            kotlinx.coroutines.delay(10000) // 10 seconds
+            if (currentUserId.isNotEmpty()) {
+                println("🔄 Periodic refresh notifications for user: $currentUserId")
+                notificationViewModel.refreshNotifications(currentUserId)
+            }
         }
     }
     
@@ -99,7 +134,8 @@ fun ProjectSelectionScreen(
                 IconButton(onClick = { 
                     println("🔄 Refresh button clicked")
                     projectViewModel.loadProjects() 
-                    notificationViewModel.refreshNotifications()
+                    notificationViewModel.forceLoadNotifications(currentUserId)
+                    println("🔄 Refresh completed - projects and notifications updated")
                 }) {
                     Icon(
                         Icons.Default.Refresh,
@@ -108,20 +144,42 @@ fun ProjectSelectionScreen(
                     )
                 }
                 
+                // Debug button (temporary)
+                IconButton(onClick = { 
+                    println("🔍 Debug button clicked")
+                    notificationViewModel.debugNotificationState(currentUserId)
+                }) {
+                    Text(
+                        text = "🔍",
+                        fontSize = 16.sp,
+                        color = Color(0xFF4285F4)
+                    )
+                }
+                
                 Box {
                     IconButton(onClick = { onNotificationClick(currentUserId) }) {
-                        Icon(
-                            Icons.Default.Notifications,
-                            contentDescription = "View Notifications",
-                            tint = Color(0xFF4285F4)
-                        )
+                        if (isNotificationsLoading) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp,
+                                color = Color(0xFF4285F4)
+                            )
+                        } else {
+                            Icon(
+                                Icons.Default.Notifications,
+                                contentDescription = "View Notifications",
+                                tint = Color(0xFF4285F4)
+                            )
+                        }
                     }
                     
-                    // Notification badge
-                    NotificationBadgeComponent(
-                        badge = notificationBadge,
-                        modifier = Modifier.align(Alignment.TopEnd)
-                    )
+                    // Notification badge - only show when not loading
+                    if (!isNotificationsLoading) {
+                        NotificationBadgeComponent(
+                            badge = notificationBadge,
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        )
+                    }
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -202,22 +260,95 @@ fun ProjectSelectionScreen(
                         // Latest notification preview - clickable to navigate to project
                         if (latestExpenseNotifications.isNotEmpty()) {
                             Spacer(modifier = Modifier.height(12.dp))
-                            Text(
-                                text = "Latest: ${latestExpenseNotifications.first().message}",
-                                fontSize = 12.sp,
-                                color = Color(0xFF2E7D32),
-                                maxLines = 2,
-                                overflow = TextOverflow.Ellipsis,
-                                modifier = Modifier.clickable {
-                                    // Navigate to the specific project from the latest notification
-                                    val latestNotification = latestExpenseNotifications.first()
-                                    if (latestNotification.projectId.isNotEmpty()) {
-                                        onProjectSelected(latestNotification.projectId)
-                                        // Mark as read when navigating
-                                        notificationViewModel.markNotificationAsRead(latestNotification.id)
+                            
+                            // Show multiple recent notifications
+                            latestExpenseNotifications.take(2).forEach { notification ->
+                                Card(
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .clickable {
+                                            // Navigate to the specific project from the notification
+                                            if (notification.projectId.isNotEmpty()) {
+                                                onProjectSelected(notification.projectId)
+                                                // Mark as read when navigating
+                                                notificationViewModel.markNotificationAsRead(notification.id)
+                                            }
+                                        }
+                                        .padding(vertical = 4.dp),
+                                    colors = CardDefaults.cardColors(
+                                        containerColor = if (notification.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED) 
+                                            Color(0xFFE8F5E8) 
+                                        else 
+                                            Color(0xFFFFEBEE)
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
+                                ) {
+                                    Column(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(12.dp)
+                                    ) {
+                                        Row(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            horizontalArrangement = Arrangement.SpaceBetween,
+                                            verticalAlignment = Alignment.CenterVertically
+                                        ) {
+                                            Text(
+                                                text = notification.title,
+                                                fontSize = 13.sp,
+                                                fontWeight = FontWeight.Bold,
+                                                color = if (notification.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED) 
+                                                    Color(0xFF2E7D32) 
+                                                else 
+                                                    Color(0xFFD32F2F)
+                                            )
+                                            
+                                            if (!notification.isRead) {
+                                                Box(
+                                                    modifier = Modifier
+                                                        .size(8.dp)
+                                                        .clip(CircleShape)
+                                                        .background(
+                                                            if (notification.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED) 
+                                                                Color(0xFF4CAF50) 
+                                                            else 
+                                                                Color(0xFFF44336)
+                                                        )
+                                                )
+                                            }
+                                        }
+                                        
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        
+                                        Text(
+                                            text = notification.message,
+                                            fontSize = 12.sp,
+                                            color = if (notification.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED) 
+                                                Color(0xFF2E7D32) 
+                                            else 
+                                                Color(0xFFD32F2F),
+                                            maxLines = 2,
+                                            overflow = TextOverflow.Ellipsis
+                                        )
+                                        
+                                        Spacer(modifier = Modifier.height(4.dp))
+                                        
+                                        Text(
+                                            text = "📁 ${notification.projectName}",
+                                            fontSize = 11.sp,
+                                            color = Color(0xFF666666),
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                        
+                                        Text(
+                                            text = "Tap to view project",
+                                            fontSize = 10.sp,
+                                            color = Color(0xFF999999),
+                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
+                                        )
                                     }
                                 }
-                            )
+                            }
                         }
                         
                         Spacer(modifier = Modifier.height(16.dp))
@@ -351,33 +482,11 @@ fun ProjectSelectionScreen(
                             )
                         }
                         items(projects) { project ->
-                            val notificationSummary = projectNotificationSummaries.find { it.projectId == project.id }
-                            if (notificationSummary != null) {
-                                ProjectNotificationSummaryCard(
-                                    summary = notificationSummary,
-                                    onProjectClick = { onProjectSelected(project.id) },
-                                    onNotificationClick = { notification ->
-                                        // Navigate to specific notification target
-                                        when {
-                                            notification.navigationTarget.contains("pending_approvals") -> {
-                                                onProjectSelected(project.id) // Navigate to project, will handle approval navigation
-                                            }
-                                            notification.navigationTarget.contains("expense_list") -> {
-                                                onProjectSelected(project.id) // Navigate to project, will handle expense navigation
-                                            }
-                                            else -> {
-                                                onProjectSelected(project.id)
-                                            }
-                                        }
-                                        notificationViewModel.markNotificationAsRead(notification.id)
-                                    }
-                                )
-                            } else {
-                                ProjectCard(
-                                    project = project,
-                                    onProjectClick = { onProjectSelected(project.id) }
-                                )
-                            }
+                            ProjectCard(
+                                project = project,
+                                onProjectClick = { onProjectSelected(project.id) },
+                                projectNotifications = notifications.filter { it.projectId == project.id }
+                            )
                         }
                     }
                 }
@@ -389,8 +498,18 @@ fun ProjectSelectionScreen(
 @Composable
 fun ProjectCard(
     project: Project,
-    onProjectClick: () -> Unit
+    onProjectClick: () -> Unit,
+    projectNotifications: List<com.deeksha.avr.model.Notification> = emptyList()
 ) {
+    // Calculate project-specific notification counts
+    val projectNotificationCount = projectNotifications.count { !it.isRead }
+    val projectApprovedCount = projectNotifications.count { 
+        it.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED && !it.isRead 
+    }
+    val projectRejectedCount = projectNotifications.count { 
+        it.type == com.deeksha.avr.model.NotificationType.EXPENSE_REJECTED && !it.isRead 
+    }
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -405,7 +524,7 @@ fun ProjectCard(
                 .padding(16.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Project Code Circle
+            // Project Code Circle with notification indicator
             Box(
                 modifier = Modifier
                     .size(50.dp)
@@ -419,6 +538,25 @@ fun ProjectCard(
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF4285F4)
                 )
+                
+                // Notification badge for this project
+                if (projectNotificationCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(20.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFFF44336)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (projectNotificationCount > 9) "9+" else projectNotificationCount.toString(),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.width(16.dp))
@@ -427,12 +565,59 @@ fun ProjectCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = project.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Black
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = project.name,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.Black
+                    )
+                    
+                    // Project notification status indicators
+                    if (projectNotificationCount > 0) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (projectApprovedCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFF4CAF50)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "✓",
+                                        fontSize = 8.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            
+                            if (projectRejectedCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .clip(CircleShape)
+                                        .background(Color(0xFFF44336)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "✗",
+                                        fontSize = 8.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
                 
                 Spacer(modifier = Modifier.height(4.dp))
                 
@@ -452,6 +637,32 @@ fun ProjectCard(
                             fontSize = 12.sp,
                             color = Color(0xFF4CAF50)
                         )
+                    }
+                }
+                
+                // Show project-specific notification summary
+                if (projectNotificationCount > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (projectApprovedCount > 0) {
+                            Text(
+                                text = "✅ $projectApprovedCount approved",
+                                fontSize = 11.sp,
+                                color = Color(0xFF4CAF50),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        if (projectRejectedCount > 0) {
+                            Text(
+                                text = "❌ $projectRejectedCount rejected",
+                                fontSize = 11.sp,
+                                color = Color(0xFFF44336),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
                     }
                 }
             }

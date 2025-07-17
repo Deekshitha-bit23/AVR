@@ -81,6 +81,7 @@ dependencies {
     // Hilt
     implementation("com.google.dagger:hilt-android:2.48")
     implementation(libs.vision.internal.vkp)
+    implementation(libs.play.services.maps)
     kapt("com.google.dagger:hilt-compiler:2.48")
     implementation("androidx.hilt:hilt-navigation-compose:1.1.0")
     
@@ -89,6 +90,7 @@ dependencies {
     implementation("com.google.firebase:firebase-analytics")
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
+    implementation("com.google.firebase:firebase-messaging")
     
     // ViewModel
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.7.0")

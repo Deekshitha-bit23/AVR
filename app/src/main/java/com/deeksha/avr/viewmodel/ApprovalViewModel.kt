@@ -8,6 +8,7 @@ import com.deeksha.avr.model.Project
 import com.deeksha.avr.repository.ExpenseRepository
 import com.deeksha.avr.repository.ProjectRepository
 import com.deeksha.avr.repository.NotificationRepository
+import com.deeksha.avr.service.NotificationService
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -27,7 +28,8 @@ data class ApprovalSummary(
 class ApprovalViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val projectRepository: ProjectRepository,
-    private val notificationRepository: NotificationRepository
+    private val notificationRepository: NotificationRepository,
+    private val notificationService: NotificationService
 ) : ViewModel() {
     
     private val _pendingExpenses = MutableStateFlow<List<Expense>>(emptyList())
@@ -387,22 +389,23 @@ class ApprovalViewModel @Inject constructor(
     private fun sendExpenseStatusNotification(expense: Expense, isApproved: Boolean, approverName: String) {
         viewModelScope.launch {
             try {
-                // Get project details for notification
-                val project = projectRepository.getProjectById(expense.projectId)
-                val projectName = project?.name ?: "Unknown Project"
+                Log.d("ApprovalViewModel", "🔄 Sending expense status notification for expense: ${expense.id}")
                 
-                // Send notification to the expense submitter
-                notificationRepository.createExpenseStatusNotification(
-                    recipientId = expense.userId,
-                    projectId = expense.projectId,
-                    projectName = projectName,
+                // Use the new NotificationService to send expense status notification
+                notificationService.sendExpenseStatusNotification(
                     expenseId = expense.id,
+                    projectId = expense.projectId,
+                    submittedByUserId = expense.userId,
                     isApproved = isApproved,
                     amount = expense.amount,
-                    approverName = approverName
-                )
+                    reviewerName = approverName,
+                    comments = expense.reviewComments ?: ""
+                ).onSuccess {
+                    Log.d("ApprovalViewModel", "✅ Successfully sent expense ${if (isApproved) "approval" else "rejection"} notification")
+                }.onFailure { error ->
+                    Log.e("ApprovalViewModel", "❌ Failed to send expense status notification: ${error.message}")
+                }
                 
-                Log.d("ApprovalViewModel", "✅ Sent expense ${if (isApproved) "approval" else "rejection"} notification to ${expense.userId}")
             } catch (e: Exception) {
                 Log.e("ApprovalViewModel", "❌ Error sending expense status notification: ${e.message}")
             }

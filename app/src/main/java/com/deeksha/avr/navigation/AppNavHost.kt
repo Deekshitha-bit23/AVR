@@ -274,28 +274,17 @@ fun AppNavHost(
             val authState by authViewModel.authState.collectAsState()
             
             NotificationListScreen(
-                onBackClick = { navController.popBackStack() },
-                onNotificationClick = { notification ->
-                    // Navigate based on notification target
-                    when {
-                        notification.navigationTarget.contains("expense_list") -> {
-                            val projectId = notification.projectId
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToProject = { projectId ->
                             navController.navigate(Screen.ExpenseList.createRoute(projectId))
-                        }
-                        notification.navigationTarget.contains("pending_approvals") -> {
-                            val projectId = notification.projectId
+                },
+                onNavigateToExpense = { projectId, expenseId ->
+                    // Navigate to expense detail or list
+                    navController.navigate(Screen.ExpenseList.createRoute(projectId))
+                },
+                onNavigateToPendingApprovals = { projectId ->
                             navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
                         }
-                        notification.navigationTarget.contains("project_selection") -> {
-                            navController.navigate(Screen.ProjectSelection.route)
-                        }
-                        else -> {
-                            // Default to project selection
-                            navController.navigate(Screen.ProjectSelection.route)
-                        }
-                    }
-                },
-                currentUserId = authState.user?.uid ?: ""
             )
         }
         
@@ -342,26 +331,16 @@ fun AppNavHost(
                     ProjectNotificationScreen(
                         projectId = projectId,
                         projectName = selectedProject.name,
-                        onBackClick = { navController.popBackStack() },
-                        onNotificationClick = { notification ->
-                            // Navigate based on notification target
-                            when {
-                                notification.navigationTarget.contains("expense_list") -> {
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToProject = { projectId ->
                                     navController.navigate(Screen.ExpenseList.createRoute(projectId))
-                                }
-                                notification.navigationTarget.contains("pending_approvals") -> {
+                        },
+                        onNavigateToExpense = { projectId, expenseId ->
+                            navController.navigate(Screen.ExpenseList.createRoute(projectId))
+                        },
+                        onNavigateToPendingApprovals = { projectId ->
                                     navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
                                 }
-                                notification.navigationTarget.contains("project_selection") -> {
-                                    navController.navigate(Screen.ProjectSelection.route)
-                                }
-                                else -> {
-                                    // Default to project selection
-                                    navController.navigate(Screen.ProjectSelection.route)
-                                }
-                            }
-                        },
-                        currentUserId = authState.user?.uid ?: ""
                     )
                 }
                 else -> {
@@ -531,15 +510,15 @@ fun AppNavHost(
 
 //                    if (currentUser != null) {
 //                        Log.d("AddExpenseScreen", "🔥 Proceeding with userId: ${currentUser.uid}")
-                        AddExpenseScreen(
-                            project = selectedProject,
+                    AddExpenseScreen(
+                        project = selectedProject,
                             userId = "AuthState.id",
                             userName = "AuthState.displayName?.",
-                            onNavigateBack = { navController.popBackStack() },
-                            onExpenseAdded = {
+                        onNavigateBack = { navController.popBackStack() },
+                        onExpenseAdded = {
                                 navController.popBackStack()
-                            }
-                        )
+                        }
+                    )
 //                    }
 //                    else {
 //                        Log.w("AddExpenseScreen", "⚠️ FirebaseAuth.currentUser is NULL")
