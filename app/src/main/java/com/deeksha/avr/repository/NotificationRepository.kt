@@ -136,6 +136,83 @@ class NotificationRepository @Inject constructor(
         }
     }
 
+    // Get project-specific notifications for a user
+    suspend fun getProjectNotificationsForUser(
+        userId: String,
+        projectId: String,
+        userRole: String
+    ): List<Notification> {
+        return try {
+            Log.d("NotificationRepository", "🔄 Getting project notifications for user: $userId, project: $projectId, role: $userRole")
+            
+            val result = notificationsCollection
+                .whereEqualTo("projectId", projectId)
+                .whereEqualTo("recipientId", userId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            val notifications = result.documents.mapNotNull { doc ->
+                doc.toObject(Notification::class.java)
+            }
+            
+            Log.d("NotificationRepository", "📋 Found ${notifications.size} project notifications for user: $userId")
+            notifications
+        } catch (e: Exception) {
+            Log.e("NotificationRepository", "❌ Error getting project notifications for user: ${e.message}")
+            emptyList()
+        }
+    }
+
+    // Get project-specific notifications for a user with real-time updates
+    fun getProjectNotificationsForUserRealtime(
+        userId: String,
+        projectId: String,
+        userRole: String
+    ): Flow<List<Notification>> {
+        return callbackFlow {
+            try {
+                Log.d("NotificationRepository", "🔄 Setting up real-time project notifications for user: $userId, project: $projectId, role: $userRole")
+                
+                val query = notificationsCollection
+                    .whereEqualTo("projectId", projectId)
+                    .whereEqualTo("recipientId", userId)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                
+                // Listen for real-time updates
+                val listener = query.addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Log.e("NotificationRepository", "❌ Error in real-time project listener: ${error.message}")
+                        return@addSnapshotListener
+                    }
+                    
+                    val notifications = snapshot?.documents?.mapNotNull { doc ->
+                        doc.toObject(Notification::class.java)
+                    } ?: emptyList()
+                    
+                    Log.d("NotificationRepository", "📡 Real-time project update: ${notifications.size} notifications for user: $userId, project: $projectId")
+                    
+                    // Send the notifications through the channel
+                    try {
+                        trySend(notifications)
+                    } catch (e: Exception) {
+                        Log.e("NotificationRepository", "❌ Error sending project notifications: ${e.message}")
+                    }
+                }
+                
+                // Clean up listener when flow is cancelled
+                awaitClose {
+                    Log.d("NotificationRepository", "🔄 Cleaning up real-time project listener for user: $userId, project: $projectId")
+                    listener.remove()
+                }
+                
+            } catch (e: Exception) {
+                Log.e("NotificationRepository", "❌ Error setting up real-time project notifications: ${e.message}")
+                close(e)
+            }
+        }
+    }
+
     // Mark notification as read
     suspend fun markNotificationAsRead(notificationId: String): Result<Unit> {
         return try {
