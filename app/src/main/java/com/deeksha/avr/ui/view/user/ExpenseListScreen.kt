@@ -26,6 +26,7 @@ import com.deeksha.avr.ui.common.NotificationBadgeComponent
 import com.deeksha.avr.model.ExpenseNotificationSummary
 import java.text.NumberFormat
 import java.util.*
+import com.deeksha.avr.utils.FormatUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -265,7 +266,7 @@ fun ProjectHeaderCard(project: Project) {
         Spacer(modifier = Modifier.height(4.dp))
         
         Text(
-            text = "Budget: ${formatCurrencyExpenseList(project.budget)}",
+            text = "Budget: ${FormatUtils.formatCurrency(project.budget)}",
             fontSize = 14.sp,
             color = Color.Gray,
             textAlign = TextAlign.Center
@@ -299,7 +300,7 @@ fun TotalExpensesCard(
             Spacer(modifier = Modifier.height(8.dp))
             
             Text(
-                text = formatCurrencyExpenseList(totalAmount),
+                text = FormatUtils.formatCurrency(totalAmount),
                 fontSize = 28.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF4285F4)
@@ -342,17 +343,13 @@ fun CategoryItem(
             )
             
             Text(
-                text = formatCurrencyExpenseList(amount),
+                text = FormatUtils.formatCurrency(amount),
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Bold,
                 color = Color(0xFF4285F4)
             )
         }
     }
-}
-
-private fun formatCurrencyExpenseList(amount: Double): String {
-    return NumberFormat.getCurrencyInstance(Locale("en", "IN")).format(amount)
 }
 
 @Composable

@@ -26,7 +26,7 @@ import com.deeksha.avr.viewmodel.NotificationViewModel
 import com.deeksha.avr.ui.common.NotificationBadgeComponent
 import com.deeksha.avr.ui.common.ProjectNotificationSummaryCard
 import com.google.android.libraries.intelligence.acceleration.Analytics
-import java.text.NumberFormat
+import com.deeksha.avr.utils.FormatUtils
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -241,12 +241,8 @@ fun ProjectCard(
                     color = Color.Black
                 )
                 
-                val formatter = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
-                formatter.currency = Currency.getInstance("INR")
-                val budgetText = formatter.format(project.budget)
-                
                 Text(
-                    text = "Budget: $budgetText",
+                    text = "Budget: ${FormatUtils.formatCurrency(project.budget)}",
                     fontSize = 14.sp,
                     color = Color.Gray,
                     modifier = Modifier.padding(top = 4.dp)
@@ -254,16 +250,17 @@ fun ProjectCard(
                 
                 // Show end date if available
                 project.endDate?.let { endDate ->
-                    val calendar = Calendar.getInstance()
-                    calendar.time = endDate.toDate()
-                    val dayOfMonth = calendar.get(Calendar.DAY_OF_MONTH)
-                    val month = calendar.get(Calendar.MONTH) + 1
-                    val year = calendar.get(Calendar.YEAR)
-                    
+                    val daysLeft = FormatUtils.calculateDaysLeft(endDate.toDate().time)
+                    val formattedDate = FormatUtils.formatDate(endDate)
+                    val daysText = when {
+                        daysLeft > 0 -> "(${daysLeft} days left)"
+                        daysLeft == 0L -> "(Today)"
+                        else -> "(${kotlin.math.abs(daysLeft)} days overdue)"
+                    }
                     Text(
-                        text = "Ends: $dayOfMonth/${String.format("%02d", month)}/$year",
+                        text = "📅 Ends: $formattedDate $daysText",
                         fontSize = 12.sp,
-                        color = Color(0xFF4CAF50),
+                        color = if (daysLeft >= 0) Color(0xFF4CAF50) else Color(0xFFF44336),
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }

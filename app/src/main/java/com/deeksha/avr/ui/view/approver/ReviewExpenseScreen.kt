@@ -25,7 +25,6 @@ import com.deeksha.avr.viewmodel.ApprovalViewModel
 import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.viewmodel.ProjectViewModel
 import com.deeksha.avr.utils.FormatUtils
-import java.text.SimpleDateFormat
 import java.util.*
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -194,8 +193,8 @@ fun ReviewExpenseScreen(
                         ExpenseDetailRow(label = "Subcategory", value = expense.category)
                         ExpenseDetailRow(label = "Amount", value = FormatUtils.formatCurrency(expense.amount))
                         ExpenseDetailRow(
-                            label = "Date Submitted",
-                            value = expense.date?.let { FormatUtils.formatDate(it, "dd/MM/yyyy") } ?: "N/A"
+                            label = "Date", 
+                            value = expense.date?.let { FormatUtils.formatDate(it) } ?: "N/A"
                         )
                         ExpenseDetailRow(
                             label = "Payment Mode",

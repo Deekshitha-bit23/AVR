@@ -617,15 +617,19 @@ fun ProjectCard(
                 
                 // Show end date if available
                 project.endDate?.let { endDate ->
-                    val daysLeft = calculateDaysLeft(endDate.toDate().time)
-                    if (daysLeft > 0) {
-                        Spacer(modifier = Modifier.height(4.dp))
-                        Text(
-                            text = "📅 Ends: ${formatDate(endDate)} ($daysLeft days left)",
-                            fontSize = 12.sp,
-                            color = Color(0xFF4CAF50)
-                        )
+                    val daysLeft = FormatUtils.calculateDaysLeft(endDate.toDate().time)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    val formattedDate = FormatUtils.formatDate(endDate)
+                    val daysText = when {
+                        daysLeft > 0 -> "(${daysLeft} days left)"
+                        daysLeft == 0L -> "(Today)"
+                        else -> "(${kotlin.math.abs(daysLeft)} days overdue)"
                     }
+                    Text(
+                        text = "📅 Ends: $formattedDate $daysText",
+                        fontSize = 12.sp,
+                        color = if (daysLeft >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
+                    )
                 }
                 
                 // Show project-specific notification summary
@@ -658,23 +662,7 @@ fun ProjectCard(
     }
 }
 
-private fun calculateDaysLeft(endDate: Long): Long {
-    val currentTime = System.currentTimeMillis()
-    val diffInMillis = endDate - currentTime
-    return diffInMillis / (1000 * 60 * 60 * 24)
-}
 
-private fun formatDate(timestamp: com.google.firebase.Timestamp): String {
-    val calendar = Calendar.getInstance()
-    calendar.time = timestamp.toDate()
-    return "${calendar.get(Calendar.DAY_OF_MONTH)}/${calendar.get(Calendar.MONTH) + 1}/${calendar.get(Calendar.YEAR)}"
-}
-
-private fun formatDate(timestamp: Long): String {
-    val calendar = Calendar.getInstance()
-    calendar.timeInMillis = timestamp
-    return "${calendar.get(Calendar.DAY_OF_MONTH)}/${calendar.get(Calendar.MONTH) + 1}/${calendar.get(Calendar.YEAR)}"
-}
 
 @Composable
 fun StatusChip(

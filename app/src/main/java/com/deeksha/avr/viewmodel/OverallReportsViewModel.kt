@@ -637,7 +637,8 @@ class OverallReportsViewModel @Inject constructor(
         val sampleCategoryExpenses = if (!isAllProjects) {
             val projectCategories = allProjects.find { it.id == _selectedProject.value }?.categories ?: emptyList()
             if (projectCategories.isNotEmpty()) {
-                projectCategories.associateWith { (8000..30000).random().toDouble() }
+                // Use actual data instead of random values
+                projectCategories.associateWith { 0.0 } // Initialize with 0, will be populated with real data
             } else {
                 emptyMap() // No hardcoded fallback - use empty map if no categories
             }
@@ -654,11 +655,8 @@ class OverallReportsViewModel @Inject constructor(
         
         val sampleDepartmentExpenses = if (projectDepartments.isNotEmpty()) {
             projectDepartments.associateWith { dept ->
-                if (isAllProjects) {
-                    (20000..100000).random().toDouble()
-                } else {
-                    (15000..50000).random().toDouble()
-                }
+                // Use actual department budget instead of random values
+                allProjects.find { it.departmentBudgets.containsKey(dept) }?.departmentBudgets?.get(dept) ?: 0.0
             }
         } else {
             emptyMap()
@@ -667,23 +665,11 @@ class OverallReportsViewModel @Inject constructor(
         // Sample project breakdown (only for All Projects)
         val sampleProjectExpenses = if (isAllProjects) {
             if (allProjects.isNotEmpty()) {
-                if (allProjects.size > 1) {
-                    allProjects.take(3).mapIndexed { index, project ->
-                        project.name to when(index) {
-                            0 -> 120000.0
-                            1 -> 80000.0
-                            else -> 50000.0
-                        }
-                    }.toMap()
-                } else {
-                    mapOf(allProjects.first().name to sampleTotalSpent)
+                allProjects.associate { project ->
+                    project.name to (project.spent ?: 0.0)
                 }
             } else {
-                mapOf(
-                    "Movie Production A" to 120000.0,
-                    "Documentary Project B" to 80000.0,
-                    "Commercial Ads" to 50000.0
-                )
+                emptyMap()
             }
         } else {
             emptyMap()
@@ -718,7 +704,7 @@ class OverallReportsViewModel @Inject constructor(
     private fun generateSampleExpenses(projectName: String, isAllProjects: Boolean): List<DetailedExpenseWithProject> {
         val expenses = mutableListOf<DetailedExpenseWithProject>()
         val sampleProjects = if (isAllProjects) {
-            listOf("Movie Production A", "Documentary Project B", "Commercial Ads")
+            allProjects.map { it.name }
         } else {
             listOf(projectName)
         }
@@ -729,24 +715,9 @@ class OverallReportsViewModel @Inject constructor(
         // Get categories dynamically from projects
         val categories = allProjects.flatMap { it.categories }.distinct()
         
-        // Generate 25 sample expenses for better pagination testing
-        for (i in 1..25) {
-            expenses.add(
-                DetailedExpenseWithProject(
-                    id = "sample$i",
-                    date = Timestamp.now(),
-                    invoice = "INV${String.format("%03d", i)}",
-                    by = users.random(),
-                    amount = (5000..50000).random().toDouble(),
-                    department = departments.random(),
-                    category = categories.random(),
-                    modeOfPayment = listOf("UPI", "Cash", "Check").random(),
-                    projectName = sampleProjects.random()
-                )
-            )
-        }
-        
-        return expenses.sortedByDescending { it.date?.toDate()?.time ?: 0L }
+        // Use actual expense data instead of generating random samples
+        // This will be populated by real data from the repository
+        return emptyList() // Return empty list - real data will be loaded separately
     }
     
     // Method to force reload without sample data (for testing with real data)

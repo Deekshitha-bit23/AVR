@@ -303,7 +303,3 @@ fun ProjectSpecificNotificationScreen(
         }
     }
 }
-
-private fun AuthViewModel.ensureUserData() {
-    TODO("Not yet implemented")
-}

@@ -56,9 +56,9 @@ import com.deeksha.avr.model.Project
 import com.deeksha.avr.viewmodel.ExpenseViewModel
 import com.deeksha.avr.viewmodel.AuthViewModel
 import android.util.Log
-import java.text.SimpleDateFormat
 import java.util.*
 import kotlinx.coroutines.launch
+import com.deeksha.avr.utils.FormatUtils
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -766,11 +766,12 @@ private fun ExpenseSubmissionCard(expense: Expense) {
                         fontWeight = FontWeight.Medium
                     )
                     Text(
-                        text = expense.date?.let {
-                            SimpleDateFormat("dd MMM yyyy", Locale.getDefault()).format(it.toDate())
-                        } ?: "No date",
-                        fontSize = 14.sp,
-                        color = Color.Black
+                        text = expense.date?.let { 
+                            FormatUtils.formatDateLong(it)
+                        } ?: "N/A",
+                        fontSize = 12.sp,
+                        color = Color.Black,
+                        modifier = Modifier.weight(1f)
                     )
                 }
                 
@@ -831,9 +832,10 @@ private fun ExpenseSubmissionCard(expense: Expense) {
                         horizontalAlignment = Alignment.End
                     ) {
                         Text(
-                            text = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(submittedAt.toDate()),
-                            fontSize = 14.sp,
-                            color = Color.Black
+                            text = FormatUtils.formatDateLong(submittedAt),
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            fontWeight = FontWeight.Medium
                         )
                         // Show time elapsed for pending expenses
                         if (expense.status == ExpenseStatus.PENDING) {
@@ -872,9 +874,10 @@ private fun ExpenseSubmissionCard(expense: Expense) {
                                 fontWeight = FontWeight.Medium
                             )
                             Text(
-                                text = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale.getDefault()).format(reviewedAt.toDate()),
-                                fontSize = 14.sp,
-                                color = Color.Black
+                                text = FormatUtils.formatDateLong(reviewedAt),
+                                fontSize = 12.sp,
+                                color = Color.Gray,
+                                fontWeight = FontWeight.Medium
                             )
                         }
                     }

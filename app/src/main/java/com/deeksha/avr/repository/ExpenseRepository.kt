@@ -14,6 +14,8 @@ import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
 import javax.inject.Singleton
 import com.google.firebase.firestore.ListenerRegistration
+import com.google.firebase.firestore.Query
+import java.util.*
 
 
 @Singleton
@@ -21,6 +23,45 @@ class ExpenseRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     
+    // Centralized mapping function to eliminate duplicates
+    private fun mapDocumentToExpense(doc: com.google.firebase.firestore.DocumentSnapshot, projectId: String): Expense? {
+        return try {
+            val expenseData = doc.data ?: return null
+            
+            Expense(
+                id = doc.id,
+                projectId = projectId,
+                userId = expenseData["userId"] as? String ?: "",
+                userName = expenseData["userName"] as? String ?: "",
+                date = expenseData["date"] as? Timestamp,
+                amount = (expenseData["amount"] as? Number)?.toDouble() ?: 0.0,
+                department = expenseData["department"] as? String ?: "",
+                category = expenseData["category"] as? String ?: "",
+                description = expenseData["description"] as? String ?: "",
+                modeOfPayment = expenseData["modeOfPayment"] as? String ?: "",
+                tds = (expenseData["tds"] as? Number)?.toDouble() ?: 0.0,
+                gst = (expenseData["gst"] as? Number)?.toDouble() ?: 0.0,
+                netAmount = (expenseData["netAmount"] as? Number)?.toDouble() ?: 0.0,
+                attachmentUrl = expenseData["attachmentUrl"] as? String ?: "",
+                attachmentFileName = expenseData["attachmentFileName"] as? String ?: "",
+                status = when (expenseData["status"] as? String) {
+                    "APPROVED" -> ExpenseStatus.APPROVED
+                    "REJECTED" -> ExpenseStatus.REJECTED
+                    "DRAFT" -> ExpenseStatus.DRAFT
+                    else -> ExpenseStatus.PENDING
+                },
+                submittedAt = expenseData["submittedAt"] as? Timestamp,
+                reviewedAt = expenseData["reviewedAt"] as? Timestamp,
+                reviewedBy = expenseData["reviewedBy"] as? String ?: "",
+                reviewComments = expenseData["reviewComments"] as? String ?: "",
+                receiptNumber = expenseData["receiptNumber"] as? String ?: ""
+            )
+        } catch (e: Exception) {
+            Log.e("ExpenseRepository", "Error mapping expense: ${e.message}")
+            null
+        }
+    }
+
     fun getProjectExpenses(projectId: String): Flow<List<Expense>> = callbackFlow {
         Log.d("ExpenseRepository", "🔥 Fetching expenses for project: $projectId")
         
@@ -37,41 +78,7 @@ class ExpenseRepository @Inject constructor(
                 Log.d("ExpenseRepository", "📊 Received ${snapshot?.documents?.size ?: 0} expense documents")
                 
                 val expenses = snapshot?.documents?.mapNotNull { doc ->
-                    try {
-                        val expenseData = doc.data ?: emptyMap()
-                        
-                        Expense(
-                            id = doc.id,
-                            projectId = projectId, // Use the projectId parameter since it's stored in subcollection
-                            userId = expenseData["userId"] as? String ?: "",
-                            userName = expenseData["userName"] as? String ?: "",
-                            date = expenseData["date"] as? Timestamp,
-                            amount = (expenseData["amount"] as? Number)?.toDouble() ?: 0.0,
-                            department = expenseData["department"] as? String ?: "",
-                            category = expenseData["category"] as? String ?: "",
-                            description = expenseData["description"] as? String ?: "",
-                            modeOfPayment = expenseData["modeOfPayment"] as? String ?: "",
-                            tds = (expenseData["tds"] as? Number)?.toDouble() ?: 0.0,
-                            gst = (expenseData["gst"] as? Number)?.toDouble() ?: 0.0,
-                            netAmount = (expenseData["netAmount"] as? Number)?.toDouble() ?: 0.0,
-                            attachmentUrl = expenseData["attachmentUrl"] as? String ?: "",
-                            attachmentFileName = expenseData["attachmentFileName"] as? String ?: "",
-                            status = when (expenseData["status"] as? String) {
-                                "APPROVED" -> ExpenseStatus.APPROVED
-                                "REJECTED" -> ExpenseStatus.REJECTED
-                                "DRAFT" -> ExpenseStatus.DRAFT
-                                else -> ExpenseStatus.PENDING
-                            },
-                            submittedAt = expenseData["submittedAt"] as? Timestamp,
-                            reviewedAt = expenseData["reviewedAt"] as? Timestamp,
-                            reviewedBy = expenseData["reviewedBy"] as? String ?: "",
-                            reviewComments = expenseData["reviewComments"] as? String ?: "",
-                            receiptNumber = expenseData["receiptNumber"] as? String ?: ""
-                        )
-                    } catch (e: Exception) {
-                        Log.e("ExpenseRepository", "❌ Error parsing expense document ${doc.id}: ${e.message}")
-                        null
-                    }
+                    mapDocumentToExpense(doc, projectId)
                 } ?: emptyList()
                 
                 Log.d("ExpenseRepository", "🎯 Sending ${expenses.size} expenses to UI")
@@ -115,40 +122,7 @@ class ExpenseRepository @Inject constructor(
                         }
                         
                         val projectUserExpenses = snapshot?.documents?.mapNotNull { doc ->
-                        try {
-                                val expenseData = doc.data ?: return@mapNotNull null
-                            Expense(
-                                id = doc.id,
-                                projectId = projectId,
-                                userId = expenseData["userId"] as? String ?: "",
-                                userName = expenseData["userName"] as? String ?: "",
-                                date = expenseData["date"] as? Timestamp,
-                                amount = (expenseData["amount"] as? Number)?.toDouble() ?: 0.0,
-                                department = expenseData["department"] as? String ?: "",
-                                category = expenseData["category"] as? String ?: "",
-                                description = expenseData["description"] as? String ?: "",
-                                modeOfPayment = expenseData["modeOfPayment"] as? String ?: "",
-                                tds = (expenseData["tds"] as? Number)?.toDouble() ?: 0.0,
-                                gst = (expenseData["gst"] as? Number)?.toDouble() ?: 0.0,
-                                netAmount = (expenseData["netAmount"] as? Number)?.toDouble() ?: 0.0,
-                                attachmentUrl = expenseData["attachmentUrl"] as? String ?: "",
-                                attachmentFileName = expenseData["attachmentFileName"] as? String ?: "",
-                                status = when (expenseData["status"] as? String) {
-                                    "APPROVED" -> ExpenseStatus.APPROVED
-                                    "REJECTED" -> ExpenseStatus.REJECTED
-                                    "DRAFT" -> ExpenseStatus.DRAFT
-                                    else -> ExpenseStatus.PENDING
-                                },
-                                submittedAt = expenseData["submittedAt"] as? Timestamp,
-                                reviewedAt = expenseData["reviewedAt"] as? Timestamp,
-                                reviewedBy = expenseData["reviewedBy"] as? String ?: "",
-                                reviewComments = expenseData["reviewComments"] as? String ?: "",
-                                receiptNumber = expenseData["receiptNumber"] as? String ?: ""
-                            )
-                        } catch (e: Exception) {
-                                Log.w("ExpenseRepository", "⚠️ Error mapping user expense document ${doc.id}: ${e.message}")
-                            null
-                        }
+                            mapDocumentToExpense(doc, projectId)
                         } ?: emptyList()
                         
                         // Update the map for this project
