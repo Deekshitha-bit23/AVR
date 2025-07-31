@@ -8,7 +8,11 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +32,7 @@ import com.deeksha.avr.ui.common.ProjectNotificationSummaryCard
 import com.google.android.libraries.intelligence.acceleration.Analytics
 import com.deeksha.avr.utils.FormatUtils
 import java.util.*
+import com.deeksha.avr.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -39,9 +44,11 @@ fun ProductionHeadProjectSelectionScreen(
     onNavigateToOverallReports: () -> Unit = {},
     onNavigateToAllPendingApprovals: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
-    currentUserId: String,
+    onLogout: () -> Unit = {},
+    currentUserId: String = "", // Make this optional with default empty string
     projectViewModel: ProjectViewModel = hiltViewModel(),
-    notificationViewModel: NotificationViewModel = hiltViewModel()
+    notificationViewModel: NotificationViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel
 ) {
     val projects by projectViewModel.projects.collectAsState()
     val isLoading by projectViewModel.isLoading.collectAsState()
@@ -49,9 +56,28 @@ fun ProductionHeadProjectSelectionScreen(
     val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
     val notifications by notificationViewModel.notifications.collectAsState()
     
+    // Get current user from AuthViewModel
+    val authState by authViewModel.authState.collectAsState()
+    val currentUser = authState.user
+    
+    // Use currentUser.uid if available, otherwise fall back to passed currentUserId
+    val effectiveUserId = currentUser?.uid ?: currentUserId
+    
+    // Refresh user data when screen opens to ensure current user is loaded
     LaunchedEffect(Unit) {
-        projectViewModel.loadProjects()
-        notificationViewModel.loadNotifications(currentUserId)
+        println("🎬 ProductionHeadProjectSelectionScreen: Refreshing user data...")
+        authViewModel.refreshUserData()
+    }
+    
+    LaunchedEffect(Unit) {
+        if (effectiveUserId.isNotEmpty()) {
+            projectViewModel.loadProjects(effectiveUserId)
+        } else {
+            projectViewModel.loadProjects()
+        }
+        if (effectiveUserId.isNotEmpty()) {
+            notificationViewModel.loadNotifications(effectiveUserId)
+        }
     }
     
     Scaffold(
@@ -95,6 +121,19 @@ fun ProductionHeadProjectSelectionScreen(
                         NotificationBadgeComponent(
                             badge = notificationBadge,
                             modifier = Modifier.align(Alignment.TopEnd)
+                        )
+                    }
+                    
+                    // Logout button
+                    IconButton(onClick = { 
+                        println("🚪 Logout button clicked")
+                        authViewModel.logout()
+                        onLogout()
+                    }) {
+                        Icon(
+                            Icons.Default.ExitToApp,
+                            contentDescription = "Logout",
+                            tint = Color(0xFF4285F4)
                         )
                     }
                 },

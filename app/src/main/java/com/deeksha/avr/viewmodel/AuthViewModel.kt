@@ -30,9 +30,12 @@ class AuthViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
+    
+    // Main authentication state
     private val _authState = MutableStateFlow(AuthState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()
     
+    // Current user state
     private val _currentUser = MutableStateFlow<User?>(null)
     val currentUser: StateFlow<User?> = _currentUser.asStateFlow()
     
@@ -57,43 +60,94 @@ class AuthViewModel @Inject constructor(
     private val _restrictedPhoneNumber = MutableStateFlow<String?>(null)
     val restrictedPhoneNumber: StateFlow<String?> = _restrictedPhoneNumber.asStateFlow()
     
-    // Development phone number-based authentication
+    // Development skip session tracking
+    private val _isDevelopmentSkipUser = MutableStateFlow(false)
+    val isDevelopmentSkipUser: StateFlow<Boolean> = _isDevelopmentSkipUser.asStateFlow()
 
     init {
-        checkAuthState()
+        Log.d("AuthViewModel", "🚀 AuthViewModel initialized")
+        initializeAuthState()
     }
     
-    private fun checkAuthState() {
+    /**
+     * Initialize authentication state - checks for both Firebase and development skip sessions
+     */
+    private fun initializeAuthState() {
         viewModelScope.launch {
-            Log.d("AuthViewModel", "🔍 Checking auth state...")
+            Log.d("AuthViewModel", "🔄 Initializing authentication state...")
+            _authState.value = _authState.value.copy(isLoading = true)
             
-            // Force sign out any existing Firebase user to require OTP verification every time
+            // First check for Firebase authentication
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
-                Log.d("AuthViewModel", "🔍 Firebase user exists: ${firebaseUser.phoneNumber}")
-                Log.d("AuthViewModel", "🔄 Signing out existing user to force OTP verification")
-                firebaseAuth.signOut()
+                Log.d("AuthViewModel", "✅ Firebase user found: ${firebaseUser.uid}")
+                val user = authRepository.getCurrentUserFromFirebase()
+                if (user != null) {
+                    Log.d("AuthViewModel", "✅ Firebase user authenticated: ${user.name}")
+                    setAuthenticatedUser(user, isDevelopmentSkip = false)
+                    return@launch
+                } else {
+                    Log.d("AuthViewModel", "❌ Firebase user not found in database, signing out")
+                    firebaseAuth.signOut()
+                }
             }
             
-            // Always start with unauthenticated state to force OTP flow
-            Log.d("AuthViewModel", "🔍 Setting unauthenticated state - user must login with OTP")
-            _authState.value = _authState.value.copy(
-                isAuthenticated = false,
-                user = null,
-                isLoading = false,
-                error = null
-            )
+            // Check for development skip session
+            val developmentUser = _currentUser.value
+            if (developmentUser != null && developmentUser.uid.startsWith("dev_test_user_")) {
+                Log.d("AuthViewModel", "✅ Development skip session found: ${developmentUser.name}")
+                setAuthenticatedUser(developmentUser, isDevelopmentSkip = true)
+                return@launch
+            }
             
-            // Clear any existing phone auth state
-            _verificationId.value = null
-            _otpSent.value = false
-            _resendToken.value = null
-            _hasCompletedVerification.value = false
-            _isAccessRestricted.value = false
-            _restrictedPhoneNumber.value = null
-            
-            Log.d("AuthViewModel", "✅ Auth state check complete - OTP verification required")
+            // No authentication found
+            Log.d("AuthViewModel", "❌ No authentication found")
+            setUnauthenticatedState()
         }
+    }
+    
+    /**
+     * Set user as authenticated
+     */
+    private fun setAuthenticatedUser(user: User, isDevelopmentSkip: Boolean) {
+        Log.d("AuthViewModel", "✅ Setting authenticated user: ${user.name} (Development: $isDevelopmentSkip)")
+        _currentUser.value = user
+        _isDevelopmentSkipUser.value = isDevelopmentSkip
+        _hasCompletedVerification.value = true
+        _authState.value = _authState.value.copy(
+            isAuthenticated = true,
+            user = user,
+            isLoading = false,
+            error = null
+        )
+    }
+    
+    /**
+     * Set unauthenticated state
+     */
+    private fun setUnauthenticatedState() {
+        Log.d("AuthViewModel", "❌ Setting unauthenticated state")
+        _currentUser.value = null
+        _isDevelopmentSkipUser.value = false
+        _hasCompletedVerification.value = false
+        _authState.value = _authState.value.copy(
+            isAuthenticated = false,
+            user = null,
+            isLoading = false,
+            error = null
+        )
+        clearPhoneAuthState()
+    }
+    
+    /**
+     * Clear phone authentication state
+     */
+    fun clearPhoneAuthState() {
+        _verificationId.value = null
+        _otpSent.value = false
+        _resendToken.value = null
+        _isAccessRestricted.value = false
+        _restrictedPhoneNumber.value = null
     }
     
     // Send OTP to phone number
@@ -242,42 +296,14 @@ class AuthViewModel @Inject constructor(
             authRepository.signInWithPhoneCredential(credential)
                 .onSuccess { user ->
                     Log.d("AuthViewModel", "✅ Sign in successful for user: ${user.name} with role: ${user.role}")
-                    _currentUser.value = user
-                    _hasCompletedVerification.value = true // Mark as completed in this session
-                    _authState.value = _authState.value.copy(
-                        isAuthenticated = true,
-                        user = user,
-                        isLoading = false
-                    )
-                    
-                    // Clear phone auth state after successful sign in
-                    _verificationId.value = null
-                    _otpSent.value = false
-                    _resendToken.value = null
+                    setAuthenticatedUser(user, isDevelopmentSkip = false)
                 }
                 .onFailure { error ->
                     Log.e("AuthViewModel", "❌ Sign in failed: ${error.message}")
-                    
-                    // Check if it's an access restriction error
-                    if (error.message?.contains("not authorized") == true) {
-                        Log.d("AuthViewModel", "🚫 Access restricted for user")
-                        
-                        // Extract phone number from Firebase user
-                        val firebaseUser = firebaseAuth.currentUser
-                        val phoneNumber = firebaseUser?.phoneNumber ?: "Unknown"
-                        
-                        _isAccessRestricted.value = true
-                        _restrictedPhoneNumber.value = phoneNumber
-                        _authState.value = _authState.value.copy(
-                            isLoading = false,
-                            error = null // Don't show error, we'll navigate to access restricted screen
-                        )
-                    } else {
-                        _authState.value = _authState.value.copy(
-                            isLoading = false,
-                            error = error.message
-                        )
-                    }
+                    _authState.value = _authState.value.copy(
+                        isLoading = false,
+                        error = "Authentication failed: ${error.message}"
+                    )
                 }
         }
     }
@@ -294,19 +320,9 @@ class AuthViewModel @Inject constructor(
     
     fun logout() {
         viewModelScope.launch {
+            Log.d("AuthViewModel", "🔄 Logging out user...")
             authRepository.signOut()
-            _authState.value = AuthState()
-            _currentUser.value = null
-            
-            // Clear phone auth state
-            _verificationId.value = null
-            _otpSent.value = false
-            _resendToken.value = null
-            
-            // Clear session and access restriction state
-            _hasCompletedVerification.value = false
-            _isAccessRestricted.value = false
-            _restrictedPhoneNumber.value = null
+            setUnauthenticatedState()
         }
     }
     
@@ -314,24 +330,49 @@ class AuthViewModel @Inject constructor(
         _authState.value = _authState.value.copy(error = null)
     }
     
+    // Check if current authentication is from development skip
+    fun isDevelopmentSkipUser(): Boolean {
+        return _isDevelopmentSkipUser.value
+    }
+    
+    // Force check and restore authentication state
+    fun forceCheckAuthState() {
+        viewModelScope.launch {
+            Log.d("AuthViewModel", "🔄 Force checking auth state...")
+            initializeAuthState()
+        }
+    }
+    
     // Force refresh user data from Firebase
     fun refreshUserData() {
         viewModelScope.launch {
-            Log.d("AuthViewModel", "🔄 Refreshing user data from Firebase...")
+            Log.d("AuthViewModel", "🔄 Refreshing user data...")
+            
+            // If this is a development skip user, don't refresh from Firebase
+            if (_isDevelopmentSkipUser.value) {
+                Log.d("AuthViewModel", "✅ Development skip user detected, maintaining current state")
+                return@launch
+            }
+            
             val user = authRepository.getCurrentUserFromFirebase()
             if (user != null) {
                 Log.d("AuthViewModel", "✅ Refreshed user data: ${user.name} with role: ${user.role}")
-                _currentUser.value = user
-                _authState.value = _authState.value.copy(user = user)
+                setAuthenticatedUser(user, isDevelopmentSkip = false)
+            } else {
+                Log.w("AuthViewModel", "⚠️ Failed to refresh user data, logging out")
+                logout()
             }
         }
     }
     
-    // Clear phone auth state (for cleanup)
-    fun clearPhoneAuthState() {
-        _verificationId.value = null
-        _otpSent.value = false
-        _resendToken.value = null
+    // Get current user synchronously (for immediate access)
+    fun getCurrentUserSync(): User? {
+        return _currentUser.value ?: _authState.value.user
+    }
+    
+    // Check if user is authenticated and has valid data
+    fun isUserAuthenticated(): Boolean {
+        return _authState.value.isAuthenticated && _authState.value.user != null
     }
     
     // Clear access restriction state
@@ -343,12 +384,12 @@ class AuthViewModel @Inject constructor(
     // Development skip - for testing purposes only (phone number based)
     fun skipOTPForDevelopment(phoneNumber: String, onNavigationCallback: (UserRole) -> Unit) {
         viewModelScope.launch {
+            Log.d("AuthViewModel", "🔄 Development skip authentication started")
+            Log.d("AuthViewModel", "📱 Phone number: $phoneNumber")
+            
             _authState.value = _authState.value.copy(isLoading = true, error = null)
             
             try {
-                Log.d("AuthViewModel", "🔄 Development skip authentication started")
-                Log.d("AuthViewModel", "📱 Phone number: $phoneNumber")
-                
                 // Small delay to show loading animation
                 delay(300)
                 
@@ -357,14 +398,18 @@ class AuthViewModel @Inject constructor(
                 
                 val testUser = if (actualUser != null) {
                     Log.d("AuthViewModel", "✅ Found actual user in database: ${actualUser.name} (${actualUser.role})")
-                    actualUser
+                    // Use the actual user data but with a development UID
+                    actualUser.copy(
+                        uid = "dev_test_user_${phoneNumber}",
+                        phone = phoneNumber
+                    )
                 } else {
                     Log.d("AuthViewModel", "❌ No user found for phone: $phoneNumber")
                     Log.d("AuthViewModel", "🔄 Creating default test user")
                     
                     // Create default test user if no actual user found
                     User(
-                        uid = "dev_test_user",
+                        uid = "dev_test_user_${phoneNumber}",
                         name = "Test User ($phoneNumber)",
                         email = "test@example.com",
                         phone = phoneNumber,
@@ -375,18 +420,14 @@ class AuthViewModel @Inject constructor(
                     )
                 }
                 
-                // Set the user data immediately
-                _currentUser.value = testUser
-                _hasCompletedVerification.value = true
-                _authState.value = _authState.value.copy(
-                    isAuthenticated = true,
-                    user = testUser,
-                    isLoading = false,
-                    error = null
-                )
+                // Set the user as authenticated
+                setAuthenticatedUser(testUser, isDevelopmentSkip = true)
                 
                 Log.d("AuthViewModel", "✅ Development skip successful: ${testUser.name} (${testUser.role})")
                 Log.d("AuthViewModel", "🚀 Calling navigation callback with role: ${testUser.role}")
+                
+                // Small delay to ensure state is updated before navigation
+                delay(100)
                 
                 // Trigger direct navigation
                 onNavigationCallback(testUser.role)
@@ -400,10 +441,4 @@ class AuthViewModel @Inject constructor(
             }
         }
     }
-    
-
-    
-
-
-
-} 
+}

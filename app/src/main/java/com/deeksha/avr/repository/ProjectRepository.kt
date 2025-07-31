@@ -15,97 +15,9 @@ class ProjectRepository @Inject constructor(
     private val firestore: FirebaseFirestore
 ) {
     
-    fun getActiveProjects(): Flow<List<Project>> = callbackFlow {
-        Log.d("ProjectRepository", "🔥 Starting to fetch projects from Firebase")
-        
-        // First try to get all projects, then filter
-        val listener = firestore.collection("projects")
-            .addSnapshotListener { snapshot, error ->
-                if (error != null) {
-                    Log.e("ProjectRepository", "❌ Error fetching projects: ${error.message}")
-                    close(error)
-                    return@addSnapshotListener
-                }
-                
-                Log.d("ProjectRepository", "📊 Received ${snapshot?.documents?.size ?: 0} documents from Firebase")
-                
-                if (snapshot?.documents?.isEmpty() == true) {
-                    Log.w("ProjectRepository", "⚠️ No documents found in 'projects' collection")
-                }
-                
-                val projects = snapshot?.documents?.mapNotNull { doc ->
-                    try {
-                        Log.d("ProjectRepository", "📄 Processing document ${doc.id}: ${doc.data}")
-                        
-                        // Get the project data
-                        val projectData = doc.data ?: emptyMap()
-                        
-                        // Check if document has required fields
-                        val name = projectData["name"] as? String ?: ""
-                        val description = projectData["description"] as? String ?: ""
-                        val budget = (projectData["budget"] as? Number)?.toDouble() ?: 0.0
-                        val spent = (projectData["spent"] as? Number)?.toDouble() ?: 0.0
-                        val status = projectData["status"] as? String ?: "ACTIVE"
-                        val managerId = projectData["managerId"] as? String ?: ""
-                        val code = projectData["code"] as? String ?: ""
-                        val teamMembers = projectData["teamMembers"] as? List<String> ?: emptyList()
-                        
-                        // Create project with manual mapping to handle missing fields
-                        val project = Project(
-                            id = doc.id,
-                            name = name,
-                            description = description,
-                            budget = budget,
-                            spent = spent,
-                            startDate = projectData["startDate"] as? com.google.firebase.Timestamp,
-                            endDate = projectData["endDate"] as? com.google.firebase.Timestamp,
-                            status = status,
-                            managerId = managerId,
-                            approverIds = projectData["approverIds"] as? List<String> ?: emptyList(),
-                            productionHeadIds = projectData["productionHeadIds"] as? List<String> ?: emptyList(),
-                            teamMembers = teamMembers,
-                            createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
-                            updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
-                            code = code,
-                            departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues { 
-                                (it.value as? Number)?.toDouble() ?: 0.0 
-                            } ?: emptyMap(),
-                            categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
-                        )
-                        
-                        Log.d("ProjectRepository", "✅ Successfully parsed project: ${project.name} (Status: ${project.status}, Departments: ${project.departmentBudgets.keys})")
-                        
-                        // Filter active projects (including null/empty status as active)
-                        if (project.status.equals("ACTIVE", ignoreCase = true) || 
-                            project.status.isEmpty() || 
-                            project.name.isNotEmpty()) { // Include any project with a name
-                            project
-                        } else {
-                            Log.d("ProjectRepository", "⏭️ Skipping project with status: ${project.status}")
-                            null
-                        }
-                    } catch (e: Exception) {
-                        Log.e("ProjectRepository", "❌ Error parsing project document ${doc.id}: ${e.message}")
-                        e.printStackTrace()
-                        null
-                    }
-                } ?: emptyList()
-                
-                Log.d("ProjectRepository", "🎯 Sending ${projects.size} projects to UI")
-                projects.forEach { project ->
-                    Log.d("ProjectRepository", "  📋 Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
-                }
-                
-                trySend(projects)
-            }
-        
-        awaitClose { 
-            Log.d("ProjectRepository", "🔚 Closing projects listener")
-            listener.remove() 
-        }
-    }
-    
     fun getUserProjects(userId: String): Flow<List<Project>> = callbackFlow {
+        Log.d("ProjectRepository", "🔥 Starting to fetch projects for user: $userId")
+        
         val listener = firestore.collection("projects")
             .whereArrayContains("teamMembers", userId)
             .addSnapshotListener { snapshot, error ->
@@ -114,6 +26,8 @@ class ProjectRepository @Inject constructor(
                     close(error)
                     return@addSnapshotListener
                 }
+                
+                Log.d("ProjectRepository", "📊 Received ${snapshot?.documents?.size ?: 0} projects for user $userId from Firebase")
                 
                 val projects = snapshot?.documents?.mapNotNull { doc ->
                     try {
@@ -146,10 +60,18 @@ class ProjectRepository @Inject constructor(
                     }
                 } ?: emptyList()
                 
+                Log.d("ProjectRepository", "🎯 Sending ${projects.size} projects for user $userId to UI")
+                projects.forEach { project ->
+                    Log.d("ProjectRepository", "  📋 User Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
+                }
+                
                 trySend(projects)
             }
         
-        awaitClose { listener.remove() }
+        awaitClose { 
+            Log.d("ProjectRepository", "🔚 Closing user projects listener for user: $userId")
+            listener.remove() 
+        }
     }
     
     suspend fun getProjectById(projectId: String): Project? {

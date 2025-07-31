@@ -23,17 +23,25 @@ import com.deeksha.avr.viewmodel.ApprovalViewModel
 import com.deeksha.avr.utils.FormatUtils
 import java.text.NumberFormat
 import java.util.*
+import com.deeksha.avr.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ApproverDashboardScreen(
     onNavigateToPendingApprovals: () -> Unit,
     onLogout: () -> Unit,
-    approvalViewModel: ApprovalViewModel = hiltViewModel()
+    approvalViewModel: ApprovalViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val approvalSummary by approvalViewModel.approvalSummary.collectAsState()
     val isLoading by approvalViewModel.isLoading.collectAsState()
     val error by approvalViewModel.error.collectAsState()
+    val authState by authViewModel.authState.collectAsState()
+    
+    // Refresh user data when screen opens to ensure current user is loaded
+    LaunchedEffect(Unit) {
+        authViewModel.refreshUserData()
+    }
     
     // Load pending approvals when screen starts
     LaunchedEffect(Unit) {

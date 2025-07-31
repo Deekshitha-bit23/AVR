@@ -74,35 +74,40 @@ fun AppNavHost(
     val authViewModel: AuthViewModel = hiltViewModel()
     val authState by authViewModel.authState.collectAsState()
     
-    // Auto-navigate authenticated users (for OTP-based authentication only)
+    // Auto-navigate authenticated users (for both existing sessions and OTP-based authentication)
     LaunchedEffect(authState.isAuthenticated, authState.user) {
-        if (authState.isAuthenticated && authState.user != null && navController.currentDestination?.route == "otp_verification/{phoneNumber}") {
+        if (authState.isAuthenticated && authState.user != null) {
             val user = authState.user!!
-            android.util.Log.d("AppNavHost", "🎯 OTP Authentication detected - User: ${user.name}, Role: ${user.role}")
+            val currentRoute = navController.currentDestination?.route
             
-            when (user.role) {
-                UserRole.USER -> {
-                    android.util.Log.d("AppNavHost", "🎯 Navigating to USER flow")
-                    navController.navigate(Screen.ProjectSelection.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+            // Only navigate if we're on the login screen or OTP verification screen
+            if (currentRoute == Screen.Login.route || currentRoute?.startsWith("otp_verification/") == true) {
+                android.util.Log.d("AppNavHost", "🎯 Authenticated user detected - User: ${user.name}, Role: ${user.role}")
+                
+                when (user.role) {
+                    UserRole.USER -> {
+                        android.util.Log.d("AppNavHost", "🎯 Navigating to USER flow")
+                        navController.navigate(Screen.ProjectSelection.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     }
-                }
-                UserRole.APPROVER -> {
-                    android.util.Log.d("AppNavHost", "🎯 Navigating to APPROVER flow")
-                    navController.navigate(Screen.ApproverProjectSelection.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                    UserRole.APPROVER -> {
+                        android.util.Log.d("AppNavHost", "🎯 Navigating to APPROVER flow")
+                        navController.navigate(Screen.ApproverProjectSelection.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     }
-                }
-                UserRole.ADMIN -> {
-                    android.util.Log.d("AppNavHost", "🎯 Navigating to ADMIN flow")
-                    navController.navigate(Screen.AdminDashboard.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                    UserRole.ADMIN -> {
+                        android.util.Log.d("AppNavHost", "🎯 Navigating to ADMIN flow")
+                        navController.navigate(Screen.AdminDashboard.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     }
-                }
-                UserRole.PRODUCTION_HEAD -> {
-                    android.util.Log.d("AppNavHost", "🎯 Navigating to PRODUCTION_HEAD flow")
-                    navController.navigate(Screen.ProductionHeadProjectSelection.route) {
-                        popUpTo(Screen.Login.route) { inclusive = true }
+                    UserRole.PRODUCTION_HEAD -> {
+                        android.util.Log.d("AppNavHost", "🎯 Navigating to PRODUCTION_HEAD flow")
+                        navController.navigate(Screen.ProductionHeadProjectSelection.route) {
+                            popUpTo(Screen.Login.route) { inclusive = true }
+                        }
                     }
                 }
             }
@@ -115,8 +120,6 @@ fun AppNavHost(
     ) {
         // Auth Flow
         composable(Screen.Login.route) {
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val authState by authViewModel.authState.collectAsState()
             val isAccessRestricted by authViewModel.isAccessRestricted.collectAsState()
             val restrictedPhoneNumber by authViewModel.restrictedPhoneNumber.collectAsState()
             
@@ -254,9 +257,6 @@ fun AppNavHost(
         
         // Project Selection
         composable(Screen.ProjectSelection.route) {
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val authState by authViewModel.authState.collectAsState()
-            
             ProjectSelectionScreen(
                 onProjectSelected = { projectId ->
                     navController.navigate(Screen.ExpenseList.createRoute(projectId))
@@ -264,15 +264,17 @@ fun AppNavHost(
                 onNotificationClick = { userId ->
                     navController.navigate(Screen.NotificationList.route)
                 },
-                currentUserId = authState.user?.uid ?: ""
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                authViewModel = authViewModel
             )
         }
         
         // Notification Screen
         composable(Screen.NotificationList.route) {
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val authState by authViewModel.authState.collectAsState()
-            
             NotificationListScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToProject = { projectId ->
@@ -284,7 +286,8 @@ fun AppNavHost(
                 },
                 onNavigateToPendingApprovals = { projectId ->
                             navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
-                        }
+                        },
+                authViewModel = authViewModel
             )
         }
         
@@ -295,8 +298,6 @@ fun AppNavHost(
         ) { backStackEntry ->
             val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
             val projectViewModel: ProjectViewModel = hiltViewModel()
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val authState by authViewModel.authState.collectAsState()
             
             // Ensure projects are loaded
             LaunchedEffect(Unit) {
@@ -340,7 +341,8 @@ fun AppNavHost(
                         },
                         onNavigateToPendingApprovals = { projectId ->
                                     navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
-                                }
+                                },
+                        authViewModel = authViewModel
                     )
                 }
                 else -> {
@@ -652,6 +654,11 @@ fun AppNavHost(
                 },
                 onNavigateToTrackSubmissions = {
                     navController.navigate(Screen.ProjectSelection.route)
+                },
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
                 }
             )
         }
@@ -672,9 +679,6 @@ fun AppNavHost(
         
         // New Approver Project Flow
         composable(Screen.ApproverProjectSelection.route) {
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val authState by authViewModel.authState.collectAsState()
-            
             ApproverProjectSelectionScreen(
                 onProjectSelected = { projectId ->
                     navController.navigate(Screen.ApproverProjectDashboard.createRoute(projectId))
@@ -685,7 +689,12 @@ fun AppNavHost(
                 onNavigateToNotifications = {
                     navController.navigate(Screen.NotificationList.route)
                 },
-                currentUserId = authState.user?.uid ?: ""
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                authViewModel = authViewModel
             )
         }
         
@@ -840,9 +849,6 @@ fun AppNavHost(
         
         // Production Head Flow - Complete with all Approver functionality
         composable(Screen.ProductionHeadProjectSelection.route) {
-            val authViewModel: AuthViewModel = hiltViewModel()
-            val authState by authViewModel.authState.collectAsState()
-            
             ProductionHeadProjectSelectionScreen(
                 onProjectSelected = { projectId ->
                     navController.navigate(Screen.ProductionHeadProjectDashboard.createRoute(projectId))
@@ -862,7 +868,12 @@ fun AppNavHost(
                 onNavigateToNotifications = {
                     navController.navigate(Screen.NotificationList.route)
                 },
-                currentUserId = authState.user?.uid ?: ""
+                onLogout = {
+                    navController.navigate(Screen.Login.route) {
+                        popUpTo(0) { inclusive = true }
+                    }
+                },
+                authViewModel = authViewModel
             )
         }
         

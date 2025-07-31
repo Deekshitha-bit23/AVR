@@ -42,6 +42,7 @@ fun UserDashboardScreen(
     onNavigateToAddExpense: () -> Unit,
     onNavigateToExpenseList: () -> Unit,
     onNavigateToTrackSubmissions: () -> Unit,
+    onLogout: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     expenseViewModel: ExpenseViewModel = hiltViewModel()
 ) {
@@ -50,6 +51,11 @@ fun UserDashboardScreen(
     val isLoading by expenseViewModel.isLoading.collectAsState()
     val error by expenseViewModel.error.collectAsState()
     val successMessage by expenseViewModel.successMessage.collectAsState()
+
+    // Refresh user data when screen opens to ensure current user is loaded
+    LaunchedEffect(Unit) {
+        authViewModel.refreshUserData()
+    }
 
     // Load user expenses when screen opens
     LaunchedEffect(authState.user?.uid) {
@@ -94,6 +100,21 @@ fun UserDashboardScreen(
                         Icon(
                             Icons.Default.Refresh,
                             contentDescription = "Refresh",
+                            tint = Color.White
+                        )
+                    }
+                    
+                    // Logout button
+                    IconButton(
+                        onClick = { 
+                            println("🚪 Logout button clicked")
+                            authViewModel.logout()
+                            onLogout()
+                        }
+                    ) {
+                        Icon(
+                            Icons.Default.ExitToApp,
+                            contentDescription = "Logout",
                             tint = Color.White
                         )
                     }

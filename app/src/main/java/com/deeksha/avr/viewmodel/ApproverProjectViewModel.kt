@@ -41,20 +41,25 @@ class ApproverProjectViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     
-    fun loadProjects() {
+    fun loadProjects(userId: String? = null) {
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             
             try {
-                Log.d("ApproverProjectVM", "🔄 Loading projects...")
-                projectRepository.getActiveProjects().collect { projectList ->
-                    Log.d("ApproverProjectVM", "✅ Loaded ${projectList.size} projects: ${projectList.map { it.name }}")
+                if (userId != null) {
+                    // Load projects for specific user using flow
+                    projectRepository.getUserProjects(userId).collect { projectList ->
+                        _projects.value = projectList
+                        _isLoading.value = false
+                    }
+                } else {
+                    // Load all active projects (fallback) - this is a one-time call
+                    val projectList = projectRepository.getAllProjects()
                     _projects.value = projectList
                     _isLoading.value = false
                 }
             } catch (e: Exception) {
-                Log.e("ApproverProjectVM", "❌ Error loading projects: ${e.message}")
                 _error.value = e.message
                 _isLoading.value = false
             }

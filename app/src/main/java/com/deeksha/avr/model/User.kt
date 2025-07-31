@@ -10,7 +10,9 @@ data class User(
     @PropertyName("role") val role: UserRole = UserRole.USER,
     @PropertyName("createdAt") val createdAt: Long = System.currentTimeMillis(),
     @PropertyName("isActive") val isActive: Boolean = true,
-    @PropertyName("assignedProjects") val assignedProjects: List<String> = emptyList()
+    @PropertyName("assignedProjects") val assignedProjects: List<String> = emptyList(),
+    @PropertyName("deviceInfo") val deviceInfo: DeviceInfo = DeviceInfo(),
+    @PropertyName("notificationPreferences") val notificationPreferences: NotificationPreferences = NotificationPreferences()
 )
 
 enum class UserRole {

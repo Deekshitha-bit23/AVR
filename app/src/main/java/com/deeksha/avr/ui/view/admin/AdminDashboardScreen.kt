@@ -10,6 +10,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.deeksha.avr.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -17,8 +19,16 @@ fun AdminDashboardScreen(
     onNavigateToManageUsers: () -> Unit,
     onNavigateToManageProjects: () -> Unit,
     onNavigateToReports: () -> Unit,
-    onLogout: () -> Unit
+    onLogout: () -> Unit,
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
+    val authState by authViewModel.authState.collectAsState()
+    
+    // Refresh user data when screen opens to ensure current user is loaded
+    LaunchedEffect(Unit) {
+        authViewModel.refreshUserData()
+    }
+    
     Column(
         modifier = Modifier.fillMaxSize()
     ) {

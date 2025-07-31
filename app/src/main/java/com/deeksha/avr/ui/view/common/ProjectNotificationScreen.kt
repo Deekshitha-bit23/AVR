@@ -36,7 +36,7 @@ fun ProjectNotificationScreen(
     onNavigateToExpense: (String, String) -> Unit,
     onNavigateToPendingApprovals: (String) -> Unit,
     notificationViewModel: NotificationViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel
 ) {
     val notifications by notificationViewModel.notifications.collectAsState()
     val notificationBadge by notificationViewModel.notificationBadge.collectAsState()

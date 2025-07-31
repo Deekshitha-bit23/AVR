@@ -9,8 +9,8 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +29,7 @@ import com.deeksha.avr.ui.common.ProjectNotificationSummaryCard
 import com.deeksha.avr.utils.FormatUtils
 import java.text.NumberFormat
 import java.util.*
+import com.deeksha.avr.viewmodel.AuthViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,9 +38,11 @@ fun ApproverProjectSelectionScreen(
     onNavigateToOverallReports: () -> Unit = {},
     onNavigateToAllPendingApprovals: () -> Unit = {},
     onNavigateToNotifications: () -> Unit = {},
-    currentUserId: String,
+    onLogout: () -> Unit = {},
+    currentUserId: String = "", // Make this optional with default empty string
     approverProjectViewModel: ApproverProjectViewModel = hiltViewModel(),
-    notificationViewModel: NotificationViewModel = hiltViewModel()
+    notificationViewModel: NotificationViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel
 ) {
     val projects by approverProjectViewModel.projects.collectAsState()
     val isLoading by approverProjectViewModel.isLoading.collectAsState()
@@ -48,10 +51,29 @@ fun ApproverProjectSelectionScreen(
     val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
     val notifications by notificationViewModel.notifications.collectAsState()
     
+    // Get current user from AuthViewModel
+    val authState by authViewModel.authState.collectAsState()
+    val currentUser = authState.user
+    
+    // Use currentUser.uid if available, otherwise fall back to passed currentUserId
+    val effectiveUserId = currentUser?.uid ?: currentUserId
+    
+    // Refresh user data when screen opens to ensure current user is loaded
+    LaunchedEffect(Unit) {
+        println("🎬 ApproverProjectSelectionScreen: Refreshing user data...")
+        authViewModel.refreshUserData()
+    }
+    
     // Load projects when screen starts
     LaunchedEffect(Unit) {
-        approverProjectViewModel.loadProjects()
-        notificationViewModel.loadNotifications(currentUserId)
+        if (effectiveUserId.isNotEmpty()) {
+            approverProjectViewModel.loadProjects(effectiveUserId)
+        } else {
+            approverProjectViewModel.loadProjects()
+        }
+        if (effectiveUserId.isNotEmpty()) {
+            notificationViewModel.loadNotifications(effectiveUserId)
+        }
     }
     
     Column(
@@ -97,6 +119,19 @@ fun ApproverProjectSelectionScreen(
                     NotificationBadgeComponent(
                         badge = notificationBadge,
                         modifier = Modifier.align(Alignment.TopEnd)
+                    )
+                }
+                
+                // Logout button
+                IconButton(onClick = { 
+                    println("🚪 Logout button clicked")
+                    authViewModel.logout()
+                    onLogout()
+                }) {
+                    Icon(
+                        Icons.Default.ExitToApp,
+                        contentDescription = "Logout",
+                        tint = Color(0xFF4285F4)
                     )
                 }
             },

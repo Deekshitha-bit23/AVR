@@ -47,6 +47,7 @@ fun LoginScreen(
         if (otpSent) {
             android.util.Log.d("LoginScreen", "🔍 OTP sent, navigating to verification screen")
             android.util.Log.d("LoginScreen", "🔍 AuthViewModel instance: ${authViewModel.hashCode()}")
+            android.util.Log.d("LoginScreen", "🔍 AuthViewModel instance: ${currentUser}")
             onNavigateToOtp("+91$phoneNumber")
         }
     }
@@ -208,6 +209,7 @@ fun LoginScreen(
             onClick = {
                 android.util.Log.d("LoginScreen", "🔄 Development skip button clicked")
                 android.util.Log.d("LoginScreen", "📱 Phone number: $phoneNumber")
+                android.util.Log.d("LoginScreen", "🔍 AuthViewModel instance: ${currentUser}")
                 
                 if (phoneNumber.isNotEmpty()) {
                     authViewModel.skipOTPForDevelopment(phoneNumber) { role ->

@@ -37,6 +37,11 @@ fun ProductionHeadDashboard(
     val approvalSummary by approvalViewModel.approvalSummary.collectAsState()
     val authState by authViewModel.authState.collectAsState()
     
+    // Refresh user data when screen opens to ensure current user is loaded
+    LaunchedEffect(Unit) {
+        authViewModel.refreshUserData()
+    }
+    
     // Load pending approvals data
     LaunchedEffect(Unit) {
         approvalViewModel.loadPendingApprovals()

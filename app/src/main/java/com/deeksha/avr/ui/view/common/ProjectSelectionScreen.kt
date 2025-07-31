@@ -31,15 +31,19 @@ import com.deeksha.avr.ui.common.ProjectNotificationSummaryCard
 import com.deeksha.avr.utils.FormatUtils
 import java.text.NumberFormat
 import java.util.*
+import com.deeksha.avr.viewmodel.AuthViewModel
+import androidx.compose.material.icons.filled.ExitToApp
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProjectSelectionScreen(
     onProjectSelected: (String) -> Unit,
     onNotificationClick: (String) -> Unit = {},
-    currentUserId: String,
+    onLogout: () -> Unit = {},
+    currentUserId: String = "", // Make this optional with default empty string
     projectViewModel: ProjectViewModel = hiltViewModel(),
-    notificationViewModel: NotificationViewModel = hiltViewModel()
+    notificationViewModel: NotificationViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel
 ) {
     val projects by projectViewModel.projects.collectAsState()
     val isLoading by projectViewModel.isLoading.collectAsState()
@@ -48,6 +52,139 @@ fun ProjectSelectionScreen(
     val notificationBadge by notificationViewModel.notificationBadge.collectAsState()
     val notifications by notificationViewModel.notifications.collectAsState()
     val isNotificationsLoading by notificationViewModel.isLoading.collectAsState()
+    
+    // Get current user from AuthViewModel
+    val authState by authViewModel.authState.collectAsState()
+    val currentUser = authState.user
+    
+    // Use currentUser.uid if available, otherwise fall back to passed currentUserId
+    val effectiveUserId = currentUser?.uid ?: currentUserId
+    
+    // Load projects and notifications when user is authenticated
+    LaunchedEffect(currentUser, authState.isAuthenticated) {
+        if (authState.isAuthenticated && currentUser != null && effectiveUserId.isNotEmpty()) {
+            println("🎬 ProjectSelectionScreen: User authenticated, loading data for: $effectiveUserId")
+            println("🎬 ProjectSelectionScreen: User: ${currentUser.name}, Role: ${currentUser.role}")
+            
+            // Load notifications
+            notificationViewModel.forceLoadNotifications(effectiveUserId)
+            
+            // Load projects
+            projectViewModel.loadProjects(effectiveUserId)
+        }
+    }
+    
+    // Show loading state while checking authentication
+    if (authState.isLoading) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                CircularProgressIndicator(color = Color(0xFF4285F4))
+                Spacer(modifier = Modifier.height(16.dp))
+                Text(
+                    text = "Checking authentication...",
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+            }
+        }
+        return
+    }
+    
+    // Show error if authentication failed
+    if (authState.error != null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "❌ Authentication Error",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Red,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = authState.error ?: "Unknown error occurred",
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { 
+                        authViewModel.clearError()
+                        authViewModel.forceCheckAuthState()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4285F4)
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Retry")
+                }
+            }
+        }
+        return
+    }
+    
+    // Show message if user is not authenticated
+    if (!authState.isAuthenticated || currentUser == null) {
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center
+        ) {
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally,
+                modifier = Modifier.padding(16.dp)
+            ) {
+                Text(
+                    text = "🔐 Authentication Required",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(
+                    text = "Please log in to access projects",
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+                Spacer(modifier = Modifier.height(16.dp))
+                Button(
+                    onClick = { 
+                        authViewModel.forceCheckAuthState()
+                    },
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFF4285F4)
+                    )
+                ) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = null,
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Check Authentication")
+                }
+            }
+        }
+        return
+    }
     
     // Get expense status summary from notifications
     val expenseStatusSummary: ExpenseNotificationSummary = remember(notifications) {
@@ -79,30 +216,41 @@ fun ProjectSelectionScreen(
     
     LaunchedEffect(Unit) {
         println("🎬 ProjectSelectionScreen: Loading projects...")
-        projectViewModel.loadProjects()
+        println("🎬 ProjectSelectionScreen: Current user ID: $effectiveUserId")
+        println("🎬 ProjectSelectionScreen: Current user: ${currentUser?.name ?: "null"}")
         
-        // Force load notifications immediately
-        if (currentUserId.isNotEmpty()) {
-            println("🔄 Force loading notifications for user: $currentUserId")
-            notificationViewModel.forceLoadNotifications(currentUserId)
+        // Load projects for the current user
+        if (effectiveUserId.isNotEmpty()) {
+            projectViewModel.loadProjects(effectiveUserId)
+        } else {
+            println("⚠️ No valid user ID available for loading projects")
+            projectViewModel.loadProjects() // Fallback to load all projects
+        }
+        
+        // Force load notifications immediately if we have a valid user ID
+        if (effectiveUserId.isNotEmpty()) {
+            println("🔄 Force loading notifications for user: $effectiveUserId")
+            notificationViewModel.forceLoadNotifications(effectiveUserId)
+        } else {
+            println("⚠️ No valid user ID available for loading notifications")
         }
     }
     
-    // Auto-refresh notifications when screen becomes visible
-    LaunchedEffect(currentUserId) {
-        if (currentUserId.isNotEmpty()) {
-            println("🔄 Auto-refresh notifications for user: $currentUserId")
-            notificationViewModel.forceLoadNotifications(currentUserId)
+    // Auto-refresh notifications when user data changes
+    LaunchedEffect(effectiveUserId) {
+        if (effectiveUserId.isNotEmpty()) {
+            println("🔄 Auto-refresh notifications for user: $effectiveUserId")
+            notificationViewModel.forceLoadNotifications(effectiveUserId)
         }
     }
     
     // Set up periodic refresh for notifications (every 10 seconds for better responsiveness)
-    LaunchedEffect(Unit) {
+    LaunchedEffect(effectiveUserId) {
         while (true) {
             kotlinx.coroutines.delay(10000) // 10 seconds
-            if (currentUserId.isNotEmpty()) {
-                println("🔄 Periodic refresh notifications for user: $currentUserId")
-                notificationViewModel.refreshNotifications(currentUserId)
+            if (effectiveUserId.isNotEmpty()) {
+                println("🔄 Periodic refresh notifications for user: $effectiveUserId")
+                notificationViewModel.refreshNotifications(effectiveUserId)
             }
         }
     }
@@ -133,8 +281,12 @@ fun ProjectSelectionScreen(
                 // Refresh button
                 IconButton(onClick = { 
                     println("🔄 Refresh button clicked")
+                    if (effectiveUserId.isNotEmpty()) {
+                        projectViewModel.loadProjects(effectiveUserId)
+                    } else {
                     projectViewModel.loadProjects() 
-                    notificationViewModel.forceLoadNotifications(currentUserId)
+                    }
+                    notificationViewModel.forceLoadNotifications(effectiveUserId)
                     println("🔄 Refresh completed - projects and notifications updated")
                 }) {
                     Icon(
@@ -145,7 +297,7 @@ fun ProjectSelectionScreen(
                 }
                 
                 Box {
-                    IconButton(onClick = { onNotificationClick(currentUserId) }) {
+                    IconButton(onClick = { onNotificationClick(effectiveUserId) }) {
                         if (isNotificationsLoading) {
                             CircularProgressIndicator(
                                 modifier = Modifier.size(20.dp),
@@ -168,6 +320,19 @@ fun ProjectSelectionScreen(
                             modifier = Modifier.align(Alignment.TopEnd)
                         )
                     }
+                }
+                
+                // Logout button
+                IconButton(onClick = { 
+                    println("🚪 Logout button clicked")
+                    authViewModel.logout()
+                    onLogout()
+                }) {
+                    Icon(
+                        Icons.Default.ExitToApp,
+                        contentDescription = "Logout",
+                        tint = Color(0xFF4285F4)
+                    )
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
@@ -342,7 +507,7 @@ fun ProjectSelectionScreen(
                         Spacer(modifier = Modifier.height(16.dp))
                         
                         Button(
-                            onClick = { onNotificationClick(currentUserId) },
+                            onClick = { onNotificationClick(effectiveUserId) },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF4CAF50)
@@ -399,7 +564,11 @@ fun ProjectSelectionScreen(
                             Button(
                                 onClick = { 
                                     projectViewModel.clearError()
+                                    if (effectiveUserId.isNotEmpty()) {
+                                        projectViewModel.loadProjects(effectiveUserId)
+                                    } else {
                                     projectViewModel.loadProjects() 
+                                    }
                                 },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF4285F4)
@@ -440,7 +609,13 @@ fun ProjectSelectionScreen(
                             )
                             Spacer(modifier = Modifier.height(16.dp))
                             Button(
-                                onClick = { projectViewModel.loadProjects() },
+                                onClick = { 
+                                    if (effectiveUserId.isNotEmpty()) {
+                                        projectViewModel.loadProjects(effectiveUserId)
+                                    } else {
+                                        projectViewModel.loadProjects()
+                                    }
+                                },
                                 colors = ButtonDefaults.buttonColors(
                                     containerColor = Color(0xFF4285F4)
                                 )

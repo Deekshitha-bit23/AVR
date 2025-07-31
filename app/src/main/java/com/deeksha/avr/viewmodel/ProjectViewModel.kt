@@ -29,14 +29,27 @@ class ProjectViewModel @Inject constructor(
     private val _error = MutableStateFlow<String?>(null)
     val error: StateFlow<String?> = _error.asStateFlow()
     
-    fun loadProjects() {
+    fun loadProjects(userId: String? = null) {
         viewModelScope.launch {
             println("🚀 ProjectViewModel: Starting to load projects")
+            println("🚀 ProjectViewModel: User ID: $userId")
             _isLoading.value = true
             _error.value = null
             
             try {
-                projectRepository.getActiveProjects().collect { projectList ->
+                if (userId != null) {
+                    // Load projects for specific user using flow
+                    projectRepository.getUserProjects(userId).collect { projectList ->
+                        println("📦 ProjectViewModel: Received ${projectList.size} projects for user $userId from repository")
+                        projectList.forEach { project ->
+                            println("  📋 Project: ${project.name} (ID: ${project.id})")
+                        }
+                        _projects.value = projectList
+                        _isLoading.value = false
+                    }
+                } else {
+                    // Load all active projects (fallback) - this is a one-time call
+                    val projectList = projectRepository.getAllProjects()
                     println("📦 ProjectViewModel: Received ${projectList.size} projects from repository")
                     projectList.forEach { project ->
                         println("  📋 Project: ${project.name} (ID: ${project.id})")
@@ -51,41 +64,7 @@ class ProjectViewModel @Inject constructor(
             }
         }
     }
-    
-    fun loadProject(projectId: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            
-            try {
-                val project = projectRepository.getProjectById(projectId)
-                _currentProject.value = project
-                println("📋 ProjectViewModel: Loaded project: ${project?.name} (ID: ${project?.id})")
-            } catch (e: Exception) {
-                println("❌ ProjectViewModel: Error loading project: ${e.message}")
-                _error.value = e.message
-            } finally {
-                _isLoading.value = false
-            }
-        }
-    }
-    
-    fun loadUserProjects(userId: String) {
-        viewModelScope.launch {
-            _isLoading.value = true
-            _error.value = null
-            
-            try {
-                projectRepository.getUserProjects(userId).collect { projectList ->
-                    _projects.value = projectList
-                    _isLoading.value = false
-                }
-            } catch (e: Exception) {
-                _error.value = e.message
-                _isLoading.value = false
-            }
-        }
-    }
+
     
     suspend fun createProject(project: Project): Result<String> {
         return projectRepository.createProject(project)
