@@ -20,9 +20,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
-import kotlinx.coroutines.withTimeout
 import java.util.concurrent.TimeUnit
 import javax.inject.Inject
+import android.content.Context
+import com.deeksha.avr.utils.DeviceUtils
+import com.google.firebase.firestore.FirebaseFirestore
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -30,7 +32,31 @@ class AuthViewModel @Inject constructor(
     private val projectRepository: ProjectRepository,
     private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
-    
+
+    fun saveDeviceInfoAfterLogin(context: Context) {
+        viewModelScope.launch {
+            try {
+                val deviceInfo = DeviceUtils.collectDeviceInfo(context)
+                val phoneNumber = FirebaseAuth.getInstance().currentUser?.phoneNumber ?: return@launch
+
+                FirebaseFirestore.getInstance()
+                    .collection("users")
+                    .document(phoneNumber)
+                    .update("deviceInfo", deviceInfo)
+                    .addOnSuccessListener {
+                        Log.e("AuthViewModel", "✅ Device info saved successfully for $phoneNumber")
+                    }
+                    .addOnFailureListener { e ->
+                        Log.e("AuthViewModel", "❌ Failed to save device info", e)
+                    }
+
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "❌ Exception while saving device info", e)
+            }
+        }
+    }
+
+
     // Main authentication state
     private val _authState = MutableStateFlow(AuthState())
     val authState: StateFlow<AuthState> = _authState.asStateFlow()

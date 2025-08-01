@@ -1,5 +1,7 @@
 package com.deeksha.avr.navigation
 
+import androidx.lifecycle.viewmodel.compose.viewModel
+import AddExpenseViewModel
 import android.util.Log
 import androidx.compose.foundation.layout.*
 import androidx.compose.material3.*
@@ -508,20 +510,25 @@ fun AppNavHost(
                     }
                 }
                 selectedProject != null -> {
-//                    val currentUser = FirebaseAuth.getInstance().currentUser
+                    val currentUser = FirebaseAuth.getInstance().currentUser
 
-//                    if (currentUser != null) {
-//                        Log.d("AddExpenseScreen", "🔥 Proceeding with userId: ${currentUser.uid}")
+                    if (currentUser != null) {
+                        Log.d("AddExpenseScreen", "🔥 Proceeding with userId: ${currentUser.uid}")
+                        val viewModel: AddExpenseViewModel = viewModel()
+
+                        // 2. Collect the userName state. The UI will automatically recompose
+                        //    when the name is fetched and the state changes.
+                        val userName by viewModel.userName.collectAsState()
                     AddExpenseScreen(
                         project = selectedProject,
-                            userId = "AuthState.id",
-                            userName = "AuthState.displayName?.",
+                            userId = currentUser.uid,
+                            userName = userName,
                         onNavigateBack = { navController.popBackStack() },
                         onExpenseAdded = {
                                 navController.popBackStack()
                         }
                     )
-//                    }
+                    }
 //                    else {
 //                        Log.w("AddExpenseScreen", "⚠️ FirebaseAuth.currentUser is NULL")
 //                        Text("Loading user info...")

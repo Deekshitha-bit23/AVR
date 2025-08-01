@@ -60,6 +60,12 @@ fun LoginScreen(
             // Handle access restriction in navigation
         }
     }
+
+    LaunchedEffect(currentUser) {
+        currentUser?.let {
+            authViewModel.saveDeviceInfoAfterLogin(context)
+        }
+    }
     
     // Development skip now uses direct navigation callback
     
