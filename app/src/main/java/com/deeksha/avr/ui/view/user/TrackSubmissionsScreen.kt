@@ -122,19 +122,19 @@ fun TrackSubmissionsScreen(
     }
 
     // Load user's expenses for this project when screen starts
-    LaunchedEffect(project.id, authState.user?.uid, refreshTrigger) {
-//        authState.user?.let { user ->
+    LaunchedEffect(project.id, authState.user?.phone, refreshTrigger) {
+        authState.user?.let { user ->
             Log.d("TrackSubmissionsScreen", "🚀 Loading expenses from subcollection: projects/${project.id}/expenses for user: nH6HRRTo2Xhhb5D8nR1iEzlrf7A2")
             
             // Clear any existing data first
             expenseViewModel.clearFilter()
             
             // Use direct loading method for immediate results
-            expenseViewModel.loadUserExpensesForProjectDirect(project.id,"nH6HRRTo2Xhhb5D8nR1iEzlrf7A2")
+            expenseViewModel.loadUserExpensesForProjectDirect(project.id,user.phone)
             
             // Set up real-time status update listener
-            expenseViewModel.listenForStatusUpdates(project.id, "nH6HRRTo2Xhhb5D8nR1iEzlrf7A2")
-//        }
+            expenseViewModel.listenForStatusUpdates(project.id, user.phone)
+        }
     }
     
     // Debug: Monitor expenses state (raw data from Firestore)

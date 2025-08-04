@@ -59,9 +59,9 @@ fun ProductionHeadProjectSelectionScreen(
     // Get current user from AuthViewModel
     val authState by authViewModel.authState.collectAsState()
     val currentUser = authState.user
-    
-    // Use currentUser.uid if available, otherwise fall back to passed currentUserId
-    val effectiveUserId = currentUser?.uid ?: currentUserId
+//
+//    // Use currentUser.uid if available, otherwise fall back to passed currentUserId
+//    val effectiveUserId = currentUser?.uid ?: currentUserId
     
     // Refresh user data when screen opens to ensure current user is loaded
     LaunchedEffect(Unit) {
@@ -70,14 +70,7 @@ fun ProductionHeadProjectSelectionScreen(
     }
     
     LaunchedEffect(Unit) {
-        if (effectiveUserId.isNotEmpty()) {
-            projectViewModel.loadProjects(effectiveUserId)
-        } else {
-            projectViewModel.loadProjects()
-        }
-        if (effectiveUserId.isNotEmpty()) {
-            notificationViewModel.loadNotifications(effectiveUserId)
-        }
+        projectViewModel.loadProjects()
     }
     
     Scaffold(
@@ -170,7 +163,7 @@ fun ProductionHeadProjectSelectionScreen(
                 ) {
                     Icon(
                         Icons.Default.Add,
-                        contentDescription = "New Project",
+                        contentDescription = "New project",
                         modifier = Modifier.size(24.dp)
                     )
                 }

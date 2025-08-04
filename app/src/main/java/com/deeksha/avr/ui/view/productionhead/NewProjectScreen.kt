@@ -833,8 +833,8 @@ fun NewProjectScreen(
                                     startDate = Timestamp(startDate!!),
                                     endDate = endDate?.let { Timestamp(it) },
                                     totalBudget = totalBudget.toDoubleOrNull() ?: 0.0,
-                                    managerId = selectedApprover!!.uid,
-                                    teamMemberIds = selectedTeamMembers.map { it.uid },
+                                    managerId = selectedApprover!!.phone,
+                                    teamMemberIds = selectedTeamMembers.map { it.phone },
                                     departmentBudgets = departmentBudgets,
                                     categories = projectCategories
                                 )

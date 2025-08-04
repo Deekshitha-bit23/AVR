@@ -9,7 +9,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -23,7 +25,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import androidx.navigation.NavType
-import com.deeksha.avr.model.AuthState
+import kotlinx.coroutines.tasks.await
 import com.deeksha.avr.model.Project
 import com.deeksha.avr.model.UserRole
 import com.deeksha.avr.repository.ExpenseRepository
@@ -63,6 +65,7 @@ import com.deeksha.avr.viewmodel.ProjectViewModel
 import com.deeksha.avr.ui.view.approver.DepartmentDetailScreen
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
+import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
@@ -509,30 +512,52 @@ fun AppNavHost(
                         }
                     }
                 }
+
+
                 selectedProject != null -> {
                     val currentUser = FirebaseAuth.getInstance().currentUser
 
-                    if (currentUser != null) {
-                        Log.d("AddExpenseScreen", "🔥 Proceeding with userId: ${currentUser.uid}")
-                        val viewModel: AddExpenseViewModel = viewModel()
+                    if (currentUser != null && currentUser.phoneNumber != null) {
+                        val phoneNumber = currentUser.phoneNumber!!.removePrefix("+91")
+                        val firestore = FirebaseFirestore.getInstance()
 
-                        // 2. Collect the userName state. The UI will automatically recompose
-                        //    when the name is fetched and the state changes.
-                        val userName by viewModel.userName.collectAsState()
-                    AddExpenseScreen(
-                        project = selectedProject,
-                            userId = currentUser.uid,
-                            userName = userName,
-                        onNavigateBack = { navController.popBackStack() },
-                        onExpenseAdded = {
-                                navController.popBackStack()
+                        // Compose states to store user data
+                        var userName by remember { mutableStateOf<String?>(null) }
+                        var userPhone by remember { mutableStateOf<String?>(null) }
+
+                        // One-time effect to fetch user data
+                        LaunchedEffect(phoneNumber) {
+                            firestore.collection("users")
+                                .document(phoneNumber)
+                                .get()
+                                .addOnSuccessListener { documentSnapshot ->
+                                    if (documentSnapshot.exists()) {
+                                        userName = documentSnapshot.getString("name") ?: ""
+                                        userPhone = documentSnapshot.getString("phoneNumber") ?: ""
+                                        Log.d("Firestore", "✅ Name: $userName, Phone: $userPhone")
+                                    } else {
+                                        Log.d("Firestore", "❌ No user found with phone number: $phoneNumber")
+                                    }
+                                }
+                                .addOnFailureListener { exception ->
+                                    Log.e("Firestore", "Error fetching user document", exception)
+                                }
                         }
-                    )
+
+                        // Only show AddExpenseScreen when userName is loaded
+                        if (userName != null && userPhone != null) {
+                            AddExpenseScreen(
+                                project = selectedProject,
+                                userId = userPhone!!,   // Phone number as userId
+                                userName = userName!!,
+                                onNavigateBack = { navController.popBackStack() },
+                                onExpenseAdded = { navController.popBackStack() }
+                            )
+                        }
+                    } else {
+                        Log.e("Auth", "Current user is null or phone number is not available")
                     }
-//                    else {
-//                        Log.w("AddExpenseScreen", "⚠️ FirebaseAuth.currentUser is NULL")
-//                        Text("Loading user info...")
-//                    }
+
                 }
                 else -> {
                     // Project not found - show error and back button
