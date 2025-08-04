@@ -47,13 +47,16 @@ class ApproverProjectViewModel @Inject constructor(
             _error.value = null
             
             try {
+                Log.d("ApproverProjectLoADING", "ENTERING INTO THE APPROVER LOAD PROJECT")
                 if (userId != null) {
+                    Log.d("ApproverProjectLoADING", "ENTERING INTO THE APPROVER LOAD PROJECT AND USERID IS NOT NULL")
                     // Load projects for specific user using flow
-                    projectRepository.getUserProjects(userId).collect { projectList ->
+                    projectRepository.getApproverProjects(userId).collect { projectList ->
                         _projects.value = projectList
                         _isLoading.value = false
                     }
                 } else {
+                    Log.d("ApproverProjectLoADING", "ENTERING INTO THE APPROVER LOAD PROJECT USERID IS NULL")
                     // Load all active projects (fallback) - this is a one-time call
                     val projectList = projectRepository.getAllProjects()
                     _projects.value = projectList

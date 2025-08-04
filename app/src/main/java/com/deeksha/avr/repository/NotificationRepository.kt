@@ -147,7 +147,6 @@ class NotificationRepository @Inject constructor(
             
             val result = notificationsCollection
                 .whereEqualTo("projectId", projectId)
-                .whereEqualTo("recipientId", userId)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
@@ -174,9 +173,10 @@ class NotificationRepository @Inject constructor(
             try {
                 Log.d("NotificationRepository", "🔄 Setting up real-time project notifications for user: $userId, project: $projectId, role: $userRole")
                 
+                // Query for all notifications for the project
+                // This allows users to see all notifications related to their project
                 val query = notificationsCollection
                     .whereEqualTo("projectId", projectId)
-                    .whereEqualTo("recipientId", userId)
                     .orderBy("createdAt", Query.Direction.DESCENDING)
                 
                 // Listen for real-time updates

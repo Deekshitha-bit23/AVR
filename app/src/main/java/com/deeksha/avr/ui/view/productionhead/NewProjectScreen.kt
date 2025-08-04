@@ -59,6 +59,18 @@ fun NewProjectScreen(
     var approverSearchQuery by remember { mutableStateOf("") }
     var teamMemberSearchQuery by remember { mutableStateOf("") }
     
+    // Debug logging for state changes
+    LaunchedEffect(selectedTeamMembers) {
+        android.util.Log.d("NewProjectScreen", "Selected team members updated: ${selectedTeamMembers.size}")
+        selectedTeamMembers.forEach { user ->
+            android.util.Log.d("NewProjectScreen", "Team member: ${user.name} (${user.uid})")
+        }
+    }
+    
+    LaunchedEffect(selectedApprover) {
+        android.util.Log.d("NewProjectScreen", "Selected approver updated: ${selectedApprover?.name ?: "null"}")
+    }
+    
     // Department Budgets
     var totalBudget by remember { mutableStateOf("") }
     var departmentName by remember { mutableStateOf("") }
@@ -77,6 +89,21 @@ fun NewProjectScreen(
     val availableUsers by viewModel.availableUsers.collectAsState()
     val departmentBudgets by viewModel.departmentBudgets.collectAsState()
     val totalAllocated by viewModel.totalAllocated.collectAsState()
+    
+    // Debug logging for available data
+    LaunchedEffect(availableUsers) {
+        android.util.Log.d("NewProjectScreen", "Available users updated: ${availableUsers.size}")
+        availableUsers.forEach { user ->
+            android.util.Log.d("NewProjectScreen", "Available user: ${user.name} (${user.uid})")
+        }
+    }
+    
+    LaunchedEffect(availableApprovers) {
+        android.util.Log.d("NewProjectScreen", "Available approvers updated: ${availableApprovers.size}")
+        availableApprovers.forEach { approver ->
+            android.util.Log.d("NewProjectScreen", "Available approver: ${approver.name} (${approver.uid})")
+        }
+    }
     
     // Handle success
     LaunchedEffect(successMessage) {
@@ -122,35 +149,49 @@ fun NewProjectScreen(
                 color = Color.White,
                 shadowElevation = 1.dp
             ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back"
-                        )
-                    }
-                    
-                    Text(
-                        text = "New Project",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.weight(1f)
-                    )
-                    
-                    TextButton(
-                        onClick = { /* Handle Cancel */ },
-                        colors = ButtonDefaults.textButtonColors(
-                            contentColor = Color(0xFF4285F4)
-                        )
+                                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("Cancel")
+                        IconButton(onClick = onNavigateBack) {
+                            Icon(
+                                Icons.Default.ArrowBack,
+                                contentDescription = "Back"
+                            )
+                        }
+                        
+                        Text(
+                            text = "New Project",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.weight(1f)
+                        )
+                        
+                        // Refresh button for users
+                        IconButton(
+                            onClick = { 
+                                viewModel.refreshUsers()
+                                Toast.makeText(context, "Refreshing users...", Toast.LENGTH_SHORT).show()
+                            }
+                        ) {
+                            Icon(
+                                Icons.Default.Refresh,
+                                contentDescription = "Refresh Users",
+                                tint = Color(0xFF4285F4)
+                            )
+                        }
+                        
+                        TextButton(
+                            onClick = { /* Handle Cancel */ },
+                            colors = ButtonDefaults.textButtonColors(
+                                contentColor = Color(0xFF4285F4)
+                            )
+                        ) {
+                            Text("Cancel")
+                        }
                     }
-                }
             }
         }
         
@@ -333,7 +374,10 @@ fun NewProjectScreen(
                         ) {
                             ExposedDropdownMenuBox(
                                 expanded = showApproverSearch,
-                                onExpandedChange = { showApproverSearch = it }
+                                onExpandedChange = { 
+                                    android.util.Log.d("ApproverSearch", "Dropdown expanded changed to: $it")
+                                    showApproverSearch = it 
+                                }
                             ) {
                                 OutlinedTextField(
                                     value = "",
@@ -364,39 +408,64 @@ fun NewProjectScreen(
                                     )
                                 )
                                 
-
-                                
                                 ExposedDropdownMenu(
                                     expanded = showApproverSearch,
-                                    onDismissRequest = { showApproverSearch = false }
+                                    onDismissRequest = { 
+                                        android.util.Log.d("ApproverSearch", "Dropdown dismissed")
+                                        showApproverSearch = false 
+                                    }
                                 ) {
-                                    availableApprovers.forEach { item ->
+                                    android.util.Log.d("ApproverSearch", "Available approvers count: ${availableApprovers.size}")
+                                    if (availableApprovers.isEmpty()) {
                                         DropdownMenuItem(
-                                            text = { 
-                                                Column {
-                                                    Text(
-                                                        text = item.name,
-                                                        fontWeight = FontWeight.Medium
-                                                    )
-                                                    Text(
-                                                        text = item.phone,
-                                                        fontSize = 12.sp,
-                                                        color = Color.Gray
+                                            text = { Text("No approvers available") },
+                                            onClick = { }
+                                        )
+                                    } else {
+                                        availableApprovers.forEach { item ->
+                                            android.util.Log.d("ApproverSearch", "Rendering approver: ${item.name} (${item.uid})")
+                                            DropdownMenuItem(
+                                                text = { 
+                                                    Column {
+                                                        Text(
+                                                            text = item.name,
+                                                            fontWeight = FontWeight.Medium
+                                                        )
+                                                        Text(
+                                                            text = item.phone,
+                                                            fontSize = 12.sp,
+                                                            color = Color.Gray
+                                                        )
+                                                    }
+                                                },
+                                                onClick = {
+                                                    try {
+                                                        android.util.Log.d("ApproverSearch", "Approver clicked: ${item.name} (${item.uid})")
+                                                        
+                                                        // Validate user object
+                                                        if (item.uid.isNullOrEmpty()) {
+                                                            android.util.Log.e("ApproverSearch", "Approver UID is null or empty")
+                                                            Toast.makeText(context, "Invalid approver data", Toast.LENGTH_SHORT).show()
+                                                            return@DropdownMenuItem
+                                                        }
+                                                        
+                                                        selectedApprover = item
+                                                        showApproverSearch = false
+                                                        android.util.Log.d("ApproverSearch", "Approver selected and dropdown closed")
+                                                    } catch (e: Exception) {
+                                                        android.util.Log.e("ApproverSearch", "Error selecting approver: ${e.message}", e)
+                                                        Toast.makeText(context, "Error selecting approver: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                    }
+                                                },
+                                                leadingIcon = {
+                                                    Icon(
+                                                        Icons.Default.Person,
+                                                        contentDescription = "User",
+                                                        tint = Color(0xFF4285F4)
                                                     )
                                                 }
-                                            },
-                                            onClick = {
-                                                selectedApprover = item
-                                                showApproverSearch = false
-                                            },
-                                            leadingIcon = {
-                                                Icon(
-                                                    Icons.Default.Person,
-                                                    contentDescription = "User",
-                                                    tint = Color(0xFF4285F4)
-                                                )
-                                            }
-                                        )
+                                            )
+                                        }
                                     }
                                 }
                             }
@@ -443,7 +512,16 @@ fun NewProjectScreen(
                         items(selectedTeamMembers) { user ->
                             TeamMemberChip(
                                 user = user,
-                                onRemove = { selectedTeamMembers = selectedTeamMembers - user }
+                                onRemove = { 
+                                    try {
+                                        android.util.Log.d("TeamMemberChip", "Removing user: ${user.name} (${user.uid})")
+                                        selectedTeamMembers = selectedTeamMembers.filter { it.uid != user.uid }
+                                        android.util.Log.d("TeamMemberChip", "Updated team members count: ${selectedTeamMembers.size}")
+                                    } catch (e: Exception) {
+                                        android.util.Log.e("TeamMemberChip", "Error removing team member: ${e.message}", e)
+                                        Toast.makeText(context, "Error removing team member: ${e.message}", Toast.LENGTH_SHORT).show()
+                                    }
+                                }
                             )
                         }
                     }
@@ -461,7 +539,10 @@ fun NewProjectScreen(
                     ) {
                         ExposedDropdownMenuBox(
                             expanded = showTeamMemberSearch,
-                            onExpandedChange = { showTeamMemberSearch = it }
+                            onExpandedChange = { 
+                                android.util.Log.d("TeamMemberSearch", "Dropdown expanded changed to: $it")
+                                showTeamMemberSearch = it 
+                            }
                         ) {
                             OutlinedTextField(
                                 value = "",
@@ -492,42 +573,79 @@ fun NewProjectScreen(
                                 )
                             )
                             
-
-                            
                             ExposedDropdownMenu(
                                 expanded = showTeamMemberSearch,
-                                onDismissRequest = { showTeamMemberSearch = false }
+                                onDismissRequest = { 
+                                    android.util.Log.d("TeamMemberSearch", "Dropdown dismissed")
+                                    showTeamMemberSearch = false 
+                                }
                             ) {
-                                availableUsers.forEach { item ->
+                                android.util.Log.d("TeamMemberSearch", "Available users count: ${availableUsers.size}")
+                                if (availableUsers.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { 
-                                            Column {
-                                                Text(
-                                                    text = item.name,
-                                                    fontWeight = FontWeight.Medium
-                                                )
-                                                Text(
-                                                    text = item.phone,
-                                                    fontSize = 12.sp,
-                                                    color = Color.Gray
-                                                )
-                                            }
-                                        },
-                                        onClick = {
-                                            // Add item to existing selectedItems if not already present
-                                            if (!selectedTeamMembers.contains(item)) {
-                                                selectedTeamMembers = selectedTeamMembers + item
-                                            }
-                                            showTeamMemberSearch = false
-                                        },
-                                        leadingIcon = {
-                                            Icon(
-                                                Icons.Default.Person,
-                                                contentDescription = "User",
-                                                tint = Color(0xFF4285F4)
-                                            )
-                                        }
+                                        text = { Text("No users available") },
+                                        onClick = { }
                                     )
+                                } else {
+                                    availableUsers.forEach { item ->
+                                        android.util.Log.d("TeamMemberSearch", "Rendering user: ${item.name} (${item.uid})")
+                                        DropdownMenuItem(
+                                            text = { 
+                                                Column {
+                                                    Text(
+                                                        text = item.name,
+                                                        fontWeight = FontWeight.Medium
+                                                    )
+                                                    Text(
+                                                        text = item.phone,
+                                                        fontSize = 12.sp,
+                                                        color = Color.Gray
+                                                    )
+                                                }
+                                            },
+                                            onClick = {
+                                                try {
+                                                    android.util.Log.d("TeamMemberSearch", "User clicked: ${item.name} (${item.uid})")
+                                                    android.util.Log.d("TeamMemberSearch", "Current selected team members: ${selectedTeamMembers.size}")
+                                                    
+                                                    // Validate user object
+                                                    if (item.uid.isNullOrEmpty()) {
+                                                        android.util.Log.e("TeamMemberSearch", "User UID is null or empty")
+                                                        Toast.makeText(context, "Invalid user data", Toast.LENGTH_SHORT).show()
+                                                        return@DropdownMenuItem
+                                                    }
+                                                    
+                                                    // Check if user is already selected
+                                                    val isAlreadySelected = selectedTeamMembers.any { selectedUser -> 
+                                                        selectedUser.uid == item.uid || selectedUser.name == item.name
+                                                    }
+                                                    
+                                                    android.util.Log.d("TeamMemberSearch", "Is already selected: $isAlreadySelected")
+                                                    
+                                                    if (!isAlreadySelected) {
+                                                        android.util.Log.d("TeamMemberSearch", "Adding user to team members")
+                                                        selectedTeamMembers = selectedTeamMembers + item
+                                                        android.util.Log.d("TeamMemberSearch", "Updated team members count: ${selectedTeamMembers.size}")
+                                                    } else {
+                                                        android.util.Log.d("TeamMemberSearch", "User already selected, skipping")
+                                                    }
+                                                    
+                                                    showTeamMemberSearch = false
+                                                    android.util.Log.d("TeamMemberSearch", "Dropdown closed")
+                                                } catch (e: Exception) {
+                                                    android.util.Log.e("TeamMemberSearch", "Error selecting team member: ${e.message}", e)
+                                                    Toast.makeText(context, "Error selecting team member: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                }
+                                            },
+                                            leadingIcon = {
+                                                Icon(
+                                                    Icons.Default.Person,
+                                                    contentDescription = "User",
+                                                    tint = Color(0xFF4285F4)
+                                                )
+                                            }
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -700,18 +818,33 @@ fun NewProjectScreen(
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(
                     onClick = {
-                        if (isFormValid(projectName, startDate, selectedApprover, selectedTeamMembers)) {
-                            viewModel.createProject(
-                                projectName = projectName,
-                                description = description,
-                                startDate = Timestamp(startDate!!),
-                                endDate = endDate?.let { Timestamp(it) },
-                                totalBudget = totalBudget.toDoubleOrNull() ?: 0.0,
-                                managerId = selectedApprover!!.uid,
-                                teamMemberIds = selectedTeamMembers.map { it.uid },
-                                departmentBudgets = departmentBudgets,
-                                categories = projectCategories
-                            )
+                        try {
+                            if (isFormValid(projectName, startDate, selectedApprover, selectedTeamMembers)) {
+                                android.util.Log.d("NewProjectScreen", "🚀 Creating project with:")
+                                android.util.Log.d("NewProjectScreen", "  📋 Name: $projectName")
+                                android.util.Log.d("NewProjectScreen", "  📅 Start Date: $startDate")
+                                android.util.Log.d("NewProjectScreen", "  👤 Manager: ${selectedApprover?.name} (${selectedApprover?.uid})")
+                                android.util.Log.d("NewProjectScreen", "  👥 Team Members: ${selectedTeamMembers.size}")
+                                android.util.Log.d("NewProjectScreen", "  💰 Budget: $totalBudget")
+                                
+                                viewModel.createProject(
+                                    projectName = projectName,
+                                    description = description,
+                                    startDate = Timestamp(startDate!!),
+                                    endDate = endDate?.let { Timestamp(it) },
+                                    totalBudget = totalBudget.toDoubleOrNull() ?: 0.0,
+                                    managerId = selectedApprover!!.uid,
+                                    teamMemberIds = selectedTeamMembers.map { it.uid },
+                                    departmentBudgets = departmentBudgets,
+                                    categories = projectCategories
+                                )
+                            } else {
+                                val validationError = getFormValidationError(projectName, startDate, selectedApprover, selectedTeamMembers)
+                                Toast.makeText(context, validationError, Toast.LENGTH_LONG).show()
+                            }
+                        } catch (e: Exception) {
+                            android.util.Log.e("NewProjectScreen", "❌ Error creating project: ${e.message}", e)
+                            Toast.makeText(context, "Error creating project: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                     },
                     enabled = !isLoading && isFormValid(projectName, startDate, selectedApprover, selectedTeamMembers),
@@ -1268,4 +1401,19 @@ fun isFormValid(
             startDate != null &&
             selectedApprover != null &&
             selectedTeamMembers.isNotEmpty()
+}
+
+fun getFormValidationError(
+    projectName: String,
+    startDate: Date?,
+    selectedApprover: User?,
+    selectedTeamMembers: List<User>
+): String {
+    return when {
+        projectName.isEmpty() -> "Project name is required"
+        startDate == null -> "Start date is required"
+        selectedApprover == null -> "Please select a project manager (approver)"
+        selectedTeamMembers.isEmpty() -> "Please select at least one team member"
+        else -> "Please fill in all required fields"
+    }
 } 

@@ -23,7 +23,6 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.model.Project
-import com.deeksha.avr.model.ExpenseNotificationSummary
 import com.deeksha.avr.viewmodel.ProjectViewModel
 import com.deeksha.avr.viewmodel.NotificationViewModel
 import com.deeksha.avr.ui.common.NotificationBadgeComponent
@@ -58,7 +57,7 @@ fun ProjectSelectionScreen(
     val currentUser = authState.user
     
     // Use currentUser.uid if available, otherwise fall back to passed currentUserId
-    val effectiveUserId = currentUser?.uid ?: currentUserId
+    val effectiveUserId = currentUser?.phone ?: "1234567891"
     
     // Load projects and notifications when user is authenticated
     LaunchedEffect(currentUser, authState.isAuthenticated) {
@@ -186,33 +185,7 @@ fun ProjectSelectionScreen(
         return
     }
     
-    // Get expense status summary from notifications
-    val expenseStatusSummary: ExpenseNotificationSummary = remember(notifications) {
-        val approvedCount = notifications.count { 
-            it.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED && !it.isRead 
-        }
-        val rejectedCount = notifications.count { 
-            it.type == com.deeksha.avr.model.NotificationType.EXPENSE_REJECTED && !it.isRead 
-        }
-        val totalUnread = notifications.count { !it.isRead }
-        
-        ExpenseNotificationSummary(
-            approvedCount = approvedCount,
-            rejectedCount = rejectedCount,
-            totalUnread = totalUnread,
-            hasUpdates = totalUnread > 0
-        )
-    }
-    
-    val latestExpenseNotifications: List<com.deeksha.avr.model.Notification> = remember(notifications) {
-        notifications
-            .filter { 
-                it.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED || 
-                it.type == com.deeksha.avr.model.NotificationType.EXPENSE_REJECTED 
-            }
-            .sortedByDescending { it.createdAt }
-            .take(3)
-    }
+
     
     LaunchedEffect(Unit) {
         println("🎬 ProjectSelectionScreen: Loading projects...")
@@ -353,171 +326,7 @@ fun ProjectSelectionScreen(
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
-            // Dynamic expense status notifications
-            if (expenseStatusSummary.hasUpdates) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFFE8F5E8)
-                    )
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp)
-                    ) {
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "💰 Expense Updates",
-                                fontSize = 16.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color(0xFF2E7D32)
-                            )
-                            
-                            NotificationBadgeComponent(
-                                badge = notificationBadge,
-                                modifier = Modifier
-                            )
-                        }
-                        
-                        Spacer(modifier = Modifier.height(12.dp))
-                        
-                        // Status breakdown
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            if (expenseStatusSummary.approvedCount > 0) {
-                                StatusChip(
-                                    text = "✅ ${expenseStatusSummary.approvedCount} Approved",
-                                    backgroundColor = Color(0xFFE8F5E8),
-                                    textColor = Color(0xFF4CAF50)
-                                )
-                            }
-                            
-                            if (expenseStatusSummary.rejectedCount > 0) {
-                                StatusChip(
-                                    text = "❌ ${expenseStatusSummary.rejectedCount} Rejected",
-                                    backgroundColor = Color(0xFFFFEBEE),
-                                    textColor = Color(0xFFF44336)
-                                )
-                            }
-                        }
-                        
-                        // Latest notification preview - clickable to navigate to project
-                        if (latestExpenseNotifications.isNotEmpty()) {
-                            Spacer(modifier = Modifier.height(12.dp))
-                            
-                            // Show multiple recent notifications
-                            latestExpenseNotifications.take(2).forEach { notification ->
-                                Card(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            // Navigate to the specific project from the notification
-                                            if (notification.projectId.isNotEmpty()) {
-                                                onProjectSelected(notification.projectId)
-                                                // Mark as read when navigating
-                                                notificationViewModel.markNotificationAsRead(notification.id)
-                                            }
-                                        }
-                                        .padding(vertical = 4.dp),
-                                    colors = CardDefaults.cardColors(
-                                        containerColor = if (notification.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED) 
-                                            Color(0xFFE8F5E8) 
-                                        else 
-                                            Color(0xFFFFEBEE)
-                                    ),
-                                    shape = RoundedCornerShape(8.dp)
-                                ) {
-                                    Column(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .padding(12.dp)
-                                    ) {
-                                        Row(
-                                            modifier = Modifier.fillMaxWidth(),
-                                            horizontalArrangement = Arrangement.SpaceBetween,
-                                            verticalAlignment = Alignment.CenterVertically
-                                        ) {
-                                            Text(
-                                                text = notification.title,
-                                                fontSize = 13.sp,
-                                                fontWeight = FontWeight.Bold,
-                                                color = if (notification.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED) 
-                                                    Color(0xFF2E7D32) 
-                                                else 
-                                                    Color(0xFFD32F2F)
-                                            )
-                                            
-                                            if (!notification.isRead) {
-                                                Box(
-                                                    modifier = Modifier
-                                                        .size(8.dp)
-                                                        .clip(CircleShape)
-                                                        .background(
-                                                            if (notification.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED) 
-                                                                Color(0xFF4CAF50) 
-                                                            else 
-                                                                Color(0xFFF44336)
-                                                        )
-                                                )
-                                            }
-                                        }
-                                        
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        
-                                        Text(
-                                            text = notification.message,
-                                            fontSize = 12.sp,
-                                            color = if (notification.type == com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED) 
-                                                Color(0xFF2E7D32) 
-                                            else 
-                                                Color(0xFFD32F2F),
-                                            maxLines = 2,
-                                            overflow = TextOverflow.Ellipsis
-                                        )
-                                        
-                                        Spacer(modifier = Modifier.height(4.dp))
-                                        
-                                        Text(
-                                            text = "📁 ${notification.projectName}",
-                                            fontSize = 11.sp,
-                                            color = Color(0xFF666666),
-                                            fontWeight = FontWeight.Medium
-                                        )
-                                        
-                                        Text(
-                                            text = "Tap to view project",
-                                            fontSize = 10.sp,
-                                            color = Color(0xFF999999),
-                                            fontStyle = androidx.compose.ui.text.font.FontStyle.Italic
-                                        )
-                                    }
-                                }
-                            }
-                        }
-                        
-                        Spacer(modifier = Modifier.height(16.dp))
-                        
-                        Button(
-                            onClick = { onNotificationClick(effectiveUserId) },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFF4CAF50)
-                            )
-                        ) {
-                            Text("View All Updates")
-                        }
-                    }
-                }
-            }
+
             
             when {
                 isLoading -> {
@@ -839,27 +648,4 @@ fun ProjectCard(
 
 
 
-@Composable
-fun StatusChip(
-    text: String,
-    backgroundColor: Color,
-    textColor: Color,
-    modifier: Modifier = Modifier
-) {
-    Box(
-        modifier = modifier
-            .background(
-                color = backgroundColor,
-                shape = RoundedCornerShape(12.dp)
-            )
-            .padding(horizontal = 12.dp, vertical = 6.dp),
-        contentAlignment = Alignment.Center
-    ) {
-        Text(
-            text = text,
-            fontSize = 11.sp,
-            color = textColor,
-            fontWeight = FontWeight.Medium
-        )
-    }
-} 
+ 

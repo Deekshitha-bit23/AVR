@@ -48,13 +48,15 @@ fun ProjectSpecificNotificationScreen(
         // Ensure user data is up to date first
         authViewModel.refreshUserData()
         
-        // Get current user ID from AuthViewModel
+        // Get current user ID and role from AuthViewModel
         val currentUserId = authViewModel.authState.value.user?.uid ?: ""
+        val currentUserRole = authViewModel.authState.value.user?.role?.name ?: "USER"
+        
         if (currentUserId.isNotEmpty()) {
             projectNotificationViewModel.loadProjectNotificationsRealtime(
                 userId = currentUserId,
                 projectId = projectId,
-                userRole = "USER" // Default to USER for project-specific notifications
+                userRole = currentUserRole
             )
         }
     }
@@ -62,11 +64,13 @@ fun ProjectSpecificNotificationScreen(
     // Additional effect to handle user data changes
     LaunchedEffect(authState.user) {
         val currentUserId = authState.user?.uid ?: ""
+        val currentUserRole = authState.user?.role?.name ?: "USER"
+        
         if (currentUserId.isNotEmpty() && currentUserId != projectNotificationViewModel.getCurrentUserId()) {
             projectNotificationViewModel.loadProjectNotificationsRealtime(
                 userId = currentUserId,
                 projectId = projectId,
-                userRole = "USER"
+                userRole = currentUserRole
             )
         }
     }

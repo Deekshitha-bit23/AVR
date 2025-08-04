@@ -15,9 +15,10 @@ import javax.inject.Singleton
 
 @Singleton
 class AuthRepository @Inject constructor(
-    private val auth: FirebaseAuth,
     private val firestore: FirebaseFirestore
 ) {
+    
+    private val auth: FirebaseAuth = FirebaseAuth.getInstance()
     
     suspend fun signInWithPhoneCredential(credential: PhoneAuthCredential): Result<User> {
         return try {
@@ -442,7 +443,7 @@ class AuthRepository @Inject constructor(
             
             // Create user document with proper field names for Firestore
             val userMap = mapOf(
-                "uid" to user.uid,
+                "uid" to user.phone,
                 "name" to user.name,
                 "email" to user.email,
                 "phoneNumber" to user.phone,
@@ -468,8 +469,11 @@ class AuthRepository @Inject constructor(
                     "pendingApprovals" to user.notificationPreferences.pendingApprovals
                 )
             )
-            
-            firestore.collection("users").add(userMap).await()
+
+            val await = firestore.collection("users")
+                .document(user.phone) // Use phone number as document ID
+                .set(userMap)         // Replaces `.add(...)`
+                .await()
             Log.d("AuthRepository", "✅ Created user: ${user.name} with role: ${user.role}")
             Result.success(Unit)
         } catch (e: Exception) {
@@ -541,6 +545,70 @@ class AuthRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e("AuthRepository", "Error fetching users by role: ${e.message}")
             emptyList()
+        }
+    }
+    
+    suspend fun getUserById(userId: String): User? {
+        return try {
+            val querySnapshot = firestore.collection("users")
+                .whereEqualTo("uid", userId)
+                .get()
+                .await()
+            
+            if (!querySnapshot.isEmpty) {
+                val document = querySnapshot.documents.first()
+                val userData = document.data ?: return null
+                
+                val roleString = userData["role"] as? String
+                val userRole = when (roleString?.uppercase()?.replace(" ", "_")) {
+                    "APPROVER" -> UserRole.APPROVER
+                    "ADMIN" -> UserRole.ADMIN
+                    "USER" -> UserRole.USER
+                    "PRODUCTION_HEAD" -> UserRole.PRODUCTION_HEAD
+                    else -> UserRole.USER
+                }
+                
+                // Parse device info
+                val deviceInfoData = userData["deviceInfo"] as? Map<String, Any>
+                val deviceInfo = DeviceInfo(
+                    fcmToken = deviceInfoData?.get("fcmToken") as? String ?: "",
+                    deviceId = deviceInfoData?.get("deviceId") as? String ?: "",
+                    deviceModel = deviceInfoData?.get("deviceModel") as? String ?: "",
+                    osVersion = deviceInfoData?.get("osVersion") as? String ?: "",
+                    appVersion = deviceInfoData?.get("appVersion") as? String ?: "",
+                    lastLoginAt = deviceInfoData?.get("lastLoginAt") as? Long ?: System.currentTimeMillis(),
+                    isOnline = deviceInfoData?.get("isOnline") as? Boolean ?: true
+                )
+                
+                // Parse notification preferences
+                val notificationPrefsData = userData["notificationPreferences"] as? Map<String, Any>
+                val notificationPreferences = NotificationPreferences(
+                    pushNotifications = notificationPrefsData?.get("pushNotifications") as? Boolean ?: true,
+                    expenseSubmitted = notificationPrefsData?.get("expenseSubmitted") as? Boolean ?: true,
+                    expenseApproved = notificationPrefsData?.get("expenseApproved") as? Boolean ?: true,
+                    expenseRejected = notificationPrefsData?.get("expenseRejected") as? Boolean ?: true,
+                    projectAssignment = notificationPrefsData?.get("projectAssignment") as? Boolean ?: true,
+                    pendingApprovals = notificationPrefsData?.get("pendingApprovals") as? Boolean ?: true
+                )
+                
+                User(
+                    uid = userData["uid"] as? String ?: "",
+                    name = userData["name"] as? String ?: "",
+                    email = userData["email"] as? String ?: "",
+                    phone = userData["phoneNumber"] as? String ?: "",
+                    role = userRole,
+                    createdAt = (userData["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: System.currentTimeMillis(),
+                    isActive = userData["isActive"] as? Boolean ?: true,
+                    assignedProjects = userData["assignedProjects"] as? List<String> ?: emptyList(),
+                    deviceInfo = deviceInfo,
+                    notificationPreferences = notificationPreferences
+                )
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "Error fetching user by ID: ${e.message}")
+            null
         }
     }
     

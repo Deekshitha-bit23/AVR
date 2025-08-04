@@ -27,7 +27,7 @@ import com.deeksha.avr.viewmodel.NotificationViewModel
 import com.deeksha.avr.ui.common.NotificationBadgeComponent
 import com.deeksha.avr.ui.common.ProjectNotificationSummaryCard
 import com.deeksha.avr.utils.FormatUtils
-import java.text.NumberFormat
+import android.util.Log
 import java.util.*
 import com.deeksha.avr.viewmodel.AuthViewModel
 
@@ -56,7 +56,7 @@ fun ApproverProjectSelectionScreen(
     val currentUser = authState.user
     
     // Use currentUser.uid if available, otherwise fall back to passed currentUserId
-    val effectiveUserId = currentUser?.uid ?: currentUserId
+    val effectiveUserId = currentUser?.phone ?: "1234567891"
     
     // Refresh user data when screen opens to ensure current user is loaded
     LaunchedEffect(Unit) {
@@ -67,8 +67,10 @@ fun ApproverProjectSelectionScreen(
     // Load projects when screen starts
     LaunchedEffect(Unit) {
         if (effectiveUserId.isNotEmpty()) {
+            Log.d("EffectiveUserId", "Effective User ID: $effectiveUserId")
             approverProjectViewModel.loadProjects(effectiveUserId)
-        } else {
+        }
+        else {
             approverProjectViewModel.loadProjects()
         }
         if (effectiveUserId.isNotEmpty()) {

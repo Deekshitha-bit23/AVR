@@ -59,10 +59,30 @@ class ProductionHeadViewModel @Inject constructor(
         viewModelScope.launch {
             _isLoading.value = true
             try {
+                android.util.Log.d("ProductionHeadViewModel", "🔄 Loading users...")
                 val users = authRepository.getAllUsers()
-                _availableUsers.value = users.filter { it.role == UserRole.USER }
-                _availableApprovers.value = users.filter { it.role == UserRole.APPROVER }
+                android.util.Log.d("ProductionHeadViewModel", "📊 Found ${users.size} total users")
+                
+                val regularUsers = users.filter { it.role == UserRole.USER }
+                val approvers = users.filter { it.role == UserRole.APPROVER }
+                
+                android.util.Log.d("ProductionHeadViewModel", "👥 Regular users: ${regularUsers.size}")
+                android.util.Log.d("ProductionHeadViewModel", "✅ Approvers: ${approvers.size}")
+                
+                regularUsers.forEach { user ->
+                    android.util.Log.d("ProductionHeadViewModel", "  👤 User: ${user.name} (${user.uid})")
+                }
+                
+                approvers.forEach { approver ->
+                    android.util.Log.d("ProductionHeadViewModel", "  ✅ Approver: ${approver.name} (${approver.uid})")
+                }
+                
+                _availableUsers.value = regularUsers
+                _availableApprovers.value = approvers
+                
+                android.util.Log.d("ProductionHeadViewModel", "✅ Successfully loaded users")
             } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error loading users: ${e.message}", e)
                 _error.value = "Failed to load users: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -117,6 +137,24 @@ class ProductionHeadViewModel @Inject constructor(
             _error.value = null
             
             try {
+                android.util.Log.d("ProductionHeadViewModel", "🚀 Creating project: $projectName")
+                android.util.Log.d("ProductionHeadViewModel", "📋 Manager ID: $managerId")
+                android.util.Log.d("ProductionHeadViewModel", "👥 Team members: ${teamMemberIds.size}")
+                android.util.Log.d("ProductionHeadViewModel", "💰 Budget: $totalBudget")
+                
+                // Validate inputs
+                if (projectName.isBlank()) {
+                    throw Exception("Project name cannot be empty")
+                }
+                
+                if (managerId.isBlank()) {
+                    throw Exception("Manager ID cannot be empty")
+                }
+                
+                if (teamMemberIds.isEmpty()) {
+                    throw Exception("At least one team member must be selected")
+                }
+                
                 val budgetMap = departmentBudgets.associate { 
                     it.departmentName to it.allocatedBudget 
                 }
@@ -139,17 +177,24 @@ class ProductionHeadViewModel @Inject constructor(
                     categories = categories
                 )
                 
+                android.util.Log.d("ProductionHeadViewModel", "📦 Project object created, sending to repository")
+                
                 val result = projectRepository.createProject(project)
                 if (result.isSuccess) {
+                    android.util.Log.d("ProductionHeadViewModel", "✅ Project created successfully with ID: ${result.getOrNull()}")
+                    
                     // Send notifications to assigned team members using the project data we created
                     sendProjectAssignmentNotifications(project, managerId, teamMemberIds)
                     
                     _successMessage.value = "Project created successfully!"
                     clearProjectForm()
                 } else {
-                    _error.value = result.exceptionOrNull()?.message ?: "Failed to create project"
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Failed to create project"
+                    android.util.Log.e("ProductionHeadViewModel", "❌ Project creation failed: $errorMsg")
+                    _error.value = errorMsg
                 }
             } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error creating project: ${e.message}", e)
                 _error.value = "Error creating project: ${e.message}"
             } finally {
                 _isLoading.value = false
@@ -209,6 +254,10 @@ class ProductionHeadViewModel @Inject constructor(
     
     fun clearSuccessMessage() {
         _successMessage.value = null
+    }
+    
+    fun refreshUsers() {
+        loadUsers()
     }
     
     private fun sendProjectAssignmentNotifications(

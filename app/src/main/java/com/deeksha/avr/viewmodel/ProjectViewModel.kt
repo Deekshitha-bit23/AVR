@@ -48,14 +48,15 @@ class ProjectViewModel @Inject constructor(
                         _isLoading.value = false
                     }
                 } else {
-                    // Load all active projects (fallback) - this is a one-time call
-                    val projectList = projectRepository.getAllProjects()
-                    println("📦 ProjectViewModel: Received ${projectList.size} projects from repository")
-                    projectList.forEach { project ->
-                        println("  📋 Project: ${project.name} (ID: ${project.id})")
+                    // Load all projects for production heads using flow
+                    projectRepository.getAllProjectsFlow().collect { projectList ->
+                        println("📦 ProjectViewModel: Received ${projectList.size} projects from repository")
+                        projectList.forEach { project ->
+                            println("  📋 Project: ${project.name} (ID: ${project.id})")
+                        }
+                        _projects.value = projectList
+                        _isLoading.value = false
                     }
-                    _projects.value = projectList
-                    _isLoading.value = false
                 }
             } catch (e: Exception) {
                 println("❌ ProjectViewModel: Error loading projects: ${e.message}")
