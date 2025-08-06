@@ -54,11 +54,11 @@ class NotificationService @Inject constructor(
             // Collect approver and production head IDs
             val approverIds = mutableListOf<String>()
             val productionHeadIds = mutableListOf<String>()
-            
+
             // Add project-specific approvers
             project.approverIds.forEach { approverId ->
                 Log.d("NotificationService", "🔍 Checking approver ID: $approverId")
-                val user = allUsers.find { it.uid == approverId }
+                val user = allUsers.find { it.phone == approverId }
                 if (user?.role == com.deeksha.avr.model.UserRole.APPROVER) {
                     approverIds.add(approverId)
                     Log.d("NotificationService", "✅ Added approver: ${user.name} (${user.uid})")
@@ -82,7 +82,7 @@ class NotificationService @Inject constructor(
             // Add project manager as approver if not already included
             if (project.managerId.isNotEmpty() && !approverIds.contains(project.managerId)) {
                 Log.d("NotificationService", "🔍 Checking manager ID: ${project.managerId}")
-                val manager = allUsers.find { it.uid == project.managerId }
+                val manager = allUsers.find { it.phone == project.managerId }
                 if (manager?.role == com.deeksha.avr.model.UserRole.APPROVER) {
                     approverIds.add(project.managerId)
                     Log.d("NotificationService", "✅ Added manager as approver: ${manager.name} (${manager.uid})")
@@ -105,13 +105,31 @@ class NotificationService @Inject constructor(
                     when (user.role) {
                         com.deeksha.avr.model.UserRole.APPROVER -> {
                             if (!approverIds.contains(user.uid)) {
-                                approverIds.add(user.uid)
-                                Log.d("NotificationService", "✅ Added fallback approver: ${user.name} (${user.uid})")
+                                val firestore = FirebaseFirestore.getInstance()
+
+                                firestore.collection("users")
+                                    .whereEqualTo("uid", user.uid)
+                                    .get()
+                                    .addOnSuccessListener { querySnapshot ->
+                                        if (!querySnapshot.isEmpty) {
+                                            val document = querySnapshot.documents[0]
+                                            val phoneNumber = document.getString("phoneNumber")
+                                            Log.d("UserPhone", "📱 Approver phone number: $phoneNumber")
+                                            if (phoneNumber != null) { approverIds.add(phoneNumber) }
+                                            Log.d("NotificationService", "✅ Added fallback approver: ${user.name} (${user.uid})")
+                                        } else {
+                                            Log.w("UserPhone", "⚠️ No user found with UID: $user.uid")
+                                        }
+                                    }
+                                    .addOnFailureListener { e ->
+                                        Log.e("UserPhone", "❌ Error getting phone number: ${e.message}")
+                                    }
+
                             }
                         }
                         com.deeksha.avr.model.UserRole.PRODUCTION_HEAD -> {
                             if (!productionHeadIds.contains(user.uid)) {
-                                productionHeadIds.add(user.uid)
+                                 productionHeadIds.add(user.uid)
                                 Log.d("NotificationService", "✅ Added fallback production head: ${user.name} (${user.uid})")
                             }
                         }
@@ -125,6 +143,8 @@ class NotificationService @Inject constructor(
             // Send notifications to approvers
             approverIds.forEach { approverId ->
                 if (approverId.isNotEmpty()) {
+
+
                     val notification = Notification(
                         recipientId = approverId,
                         recipientRole = "APPROVER",
@@ -137,7 +157,7 @@ class NotificationService @Inject constructor(
                         actionRequired = true,
                         navigationTarget = "pending_approvals/$projectId"
                     )
-                    
+
                     notificationRepository.createNotification(notification).onSuccess { notificationId ->
                         Log.d("NotificationService", "✅ Sent notification to approver $approverId: $notificationId")
                     }.onFailure { error ->
@@ -147,7 +167,7 @@ class NotificationService @Inject constructor(
                     Log.w("NotificationService", "⚠️ Skipping notification for empty approver ID")
                 }
             }
-            
+
             // Send notifications to production heads
             productionHeadIds.forEach { productionHeadId ->
                 if (productionHeadId.isNotEmpty()) {

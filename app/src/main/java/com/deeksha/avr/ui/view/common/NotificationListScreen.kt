@@ -46,7 +46,7 @@ fun NotificationListScreen(
     
     // Load notifications when screen opens and refresh when screen becomes visible
     LaunchedEffect(Unit) {
-        val currentUserId = authState.user?.uid
+        val currentUserId = authState.user?.phone
         if (currentUserId != null) {
             notificationViewModel.loadNotifications(currentUserId)
         }
@@ -54,7 +54,7 @@ fun NotificationListScreen(
     
     // Refresh notifications when screen becomes visible (for better UX)
     LaunchedEffect(Unit) {
-        val currentUserId = authState.user?.uid
+        val currentUserId = authState.user?.phone
         if (currentUserId != null) {
             // Small delay to ensure screen is fully loaded
             delay(500)
@@ -106,7 +106,10 @@ fun NotificationListScreen(
                 // Debug button to load all notifications
                 IconButton(
                     onClick = {
-                        notificationViewModel.loadAllNotificationsForDebug()
+                        val currentUserId = authState.user?.phone
+                        if (currentUserId != null) {
+                            notificationViewModel.loadNotifications(currentUserId)
+                        }
                     }
                 ) {
                     Icon(

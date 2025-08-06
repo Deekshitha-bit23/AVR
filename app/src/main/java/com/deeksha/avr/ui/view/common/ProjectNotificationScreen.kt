@@ -46,7 +46,7 @@ fun ProjectNotificationScreen(
     
     // Load project-specific notifications
     LaunchedEffect(projectId) {
-        val currentUserId = authState.user?.uid
+        val currentUserId = authState.user?.phone
         if (currentUserId != null) {
             notificationViewModel.loadProjectNotifications(currentUserId, projectId)
     }

@@ -74,43 +74,48 @@ class NotificationRepository @Inject constructor(
         return callbackFlow {
             try {
                 Log.d("NotificationRepository", "🔄 Setting up real-time notifications for user: $userId")
-                
+
                 val query = notificationsCollection
                     .whereEqualTo("recipientId", userId)
                     .orderBy("createdAt", Query.Direction.DESCENDING)
                     .limit(limit.toLong())
-                
+
                 // Listen for real-time updates
                 val listener = query.addSnapshotListener { snapshot, error ->
                     if (error != null) {
                         Log.e("NotificationRepository", "❌ Error in real-time listener: ${error.message}")
                         return@addSnapshotListener
                     }
-                    
-                    val notifications = snapshot?.documents?.mapNotNull { doc ->
-                        doc.toObject(Notification::class.java)
-                    } ?: emptyList()
-                    
+
+                    val notifications = snapshot?.documents
+                        ?.filter { doc ->
+                            // ✅ Include if isRead is false or missing (null), exclude if true
+                            doc.getBoolean("isRead") != true
+                        }
+                        ?.mapNotNull { doc ->
+                            doc.toObject(Notification::class.java)
+                        } ?: emptyList()
+
                     Log.d("NotificationRepository", "📡 Real-time update: ${notifications.size} notifications for user: $userId")
-                    
-                    // Send the notifications through the channel
+
                     try {
                         trySend(notifications)
                     } catch (e: Exception) {
                         Log.e("NotificationRepository", "❌ Error sending notifications: ${e.message}")
                     }
                 }
-                
+
                 // Clean up listener when flow is cancelled
                 awaitClose {
                     Log.d("NotificationRepository", "🔄 Cleaning up real-time listener for user: $userId")
                     listener.remove()
                 }
-                
+
             } catch (e: Exception) {
                 Log.e("NotificationRepository", "❌ Error setting up real-time notifications: ${e.message}")
                 close(e)
             }
+
         }
     }
 
@@ -126,7 +131,7 @@ class NotificationRepository @Inject constructor(
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
-
+            Log.d("NotificationRepository", "Got the notification for project : ${projectId} userid :${userId}")
             result.documents.mapNotNull { doc ->
                 doc.toObject(Notification::class.java)
             }

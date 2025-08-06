@@ -271,7 +271,7 @@ class ProductionHeadViewModel @Inject constructor(
                 val allUsers = authRepository.getAllUsers()
                 
                 // Send notification to manager (approver)
-                val manager = allUsers.find { it.uid == managerId }
+                val manager = allUsers.find { it.phone == managerId }
                 if (manager != null) {
                     notificationRepository.createProjectAssignmentNotification(
                         recipientId = managerId,
@@ -284,7 +284,7 @@ class ProductionHeadViewModel @Inject constructor(
                 
                 // Send notifications to team members
                 teamMemberIds.forEach { memberId ->
-                    val member = allUsers.find { it.uid == memberId }
+                    val member = allUsers.find { it.phone == memberId }
                     if (member != null) {
                         notificationRepository.createProjectAssignmentNotification(
                             recipientId = memberId,
