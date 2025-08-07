@@ -64,6 +64,9 @@ sealed class Screen(val route: String) {
     object ProductionHeadProjectSelection : Screen("production_head_project_selection")
     object CreateUser : Screen("create_user")
     object NewProject : Screen("new_project")
+    object EditProject : Screen("edit_project/{projectId}") {
+        fun createRoute(projectId: String) = "edit_project/$projectId"
+    }
     
     // Production Head Approval Flow (same functionality as Approver)
     object ProductionHeadDashboard : Screen("production_head_dashboard")

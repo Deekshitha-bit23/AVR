@@ -54,6 +54,7 @@ import com.deeksha.avr.ui.view.user.UserDashboardScreen
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadProjectSelectionScreen
 import com.deeksha.avr.ui.view.productionhead.CreateUserScreen
 import com.deeksha.avr.ui.view.productionhead.NewProjectScreen
+import com.deeksha.avr.ui.view.productionhead.EditProjectScreen
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadDashboard
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadPendingApprovals
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadProjectDashboard
@@ -85,9 +86,15 @@ fun AppNavHost(
             val user = authState.user!!
             val currentRoute = navController.currentDestination?.route
             
+            android.util.Log.d("AppNavHost", "🎯 Auth state changed - isAuthenticated: ${authState.isAuthenticated}, user: ${user.name}, role: ${user.role}")
+            android.util.Log.d("AppNavHost", "🎯 Current route: $currentRoute")
+            
             // Only navigate if we're on the login screen or OTP verification screen
             if (currentRoute == Screen.Login.route || currentRoute?.startsWith("otp_verification/") == true) {
                 android.util.Log.d("AppNavHost", "🎯 Authenticated user detected - User: ${user.name}, Role: ${user.role}")
+                
+                // Add a small delay to ensure authentication state is fully synchronized
+                kotlinx.coroutines.delay(200)
                 
                 when (user.role) {
                     UserRole.USER -> {
@@ -234,8 +241,13 @@ fun AppNavHost(
                             }
                             UserRole.APPROVER -> {
                                 android.util.Log.d("Navigation", "🎯 Routing APPROVER to Approver Project Selection")
-                                navController.navigate(Screen.ApproverProjectSelection.route) {
-                                    popUpTo(Screen.Login.route) { inclusive = true }
+                                // Add a small delay to ensure user data is fully synchronized
+                                kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main).launch {
+                                    kotlinx.coroutines.delay(500) // 500ms delay
+                                    android.util.Log.d("Navigation", "🎯 Delayed navigation to Approver Project Selection")
+                                    navController.navigate(Screen.ApproverProjectSelection.route) {
+                                        popUpTo(Screen.Login.route) { inclusive = true }
+                                    }
                                 }
                             }
                             UserRole.ADMIN -> {
@@ -891,6 +903,9 @@ fun AppNavHost(
                 onNewProject = {
                     navController.navigate(Screen.NewProject.route)
                 },
+                onEditProject = { projectId ->
+                    navController.navigate(Screen.EditProject.createRoute(projectId))
+                },
                 onNavigateToDashboard = {
                     navController.navigate(Screen.ProductionHeadDashboard.route)
                 },
@@ -906,6 +921,17 @@ fun AppNavHost(
                     }
                 },
                 authViewModel = authViewModel
+            )
+        }
+        
+        composable(
+            route = Screen.EditProject.route,
+            arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            EditProjectScreen(
+                projectId = projectId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         

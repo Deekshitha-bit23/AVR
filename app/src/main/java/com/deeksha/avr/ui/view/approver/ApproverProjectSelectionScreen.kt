@@ -11,6 +11,7 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -58,22 +59,56 @@ fun ApproverProjectSelectionScreen(
     // Use currentUser.uid if available, otherwise fall back to passed currentUserId
     val effectiveUserId = currentUser?.phone ?: "1234567891"
     
+    // Track if we've attempted to load projects
+    var hasAttemptedProjectLoad by remember { mutableStateOf(false) }
+    
+    // Function to refresh projects
+    fun refreshProjects() {
+        hasAttemptedProjectLoad = false
+        if (effectiveUserId.isNotEmpty() && effectiveUserId != "1234567891") {
+            approverProjectViewModel.loadProjects(effectiveUserId)
+        } else {
+            approverProjectViewModel.loadProjects()
+        }
+        if (effectiveUserId.isNotEmpty()) {
+            notificationViewModel.loadNotifications(effectiveUserId)
+        }
+    }
+    
     // Refresh user data when screen opens to ensure current user is loaded
     LaunchedEffect(Unit) {
         println("🎬 ApproverProjectSelectionScreen: Refreshing user data...")
         authViewModel.refreshUserData()
     }
     
-    // Load projects when screen starts
-    LaunchedEffect(Unit) {
-        if (effectiveUserId.isNotEmpty()) {
-            Log.d("EffectiveUserId", "Effective User ID: $effectiveUserId")
+    // Load projects when user data is available and authenticated
+    LaunchedEffect(currentUser, authState.isAuthenticated, effectiveUserId) {
+        println("🎬 ApproverProjectSelectionScreen: Auth state changed - isAuthenticated: ${authState.isAuthenticated}, user: ${currentUser?.name}")
+        println("🎬 ApproverProjectSelectionScreen: Effective User ID: $effectiveUserId")
+        
+        if (authState.isAuthenticated && currentUser != null && effectiveUserId.isNotEmpty() && !hasAttemptedProjectLoad) {
+            println("✅ User authenticated, loading projects for: $effectiveUserId")
+            println("✅ User: ${currentUser.name}, Role: ${currentUser.role}")
+            
+            hasAttemptedProjectLoad = true
+            
+            // Load projects for the approver
             approverProjectViewModel.loadProjects(effectiveUserId)
+            
+            // Load notifications
+            notificationViewModel.loadNotifications(effectiveUserId)
+        } else if (!authState.isAuthenticated || currentUser == null) {
+            println("⚠️ User not authenticated or missing data - isAuthenticated: ${authState.isAuthenticated}, user: ${currentUser?.name}")
+            hasAttemptedProjectLoad = false
         }
-        else {
-            approverProjectViewModel.loadProjects()
-        }
-        if (effectiveUserId.isNotEmpty()) {
+    }
+    
+    // Retry loading projects if user data becomes available later
+    LaunchedEffect(effectiveUserId) {
+        if (effectiveUserId.isNotEmpty() && effectiveUserId != "1234567891" && !hasAttemptedProjectLoad) {
+            println("🔄 Retrying project load for user: $effectiveUserId")
+            hasAttemptedProjectLoad = true
+            approverProjectViewModel.loadProjects(effectiveUserId)
             notificationViewModel.loadNotifications(effectiveUserId)
         }
     }
@@ -105,6 +140,13 @@ fun ApproverProjectSelectionScreen(
                     Icon(
                         Icons.Default.Info,
                         contentDescription = "Overall Reports",
+                        tint = Color(0xFF4285F4)
+                    )
+                }
+                IconButton(onClick = { refreshProjects() }) {
+                    Icon(
+                        Icons.Default.Refresh,
+                        contentDescription = "Refresh Projects",
                         tint = Color(0xFF4285F4)
                     )
                 }
@@ -156,6 +198,30 @@ fun ApproverProjectSelectionScreen(
                         Text(
                             text = "Loading projects...",
                             color = Color.Gray
+                        )
+                    }
+                }
+            }
+            !authState.isAuthenticated || currentUser == null -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF4285F4))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Loading user data...",
+                            color = Color.Gray
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Please wait while we verify your account",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
                         )
                     }
                 }
@@ -217,6 +283,29 @@ fun ApproverProjectSelectionScreen(
                             color = Color.Gray,
                             textAlign = TextAlign.Center
                         )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "User ID: $effectiveUserId",
+                            fontSize = 12.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = { 
+                                hasAttemptedProjectLoad = false
+                                if (effectiveUserId.isNotEmpty() && effectiveUserId != "1234567891") {
+                                    approverProjectViewModel.loadProjects(effectiveUserId)
+                                } else {
+                                    approverProjectViewModel.loadProjects()
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4285F4)
+                            )
+                        ) {
+                            Text("Retry Loading Projects")
+                        }
                     }
                 }
             }

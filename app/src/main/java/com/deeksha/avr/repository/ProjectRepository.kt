@@ -133,17 +133,15 @@ class ProjectRepository @Inject constructor(
         }
     }
     
+    // Get a single project by ID
     suspend fun getProjectById(projectId: String): Project? {
         return try {
-            Log.d("ProjectRepository", "🔍 Fetching project by ID: $projectId")
+            Log.d("ProjectRepository", "🔍 Getting project by ID: $projectId")
             val document = firestore.collection("projects").document(projectId).get().await()
             
             if (document.exists()) {
-                Log.d("ProjectRepository", "📄 Found document: ${document.data}")
+                val projectData = document.data ?: emptyMap()
                 
-                val projectData = document.data ?: return null
-                
-                // Manual mapping to handle field consistency
                 val project = Project(
                     id = document.id,
                     name = projectData["name"] as? String ?: "",
@@ -166,15 +164,14 @@ class ProjectRepository @Inject constructor(
                     categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
                 )
                 
-                Log.d("ProjectRepository", "✅ Successfully parsed project: ${project.name} (Budget: ${project.budget}, Departments: ${project.departmentBudgets.keys})")
+                Log.d("ProjectRepository", "✅ Found project: ${project.name}")
                 project
             } else {
-                Log.w("ProjectRepository", "❌ Project document not found for ID: $projectId")
+                Log.d("ProjectRepository", "❌ Project not found with ID: $projectId")
                 null
             }
         } catch (e: Exception) {
-            Log.e("ProjectRepository", "❌ Error fetching project by ID $projectId: ${e.message}")
-            e.printStackTrace()
+            Log.e("ProjectRepository", "❌ Error getting project by ID: ${e.message}")
             null
         }
     }

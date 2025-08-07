@@ -92,7 +92,11 @@ class AuthViewModel @Inject constructor(
 
     init {
         Log.d("AuthViewModel", "🚀 AuthViewModel initialized")
-        initializeAuthState()
+        // Add a small delay to ensure proper initialization
+        viewModelScope.launch {
+            delay(100)
+            initializeAuthState()
+        }
     }
     
     /**
@@ -137,15 +141,22 @@ class AuthViewModel @Inject constructor(
      */
     private fun setAuthenticatedUser(user: User, isDevelopmentSkip: Boolean) {
         Log.d("AuthViewModel", "✅ Setting authenticated user: ${user.name} (Development: $isDevelopmentSkip)")
+        Log.d("AuthViewModel", "✅ User role: ${user.role}, Phone: ${user.phone}")
+        
+        // Update both state flows to ensure consistency
         _currentUser.value = user
         _isDevelopmentSkipUser.value = isDevelopmentSkip
         _hasCompletedVerification.value = true
+        
+        // Update auth state with the user
         _authState.value = _authState.value.copy(
             isAuthenticated = true,
             user = user,
             isLoading = false,
             error = null
         )
+        
+        Log.d("AuthViewModel", "✅ Authentication state updated - isAuthenticated: ${_authState.value.isAuthenticated}")
     }
     
     /**
@@ -323,6 +334,10 @@ class AuthViewModel @Inject constructor(
                 .onSuccess { user ->
                     Log.d("AuthViewModel", "✅ Sign in successful for user: ${user.name} with role: ${user.role}")
                     setAuthenticatedUser(user, isDevelopmentSkip = false)
+                    
+                    // Ensure state is fully synchronized
+                    delay(200)
+                    Log.d("AuthViewModel", "✅ Final auth state after sign in - isAuthenticated: ${_authState.value.isAuthenticated}, user: ${_authState.value.user?.name}")
                 }
                 .onFailure { error ->
                     Log.e("AuthViewModel", "❌ Sign in failed: ${error.message}")
@@ -365,7 +380,22 @@ class AuthViewModel @Inject constructor(
     fun forceCheckAuthState() {
         viewModelScope.launch {
             Log.d("AuthViewModel", "🔄 Force checking auth state...")
+            Log.d("AuthViewModel", "🔄 Current auth state - isAuthenticated: ${_authState.value.isAuthenticated}, user: ${_authState.value.user?.name}")
+            Log.d("AuthViewModel", "🔄 Current user state: ${_currentUser.value?.name}")
+            
+            // Add a small delay to ensure proper state synchronization
+            delay(100)
             initializeAuthState()
+            
+            // Log the final state after initialization
+            delay(100)
+            Log.d("AuthViewModel", "🔄 After force check - isAuthenticated: ${_authState.value.isAuthenticated}, user: ${_authState.value.user?.name}")
+            
+            // If we have a current user but auth state is not synchronized, fix it
+            if (_currentUser.value != null && !_authState.value.isAuthenticated) {
+                Log.d("AuthViewModel", "🔄 Fixing authentication state synchronization")
+                setAuthenticatedUser(_currentUser.value!!, _isDevelopmentSkipUser.value)
+            }
         }
     }
     
@@ -398,7 +428,17 @@ class AuthViewModel @Inject constructor(
     
     // Check if user is authenticated and has valid data
     fun isUserAuthenticated(): Boolean {
-        return _authState.value.isAuthenticated && _authState.value.user != null
+        val isAuthStateValid = _authState.value.isAuthenticated && _authState.value.user != null
+        val isCurrentUserValid = _currentUser.value != null
+        
+        // If there's a mismatch, try to fix it
+        if (isCurrentUserValid && !isAuthStateValid) {
+            Log.d("AuthViewModel", "🔄 Fixing authentication state mismatch")
+            setAuthenticatedUser(_currentUser.value!!, _isDevelopmentSkipUser.value)
+            return true
+        }
+        
+        return isAuthStateValid
     }
     
     // Clear access restriction state
@@ -452,11 +492,20 @@ class AuthViewModel @Inject constructor(
                 Log.d("AuthViewModel", "✅ Development skip successful: ${testUser.name} (${testUser.role})")
                 Log.d("AuthViewModel", "🚀 Calling navigation callback with role: ${testUser.role}")
                 
-                // Small delay to ensure state is updated before navigation
-                delay(100)
+                // Ensure state is fully synchronized before navigation
+                delay(200)
                 
-                // Trigger direct navigation
-                onNavigationCallback(testUser.role)
+                // Double-check that the state is properly set
+                if (_authState.value.isAuthenticated && _authState.value.user != null) {
+                    Log.d("AuthViewModel", "✅ Authentication state confirmed before navigation")
+                    // Trigger direct navigation
+                    onNavigationCallback(testUser.role)
+                } else {
+                    Log.e("AuthViewModel", "❌ Authentication state not properly set, retrying...")
+                    setAuthenticatedUser(testUser, isDevelopmentSkip = true)
+                    delay(100)
+                    onNavigationCallback(testUser.role)
+                }
                 
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "❌ Development skip failed: ${e.message}")

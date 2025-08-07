@@ -9,7 +9,21 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Build
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.List
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Search
+import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -69,6 +83,47 @@ fun NewProjectScreen(
     
     LaunchedEffect(selectedApprover) {
         android.util.Log.d("NewProjectScreen", "Selected approver updated: ${selectedApprover?.name ?: "null"}")
+    }
+    
+    // Safe team member operations
+    fun addTeamMember(user: User) {
+        try {
+            android.util.Log.d("NewProjectScreen", "Adding team member: ${user.name} (${user.uid})")
+            
+            // Validate user object
+            if (user.uid.isNullOrEmpty()) {
+                android.util.Log.e("NewProjectScreen", "User UID is null or empty")
+                Toast.makeText(context, "Invalid user data", Toast.LENGTH_SHORT).show()
+                return
+            }
+            
+            // Check if user is already selected
+            val isAlreadySelected = selectedTeamMembers.any { selectedUser -> 
+                selectedUser.uid == user.uid
+            }
+            
+            if (!isAlreadySelected) {
+                selectedTeamMembers = selectedTeamMembers + user
+                android.util.Log.d("NewProjectScreen", "Successfully added team member. New count: ${selectedTeamMembers.size}")
+            } else {
+                android.util.Log.d("NewProjectScreen", "User already selected: ${user.name}")
+                Toast.makeText(context, "${user.name} is already selected", Toast.LENGTH_SHORT).show()
+            }
+        } catch (e: Exception) {
+            android.util.Log.e("NewProjectScreen", "Error adding team member: ${e.message}", e)
+            Toast.makeText(context, "Error adding team member: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
+    }
+    
+    fun removeTeamMember(user: User) {
+        try {
+            android.util.Log.d("NewProjectScreen", "Removing team member: ${user.name} (${user.uid})")
+            selectedTeamMembers = selectedTeamMembers.filter { it.uid != user.uid }
+            android.util.Log.d("NewProjectScreen", "Successfully removed team member. New count: ${selectedTeamMembers.size}")
+        } catch (e: Exception) {
+            android.util.Log.e("NewProjectScreen", "Error removing team member: ${e.message}", e)
+            Toast.makeText(context, "Error removing team member: ${e.message}", Toast.LENGTH_SHORT).show()
+        }
     }
     
     // Department Budgets
@@ -513,14 +568,7 @@ fun NewProjectScreen(
                             TeamMemberChip(
                                 user = user,
                                 onRemove = { 
-                                    try {
-                                        android.util.Log.d("TeamMemberChip", "Removing user: ${user.name} (${user.uid})")
-                                        selectedTeamMembers = selectedTeamMembers.filter { it.uid != user.uid }
-                                        android.util.Log.d("TeamMemberChip", "Updated team members count: ${selectedTeamMembers.size}")
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("TeamMemberChip", "Error removing team member: ${e.message}", e)
-                                        Toast.makeText(context, "Error removing team member: ${e.message}", Toast.LENGTH_SHORT).show()
-                                    }
+                                    removeTeamMember(user)
                                 }
                             )
                         }
@@ -593,49 +641,45 @@ fun NewProjectScreen(
                                             text = { 
                                                 Column {
                                                     Text(
-                                                        text = item.name,
+                                                        text = item.name.ifEmpty { "Unknown User" },
                                                         fontWeight = FontWeight.Medium
                                                     )
                                                     Text(
-                                                        text = item.phone,
+                                                        text = item.phone.ifEmpty { "No phone" },
                                                         fontSize = 12.sp,
                                                         color = Color.Gray
                                                     )
                                                 }
                                             },
                                             onClick = {
-                                                try {
-                                                    android.util.Log.d("TeamMemberSearch", "User clicked: ${item.name} (${item.uid})")
-                                                    android.util.Log.d("TeamMemberSearch", "Current selected team members: ${selectedTeamMembers.size}")
-                                                    
-                                                    // Validate user object
-                                                    if (item.uid.isNullOrEmpty()) {
-                                                        android.util.Log.e("TeamMemberSearch", "User UID is null or empty")
-                                                        Toast.makeText(context, "Invalid user data", Toast.LENGTH_SHORT).show()
-                                                        return@DropdownMenuItem
-                                                    }
-                                                    
-                                                    // Check if user is already selected
-                                                    val isAlreadySelected = selectedTeamMembers.any { selectedUser -> 
-                                                        selectedUser.uid == item.uid || selectedUser.name == item.name
-                                                    }
-                                                    
-                                                    android.util.Log.d("TeamMemberSearch", "Is already selected: $isAlreadySelected")
-                                                    
-                                                    if (!isAlreadySelected) {
-                                                        android.util.Log.d("TeamMemberSearch", "Adding user to team members")
-                                                        selectedTeamMembers = selectedTeamMembers + item
-                                                        android.util.Log.d("TeamMemberSearch", "Updated team members count: ${selectedTeamMembers.size}")
-                                                    } else {
-                                                        android.util.Log.d("TeamMemberSearch", "User already selected, skipping")
-                                                    }
-                                                    
-                                                    showTeamMemberSearch = false
-                                                    android.util.Log.d("TeamMemberSearch", "Dropdown closed")
-                                                } catch (e: Exception) {
-                                                    android.util.Log.e("TeamMemberSearch", "Error selecting team member: ${e.message}", e)
-                                                    Toast.makeText(context, "Error selecting team member: ${e.message}", Toast.LENGTH_SHORT).show()
+                                                android.util.Log.d("TeamMemberSearch", "User clicked: ${item.name} (${item.uid})")
+                                                android.util.Log.d("TeamMemberSearch", "Current selected team members: ${selectedTeamMembers.size}")
+                                                
+                                                // Validate user object
+                                                if (item.uid.isNullOrEmpty()) {
+                                                    android.util.Log.e("TeamMemberSearch", "User UID is null or empty")
+                                                    Toast.makeText(context, "Invalid user data", Toast.LENGTH_SHORT).show()
+                                                    return@DropdownMenuItem
                                                 }
+                                                
+                                                // Check if user is already selected
+                                                val isAlreadySelected = selectedTeamMembers.any { selectedUser -> 
+                                                    selectedUser.uid == item.uid
+                                                }
+                                                
+                                                android.util.Log.d("TeamMemberSearch", "Is already selected: $isAlreadySelected")
+                                                
+                                                if (!isAlreadySelected) {
+                                                    android.util.Log.d("TeamMemberSearch", "Adding user to team members")
+                                                    addTeamMember(item)
+                                                    android.util.Log.d("TeamMemberSearch", "Updated team members count: ${selectedTeamMembers.size}")
+                                                } else {
+                                                    android.util.Log.d("TeamMemberSearch", "User already selected, skipping")
+                                                    Toast.makeText(context, "${item.name} is already selected", Toast.LENGTH_SHORT).show()
+                                                }
+                                                
+                                                showTeamMemberSearch = false
+                                                android.util.Log.d("TeamMemberSearch", "Dropdown closed")
                                             },
                                             leadingIcon = {
                                                 Icon(
@@ -667,10 +711,47 @@ fun NewProjectScreen(
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp),
+                        .padding(bottom = 8.dp),
                     shape = RoundedCornerShape(8.dp),
                     prefix = { Text("₹") }
                 )
+                
+                // Remaining Budget Indicator
+                val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
+                val remainingBudget = totalBudgetValue - totalAllocated
+                if (totalBudgetValue > 0) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 16.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = "Info",
+                                tint = if (remainingBudget >= 0) Color(0xFF4CAF50) else Color(0xFFD32F2F),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = if (remainingBudget >= 0) "Remaining for allocation:" else "Over-allocated:",
+                                fontSize = 12.sp,
+                                color = if (remainingBudget >= 0) Color(0xFF4CAF50) else Color(0xFFD32F2F),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        Text(
+                            text = "₹${String.format("%.2f", remainingBudget)}",
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = if (remainingBudget >= 0) Color(0xFF4CAF50) else Color(0xFFD32F2F)
+                        )
+                    }
+                }
                 
                 // Department Budget Entry
                 Row(
@@ -713,17 +794,41 @@ fun NewProjectScreen(
                                 }
                             }
                         },
+                        enabled = remainingBudget > 0,
                         modifier = Modifier
                             .size(56.dp)
                             .background(
-                                Color(0xFF4285F4),
+                                if (remainingBudget > 0) Color(0xFF4285F4) else Color(0xFFE0E0E0),
                                 RoundedCornerShape(8.dp)
                             )
                     ) {
                         Icon(
                             Icons.Default.Add,
                             contentDescription = "Add Department",
-                            tint = Color.White
+                            tint = if (remainingBudget > 0) Color.White else Color(0xFF9E9E9E)
+                        )
+                    }
+                }
+                
+                // Message when no remaining budget
+                if (totalBudgetValue > 0 && remainingBudget <= 0) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = "Info",
+                            tint = Color(0xFF2196F3),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "All budget has been allocated. Remove some departments to add more.",
+                            fontSize = 12.sp,
+                            color = Color(0xFF2196F3),
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 }
@@ -963,7 +1068,7 @@ fun TeamMemberChip(
         Color(0xFFFCE4EC)  // Light Pink
     )
     
-    val chipColor = chipColors[user.hashCode() % chipColors.size]
+    val chipColor = chipColors[user.hashCode().let { if (it < 0) -it else it } % chipColors.size]
     
     Card(
         modifier = Modifier.padding(vertical = 4.dp),
@@ -975,7 +1080,7 @@ fun TeamMemberChip(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(
-                text = user.name,
+                text = user.name.ifEmpty { "Unknown User" },
                 fontSize = 14.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color(0xFF424242)
@@ -1365,6 +1470,7 @@ fun BudgetSummaryCard(
             )
             
             val formatter = NumberFormat.getCurrencyInstance(Locale("en", "IN"))
+            val remainingBudget = totalBudget - totalAllocated
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -1386,6 +1492,66 @@ fun BudgetSummaryCard(
                     text = formatter.format(totalBudget),
                     fontWeight = FontWeight.Medium
                 )
+            }
+            
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    text = "Remaining Budget:",
+                    fontWeight = FontWeight.Medium
+                )
+                Text(
+                    text = formatter.format(remainingBudget),
+                    fontWeight = FontWeight.Bold,
+                    color = if (remainingBudget >= 0) Color(0xFF4CAF50) else Color(0xFFD32F2F)
+                )
+            }
+            
+            // Show warning if allocated exceeds budget
+            if (totalAllocated > totalBudget) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Warning,
+                        contentDescription = "Warning",
+                        tint = Color(0xFFD32F2F),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "Allocated amount exceeds total budget!",
+                        color = Color(0xFFD32F2F),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+            } else if (remainingBudget > 0) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = "Info",
+                        tint = Color(0xFF2196F3),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    Text(
+                        text = "₹${formatter.format(remainingBudget)} available for allocation",
+                        color = Color(0xFF2196F3),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
         }
     }

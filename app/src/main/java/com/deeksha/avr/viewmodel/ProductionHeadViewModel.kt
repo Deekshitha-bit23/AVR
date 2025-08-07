@@ -51,6 +51,13 @@ class ProductionHeadViewModel @Inject constructor(
     private val _totalAllocated = MutableStateFlow(0.0)
     val totalAllocated: StateFlow<Double> = _totalAllocated.asStateFlow()
     
+    // Project Edit States
+    private val _editingProject = MutableStateFlow<Project?>(null)
+    val editingProject: StateFlow<Project?> = _editingProject.asStateFlow()
+    
+    private val _isEditMode = MutableStateFlow(false)
+    val isEditMode: StateFlow<Boolean> = _isEditMode.asStateFlow()
+    
     init {
         loadUsers()
     }
@@ -260,6 +267,169 @@ class ProductionHeadViewModel @Inject constructor(
         loadUsers()
     }
     
+    // Project Edit Methods
+    fun loadProjectForEdit(projectId: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            try {
+                val project = projectRepository.getProjectById(projectId)
+                if (project != null) {
+                    _editingProject.value = project
+                    _isEditMode.value = true
+                    
+                    // Load project data into form
+                    _totalBudget.value = project.budget
+                    
+                    // Convert department budgets map to list
+                    val deptBudgets = project.departmentBudgets.map { (dept, budget) ->
+                        DepartmentBudget(dept, budget)
+                    }
+                    _departmentBudgets.value = deptBudgets
+                    calculateTotalAllocated()
+                    
+                    android.util.Log.d("ProductionHeadViewModel", "✅ Loaded project for editing: ${project.name}")
+                } else {
+                    _error.value = "Project not found"
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error loading project for edit: ${e.message}")
+                _error.value = "Error loading project: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    fun updateProject(
+        projectId: String,
+        projectName: String,
+        description: String,
+        startDate: Timestamp,
+        endDate: Timestamp?,
+        totalBudget: Double,
+        managerId: String,
+        teamMemberIds: List<String>,
+        departmentBudgets: List<DepartmentBudget>,
+        categories: List<String> = emptyList()
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                android.util.Log.d("ProductionHeadViewModel", "🔄 Updating project: $projectName")
+                
+                // Validate inputs
+                if (projectName.isBlank()) {
+                    throw Exception("Project name cannot be empty")
+                }
+                
+                if (managerId.isBlank()) {
+                    throw Exception("Manager ID cannot be empty")
+                }
+                
+                if (teamMemberIds.isEmpty()) {
+                    throw Exception("At least one team member must be selected")
+                }
+                
+                val budgetMap = departmentBudgets.associate { 
+                    it.departmentName to it.allocatedBudget 
+                }
+                
+                val updatedProject = Project(
+                    id = projectId,
+                    name = projectName,
+                    description = description,
+                    budget = totalBudget,
+                    spent = _editingProject.value?.spent ?: 0.0, // Preserve spent amount
+                    startDate = startDate,
+                    endDate = endDate,
+                    status = _editingProject.value?.status ?: "ACTIVE", // Preserve status
+                    managerId = managerId,
+                    approverIds = _editingProject.value?.approverIds ?: emptyList(), // Preserve approvers
+                    productionHeadIds = _editingProject.value?.productionHeadIds ?: emptyList(), // Preserve production heads
+                    teamMembers = teamMemberIds,
+                    createdAt = _editingProject.value?.createdAt, // Preserve creation date
+                    updatedAt = Timestamp.now(),
+                    code = _editingProject.value?.code ?: generateProjectCode(projectName), // Preserve or regenerate code
+                    departmentBudgets = budgetMap,
+                    categories = categories
+                )
+                
+                android.util.Log.d("ProductionHeadViewModel", "📦 Updated project object created, sending to repository")
+                
+                val result = projectRepository.updateProject(projectId, updatedProject)
+                if (result.isSuccess) {
+                    android.util.Log.d("ProductionHeadViewModel", "✅ Project updated successfully")
+                    
+                    // Send notifications to newly assigned team members
+                    sendProjectUpdateNotifications(updatedProject, managerId, teamMemberIds)
+                    
+                    _successMessage.value = "Project updated successfully!"
+                    clearEditState()
+                } else {
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Failed to update project"
+                    android.util.Log.e("ProductionHeadViewModel", "❌ Project update failed: $errorMsg")
+                    _error.value = errorMsg
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error updating project: ${e.message}", e)
+                _error.value = "Error updating project: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    fun clearEditState() {
+        _editingProject.value = null
+        _isEditMode.value = false
+        clearProjectForm()
+    }
+    
+    private fun sendProjectUpdateNotifications(
+        project: Project,
+        managerId: String,
+        teamMemberIds: List<String>
+    ) {
+        viewModelScope.launch {
+            try {
+                // Get all users to determine their roles
+                val allUsers = authRepository.getAllUsers()
+                
+                // Send notification to manager (approver)
+                val manager = allUsers.find { it.phone == managerId }
+                if (manager != null) {
+                    notificationRepository.createProjectAssignmentNotification(
+                        recipientId = managerId,
+                        recipientRole = manager.role.name,
+                        projectId = project.id,
+                        projectName = project.name,
+                        assignedRole = "Project Manager"
+                    )
+                }
+                
+                // Send notifications to team members
+                teamMemberIds.forEach { memberId ->
+                    val member = allUsers.find { it.phone == memberId }
+                    if (member != null) {
+                        notificationRepository.createProjectAssignmentNotification(
+                            recipientId = memberId,
+                            recipientRole = member.role.name,
+                            projectId = project.id,
+                            projectName = project.name,
+                            assignedRole = "Team Member"
+                        )
+                    }
+                }
+                
+                android.util.Log.d("ProductionHeadViewModel", "✅ Sent update notifications for project: ${project.name}")
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending update notifications: ${e.message}")
+            }
+        }
+    }
+
     private fun sendProjectAssignmentNotifications(
         project: Project,
         managerId: String,

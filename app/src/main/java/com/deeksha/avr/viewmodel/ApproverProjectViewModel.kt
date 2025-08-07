@@ -47,23 +47,35 @@ class ApproverProjectViewModel @Inject constructor(
             _error.value = null
             
             try {
-                Log.d("ApproverProjectLoADING", "ENTERING INTO THE APPROVER LOAD PROJECT")
-                if (userId != null) {
-                    Log.d("ApproverProjectLoADING", "ENTERING INTO THE APPROVER LOAD PROJECT AND USERID IS NOT NULL")
+                Log.d("ApproverProjectLoading", "🔄 Starting to load projects for approver")
+                Log.d("ApproverProjectLoading", "📱 User ID provided: $userId")
+                
+                if (userId != null && userId.isNotEmpty() && userId != "1234567891") {
+                    Log.d("ApproverProjectLoading", "✅ Valid user ID provided: $userId")
+                    Log.d("ApproverProjectLoading", "🔄 Loading projects for specific approver using flow")
+                    
                     // Load projects for specific user using flow
                     projectRepository.getApproverProjects(userId).collect { projectList ->
+                        Log.d("ApproverProjectLoading", "📊 Received ${projectList.size} projects from repository")
+                        projectList.forEach { project ->
+                            Log.d("ApproverProjectLoading", "  📋 Project: ${project.name} (ID: ${project.id}, Manager: ${project.managerId})")
+                        }
                         _projects.value = projectList
                         _isLoading.value = false
                     }
                 } else {
-                    Log.d("ApproverProjectLoADING", "ENTERING INTO THE APPROVER LOAD PROJECT USERID IS NULL")
+                    Log.d("ApproverProjectLoading", "⚠️ Invalid or empty user ID: '$userId'")
+                    Log.d("ApproverProjectLoading", "🔄 Loading all active projects as fallback")
+                    
                     // Load all active projects (fallback) - this is a one-time call
                     val projectList = projectRepository.getAllProjects()
+                    Log.d("ApproverProjectLoading", "📊 Received ${projectList.size} projects from fallback")
                     _projects.value = projectList
                     _isLoading.value = false
                 }
             } catch (e: Exception) {
-                _error.value = e.message
+                Log.e("ApproverProjectLoading", "❌ Error loading projects: ${e.message}", e)
+                _error.value = "Failed to load projects: ${e.message}"
                 _isLoading.value = false
             }
         }
@@ -73,6 +85,10 @@ class ApproverProjectViewModel @Inject constructor(
         Log.d("ApproverProjectVM", "🎯 Project selected: ${project.name} (ID: ${project.id})")
         _selectedProject.value = project
         loadProjectBudgetSummary(project.id)
+    }
+    
+    fun clearError() {
+        _error.value = null
     }
     
     fun loadProjectBudgetSummary(projectId: String) {
@@ -260,10 +276,6 @@ class ApproverProjectViewModel @Inject constructor(
         
         Log.d("ApproverProjectVM", "✅ Dynamic department breakdown complete: ${result.size} departments")
         return result
-    }
-    
-    fun clearError() {
-        _error.value = null
     }
     
     fun refreshProjectData() {

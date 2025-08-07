@@ -9,6 +9,7 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Person
@@ -40,6 +41,7 @@ fun ProductionHeadProjectSelectionScreen(
     onProjectSelected: (String) -> Unit,
     onCreateUser: () -> Unit,
     onNewProject: () -> Unit,
+    onEditProject: (String) -> Unit = {},
     onNavigateToDashboard: () -> Unit = {},
     onNavigateToOverallReports: () -> Unit = {},
     onNavigateToAllPendingApprovals: () -> Unit = {},
@@ -209,7 +211,8 @@ fun ProductionHeadProjectSelectionScreen(
                     items(projects) { project ->
                             ProjectCard(
                                 project = project,
-                                onClick = { onProjectSelected(project.id) }
+                                onClick = { onProjectSelected(project.id) },
+                                onEditClick = { onEditProject(project.id) }
                             )
                     }
                     
@@ -226,7 +229,8 @@ fun ProductionHeadProjectSelectionScreen(
 @Composable
 fun ProjectCard(
     project: Project,
-    onClick: () -> Unit
+    onClick: () -> Unit,
+    onEditClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
@@ -296,6 +300,19 @@ fun ProjectCard(
                         modifier = Modifier.padding(top = 2.dp)
                     )
                 }
+            }
+            
+            // Edit Button
+            IconButton(
+                onClick = { onEditClick() },
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    Icons.Default.Edit,
+                    contentDescription = "Edit Project",
+                    tint = Color(0xFF4285F4),
+                    modifier = Modifier.size(20.dp)
+                )
             }
         }
     }

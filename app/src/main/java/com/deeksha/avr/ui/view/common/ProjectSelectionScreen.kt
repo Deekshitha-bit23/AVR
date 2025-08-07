@@ -59,17 +59,24 @@ fun ProjectSelectionScreen(
     // Use currentUser.uid if available, otherwise fall back to passed currentUserId
     val effectiveUserId = currentUser?.phone ?: "1234567891"
     
+    // Track if we've attempted to refresh authentication
+    var hasAttemptedAuthRefresh by remember { mutableStateOf(false) }
+    
     // Load projects and notifications when user is authenticated
     LaunchedEffect(currentUser, authState.isAuthenticated) {
+        android.util.Log.d("ProjectSelectionScreen", "🔄 Auth state changed - isAuthenticated: ${authState.isAuthenticated}, user: ${currentUser?.name}")
+        
         if (authState.isAuthenticated && currentUser != null && effectiveUserId.isNotEmpty()) {
-            println("🎬 ProjectSelectionScreen: User authenticated, loading data for: $effectiveUserId")
-            println("🎬 ProjectSelectionScreen: User: ${currentUser.name}, Role: ${currentUser.role}")
+            android.util.Log.d("ProjectSelectionScreen", "✅ User authenticated, loading data for: $effectiveUserId")
+            android.util.Log.d("ProjectSelectionScreen", "✅ User: ${currentUser.name}, Role: ${currentUser.role}")
             
             // Load notifications
             notificationViewModel.forceLoadNotifications(effectiveUserId)
             
             // Load projects
             projectViewModel.loadProjects(effectiveUserId)
+        } else {
+            android.util.Log.d("ProjectSelectionScreen", "⚠️ User not authenticated or missing data - isAuthenticated: ${authState.isAuthenticated}, user: ${currentUser?.name}")
         }
     }
     
@@ -142,47 +149,83 @@ fun ProjectSelectionScreen(
     
     // Show message if user is not authenticated
     if (!authState.isAuthenticated || currentUser == null) {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                modifier = Modifier.padding(16.dp)
-            ) {
-                Text(
-                    text = "🔐 Authentication Required",
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(
-                    text = "Please log in to access projects",
-                    color = Color.Gray,
-                    textAlign = TextAlign.Center
-                )
-                Spacer(modifier = Modifier.height(16.dp))
-                Button(
-                    onClick = { 
-                        authViewModel.forceCheckAuthState()
-                    },
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4285F4)
-                    )
-                ) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = null,
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Check Authentication")
+        // Also check if the user is authenticated using the AuthViewModel method
+        val isUserAuthenticated = authViewModel.isUserAuthenticated()
+        
+        if (!isUserAuthenticated) {
+            // Force check authentication state when this screen loads (only once)
+            LaunchedEffect(Unit) {
+                if (!hasAttemptedAuthRefresh) {
+                    android.util.Log.d("ProjectSelectionScreen", "🔍 Authentication check triggered - isAuthenticated: ${authState.isAuthenticated}, user: ${currentUser?.name}")
+                    android.util.Log.d("ProjectSelectionScreen", "🔍 Auth state details - isLoading: ${authState.isLoading}, error: ${authState.error}")
+                    
+                    hasAttemptedAuthRefresh = true
+                    
+                    // Add a small delay to allow for state synchronization
+                    kotlinx.coroutines.delay(500)
+                    authViewModel.forceCheckAuthState()
+                    
+                    // Wait a bit more for the state to update
+                    kotlinx.coroutines.delay(500)
                 }
             }
+            
+            Box(
+                modifier = Modifier.fillMaxSize(),
+                contentAlignment = Alignment.Center
+            ) {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    Text(
+                        text = "🔐 Authentication Required",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Please log in to access projects",
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(
+                        text = "Status: ${if (authState.isLoading) "Checking..." else "Not authenticated"}",
+                        fontSize = 12.sp,
+                        color = Color.Gray,
+                        textAlign = TextAlign.Center
+                    )
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Button(
+                        onClick = { 
+                            android.util.Log.d("ProjectSelectionScreen", "🔄 Manual authentication refresh triggered")
+                            authViewModel.forceCheckAuthState()
+                        },
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4285F4)
+                        )
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = null,
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Check Authentication")
+                    }
+                }
+            }
+            return
+        } else {
+            // User is authenticated, reset the refresh flag
+            hasAttemptedAuthRefresh = false
         }
-        return
+    } else {
+        // User is authenticated, reset the refresh flag
+        hasAttemptedAuthRefresh = false
     }
     
 
