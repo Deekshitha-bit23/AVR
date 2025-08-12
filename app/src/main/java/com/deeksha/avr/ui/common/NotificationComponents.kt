@@ -190,37 +190,30 @@ fun NotificationIcon(
     type: NotificationType,
     modifier: Modifier = Modifier
 ) {
-    val icon: ImageVector
-    val tint: Color
-    
-    when (type) {
+    val (icon, tint) = when (type) {
         NotificationType.PROJECT_ASSIGNMENT -> {
-            icon = Icons.Default.Add
-            tint = Color(0xFF4CAF50)
+            Icons.Default.Add to Color(0xFF4CAF50)
+        }
+        NotificationType.PROJECT_CHANGED -> {
+            Icons.Default.Edit to Color(0xFF9C27B0)
         }
         NotificationType.EXPENSE_SUBMITTED -> {
-            icon = Icons.Default.Create
-            tint = Color(0xFFFF9800)
+            Icons.Default.Create to Color(0xFFFF9800)
         }
         NotificationType.EXPENSE_APPROVED -> {
-            icon = Icons.Default.CheckCircle
-            tint = Color(0xFF4CAF50)
+            Icons.Default.CheckCircle to Color(0xFF4CAF50)
         }
         NotificationType.EXPENSE_REJECTED -> {
-            icon = Icons.Default.Close
-            tint = Color(0xFFF44336)
+            Icons.Default.Close to Color(0xFFF44336)
         }
         NotificationType.PENDING_APPROVAL -> {
-            icon = Icons.Default.Notifications
-            tint = Color(0xFFFF9800)
+            Icons.Default.Notifications to Color(0xFFFF9800)
         }
         NotificationType.ROLE_ASSIGNMENT -> {
-            icon = Icons.Default.Person
-            tint = Color(0xFF2196F3)
+            Icons.Default.Person to Color(0xFF2196F3)
         }
         NotificationType.INFO -> {
-            icon = Icons.Default.Info
-            tint = Color(0xFF607D8B)
+            Icons.Default.Info to Color(0xFF607D8B)
         }
     }
     

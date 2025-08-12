@@ -20,6 +20,7 @@ data class Notification(
 
 enum class NotificationType {
     PROJECT_ASSIGNMENT,     // When assigned to a project
+    PROJECT_CHANGED,        // When project details are modified
     EXPENSE_SUBMITTED,      // When expense is submitted (for approvers)
     EXPENSE_APPROVED,       // When expense is approved (for users)
     EXPENSE_REJECTED,       // When expense is rejected (for users)

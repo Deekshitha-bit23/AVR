@@ -40,6 +40,7 @@ sealed class Screen(val route: String) {
     
     // New Approver Project Flow
     object ApproverProjectSelection : Screen("approver_project_selection")
+    object ApproverNotificationScreen : Screen("approver_notification_screen")
     object ApproverProjectDashboard : Screen("approver_project_dashboard/{projectId}") {
         fun createRoute(projectId: String) = "approver_project_dashboard/$projectId"
     }

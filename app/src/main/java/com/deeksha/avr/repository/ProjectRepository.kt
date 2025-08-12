@@ -329,4 +329,19 @@ class ProjectRepository @Inject constructor(
             listener.remove() 
         }
     }
+    
+    suspend fun updateProjectStatus(projectId: String, newStatus: String): Result<Unit> {
+        return try {
+            firestore.collection("projects").document(projectId)
+                .update(
+                    mapOf(
+                        "status" to newStatus,
+                        "updatedAt" to com.google.firebase.Timestamp.now()
+                    )
+                ).await()
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Result.failure(e)
+        }
+    }
 } 

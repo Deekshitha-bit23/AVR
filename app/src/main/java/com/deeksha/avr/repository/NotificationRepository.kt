@@ -160,15 +160,62 @@ class NotificationRepository @Inject constructor(
                 doc.toObject(Notification::class.java)
             }
             
-            Log.d("NotificationRepository", "📋 Found ${notifications.size} project notifications for user: $userId")
-            notifications
+            // Apply role-based filtering
+            val filteredNotifications = when (userRole) {
+                "USER" -> {
+                    // For USER role, only show unread notifications that will vanish when read
+                    val unreadNotifications = notifications.filter { !it.isRead }
+                    Log.d("NotificationRepository", "👤 USER role: showing ${unreadNotifications.size} unread notifications out of ${notifications.size} total")
+                    unreadNotifications
+                }
+                "APPROVER", "PRODUCTION_HEAD", "ADMIN" -> {
+                    // For other roles, show all notifications (read and unread)
+                    Log.d("NotificationRepository", "👥 ${userRole} role: showing all ${notifications.size} notifications")
+                    notifications
+                }
+                else -> {
+                    // Default to showing all notifications for unknown roles
+                    Log.d("NotificationRepository", "❓ Unknown role '$userRole': showing all ${notifications.size} notifications")
+                    notifications
+                }
+            }
+            
+            Log.d("NotificationRepository", "📋 Found ${notifications.size} total project notifications, ${filteredNotifications.size} filtered for user: $userId, project: $projectId, role: $userRole")
+            filteredNotifications
         } catch (e: Exception) {
             Log.e("NotificationRepository", "❌ Error getting project notifications for user: ${e.message}")
             emptyList()
         }
     }
 
-    // Get project-specific notifications for a user with real-time updates
+    // Get ALL project notifications for a user (including read ones) - for history/overview purposes
+    suspend fun getAllProjectNotificationsForUser(
+        userId: String,
+        projectId: String,
+        userRole: String
+    ): List<Notification> {
+        return try {
+            Log.d("NotificationRepository", "🔄 Getting ALL project notifications for user: $userId, project: $projectId, role: $userRole")
+            
+            val result = notificationsCollection
+                .whereEqualTo("projectId", projectId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .get()
+                .await()
+
+            val notifications = result.documents.mapNotNull { doc ->
+                doc.toObject(Notification::class.java)
+            }
+            
+            Log.d("NotificationRepository", "📋 Found ${notifications.size} total project notifications for user: $userId")
+            notifications
+        } catch (e: Exception) {
+            Log.e("NotificationRepository", "❌ Error getting all project notifications for user: ${e.message}")
+            emptyList()
+        }
+    }
+
+    // Get project-specific notifications for a user with real-time updates (only unread)
     fun getProjectNotificationsForUserRealtime(
         userId: String,
         projectId: String,
@@ -195,11 +242,31 @@ class NotificationRepository @Inject constructor(
                         doc.toObject(Notification::class.java)
                     } ?: emptyList()
                     
-                    Log.d("NotificationRepository", "📡 Real-time project update: ${notifications.size} notifications for user: $userId, project: $projectId")
+                    // Apply role-based filtering
+                    val filteredNotifications = when (userRole) {
+                        "USER" -> {
+                            // For USER role, only show unread notifications that will vanish when read
+                            val unreadNotifications = notifications.filter { !it.isRead }
+                            Log.d("NotificationRepository", "👤 USER role: showing ${unreadNotifications.size} unread notifications out of ${notifications.size} total")
+                            unreadNotifications
+                        }
+                        "APPROVER", "PRODUCTION_HEAD", "ADMIN" -> {
+                            // For other roles, show all notifications (read and unread)
+                            Log.d("NotificationRepository", "👥 ${userRole} role: showing all ${notifications.size} notifications")
+                            notifications
+                        }
+                        else -> {
+                            // Default to showing all notifications for unknown roles
+                            Log.d("NotificationRepository", "❓ Unknown role '$userRole': showing all ${notifications.size} notifications")
+                            notifications
+                        }
+                    }
                     
-                    // Send the notifications through the channel
+                    Log.d("NotificationRepository", "📡 Real-time project update: ${notifications.size} total notifications, ${filteredNotifications.size} filtered for user: $userId, project: $projectId, role: $userRole")
+                    
+                    // Send the filtered notifications through the channel
                     try {
-                        trySend(notifications)
+                        trySend(filteredNotifications)
                     } catch (e: Exception) {
                         Log.e("NotificationRepository", "❌ Error sending project notifications: ${e.message}")
                     }
@@ -213,6 +280,55 @@ class NotificationRepository @Inject constructor(
                 
             } catch (e: Exception) {
                 Log.e("NotificationRepository", "❌ Error setting up real-time project notifications: ${e.message}")
+                close(e)
+            }
+        }
+    }
+
+    // Get ALL project notifications for a user with real-time updates (including read ones) - for history/overview purposes
+    fun getAllProjectNotificationsForUserRealtime(
+        userId: String,
+        projectId: String,
+        userRole: String
+    ): Flow<List<Notification>> {
+        return callbackFlow {
+            try {
+                Log.d("NotificationRepository", "🔄 Setting up real-time ALL project notifications for user: $userId, project: $projectId, role: $userRole")
+                
+                // Query for all notifications for the project (including read ones)
+                val query = notificationsCollection
+                    .whereEqualTo("projectId", projectId)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                
+                // Listen for real-time updates
+                val listener = query.addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Log.e("NotificationRepository", "❌ Error in real-time all project listener: ${error.message}")
+                        return@addSnapshotListener
+                    }
+                    
+                    val notifications = snapshot?.documents?.mapNotNull { doc ->
+                        doc.toObject(Notification::class.java)
+                    } ?: emptyList()
+                    
+                    Log.d("NotificationRepository", "📡 Real-time ALL project update: ${notifications.size} notifications for user: $userId, project: $projectId")
+                    
+                    // Send all notifications through the channel
+                    try {
+                        trySend(notifications)
+                    } catch (e: Exception) {
+                        Log.e("NotificationRepository", "❌ Error sending all project notifications: ${e.message}")
+                    }
+                }
+                
+                // Clean up listener when flow is cancelled
+                awaitClose {
+                    Log.d("NotificationRepository", "🔄 Cleaning up real-time all project listener for user: $userId, project: $projectId")
+                    listener.remove()
+                }
+                
+            } catch (e: Exception) {
+                Log.e("NotificationRepository", "❌ Error setting up real-time all project notifications: ${e.message}")
                 close(e)
             }
         }
@@ -246,6 +362,26 @@ class NotificationRepository @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Log.e("NotificationRepository", "❌ Error marking all notifications as read: ${e.message}")
+            Result.failure(e)
+        }
+    }
+
+    // Mark all project notifications as read for a user
+    suspend fun markAllProjectNotificationsAsRead(userId: String, projectId: String): Result<Unit> {
+        return try {
+            val notifications = notificationsCollection
+                .whereEqualTo("recipientId", userId)
+                .whereEqualTo("projectId", projectId)
+                .whereEqualTo("isRead", false)
+                .get()
+                .await()
+
+            notifications.documents.forEach { doc ->
+                doc.reference.update("isRead", true)
+            }
+            Result.success(Unit)
+        } catch (e: Exception) {
+            Log.e("NotificationRepository", "❌ Error marking all project notifications as read: ${e.message}")
             Result.failure(e)
         }
     }
@@ -309,7 +445,64 @@ class NotificationRepository @Inject constructor(
         }
     }
 
-    // Create project assignment notification
+    // Create new project notification (for approvers and team members)
+    suspend fun createNewProjectNotification(
+        recipientId: String,
+        recipientRole: String,
+        projectId: String,
+        projectName: String,
+        assignedRole: String
+    ): Result<String> {
+        val notification = Notification(
+            recipientId = recipientId,
+            recipientRole = recipientRole,
+            title = "New Project Created",
+            message = "You have been assigned as $assignedRole to the newly created project: $projectName",
+            type = NotificationType.PROJECT_ASSIGNMENT,
+            projectId = projectId,
+            projectName = projectName,
+            actionRequired = true,
+            navigationTarget = when (recipientRole) {
+                "USER" -> "user_project_dashboard/$projectId"
+                "APPROVER" -> "approver_project_dashboard/$projectId"
+                "PRODUCTION_HEAD" -> "production_head_project_dashboard/$projectId"
+                else -> "project_selection"
+            }
+        )
+
+        return createNotification(notification)
+    }
+
+    // Create project change notification (for approvers and team members)
+    suspend fun createProjectChangeNotification(
+        recipientId: String,
+        recipientRole: String,
+        projectId: String,
+        projectName: String,
+        changeDescription: String,
+        changedBy: String
+    ): Result<String> {
+        val notification = Notification(
+            recipientId = recipientId,
+            recipientRole = recipientRole,
+            title = "Project Updated",
+            message = "Project '$projectName' has been updated by $changedBy. $changeDescription",
+            type = NotificationType.PROJECT_CHANGED,
+            projectId = projectId,
+            projectName = projectName,
+            actionRequired = false,
+            navigationTarget = when (recipientRole) {
+                "USER" -> "user_project_dashboard/$projectId"
+                "APPROVER" -> "approver_project_dashboard/$projectId"
+                "PRODUCTION_HEAD" -> "production_head_project_dashboard/$projectId"
+                else -> "project_selection"
+            }
+        )
+
+        return createNotification(notification)
+    }
+
+    // Create project assignment notification (for approvers)
     suspend fun createProjectAssignmentNotification(
         recipientId: String,
         recipientRole: String,

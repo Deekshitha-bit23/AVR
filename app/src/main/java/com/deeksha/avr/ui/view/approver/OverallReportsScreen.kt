@@ -8,13 +8,32 @@ import com.deeksha.avr.ui.common.OverallReportsContent
 import com.deeksha.avr.viewmodel.OverallReportsViewModel
 import androidx.compose.ui.graphics.Color
 import android.widget.Toast
+import androidx.hilt.navigation.compose.hiltViewModel
+import com.deeksha.avr.viewmodel.AuthViewModel
 
 @Composable
 fun OverallReportsScreen(
     onNavigateBack: () -> Unit,
-    overallReportsViewModel: OverallReportsViewModel = hiltViewModel()
+    overallReportsViewModel: OverallReportsViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val context = LocalContext.current
+    val authState by authViewModel.authState.collectAsState()
+    val currentUser = authState.user
+    
+    // Set user context and load data when screen opens
+    LaunchedEffect(currentUser) {
+        if (currentUser != null) {
+            android.util.Log.d("OverallReportsScreen", "🔄 Setting user context: ${currentUser.phone} (${currentUser.role.name})")
+            overallReportsViewModel.setUserContextAndLoadData(
+                userId = currentUser.phone,
+                userRole = currentUser.role.name
+            )
+            android.util.Log.d("OverallReportsScreen", "✅ User context set successfully")
+        } else {
+            android.util.Log.w("OverallReportsScreen", "⚠️ Current user is null, cannot set context")
+        }
+    }
     
     OverallReportsContent(
         title = "Overall Reports",

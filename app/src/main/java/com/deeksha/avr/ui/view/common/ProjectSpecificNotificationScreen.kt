@@ -121,7 +121,15 @@ fun ProjectSpecificNotificationScreen(
                 // Mark all as read button
                 if (projectNotifications.any { !it.isRead }) {
                     IconButton(
-                        onClick = { projectNotificationViewModel.markAllProjectNotificationsAsRead() }
+                        onClick = { 
+                            if (authState.user?.role?.name == "USER") {
+                                // For USER role, mark all as read and remove from list
+                                projectNotificationViewModel.markAllProjectNotificationsAsReadAndRemove()
+                            } else {
+                                // For other roles, mark all as read but keep in list
+                                projectNotificationViewModel.markAllProjectNotificationsAsRead()
+                            }
+                        }
                     ) {
                         Icon(
                             Icons.Default.CheckCircle,
@@ -200,14 +208,22 @@ fun ProjectSpecificNotificationScreen(
                         modifier = Modifier.padding(16.dp)
                     ) {
                         Text(
-                            text = "📋 No Project Notifications",
+                            text = if (authState.user?.role?.name == "USER") {
+                                "📋 No Unread Notifications"
+                            } else {
+                                "📋 No Project Notifications"
+                            },
                             fontSize = 18.sp,
                             fontWeight = FontWeight.Bold,
                             color = Color.Gray
                         )
                         Spacer(modifier = Modifier.height(8.dp))
                         Text(
-                            text = "No notifications found for this project.",
+                            text = if (authState.user?.role?.name == "USER") {
+                                "All notifications for this project have been read and cleared."
+                            } else {
+                                "No notifications found for this project."
+                            },
                             color = Color.Gray,
                             textAlign = TextAlign.Center
                         )
@@ -227,7 +243,11 @@ fun ProjectSpecificNotificationScreen(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "Project Notifications (${projectNotifications.size})",
+                            text = if (authState.user?.role?.name == "USER") {
+                                "Project Notifications (${projectNotifications.size} unread)"
+                            } else {
+                                "Project Notifications (${projectNotifications.size})"
+                            },
                             fontSize = 16.sp,
                             fontWeight = FontWeight.Medium,
                             color = Color.Black
@@ -253,8 +273,13 @@ fun ProjectSpecificNotificationScreen(
                             NotificationCard(
                                 notification = notification,
                                 onNotificationClick = { clickedNotification ->
-                                    // Mark as read
-                                    projectNotificationViewModel.markProjectNotificationAsRead(clickedNotification.id)
+                                    // For USER role, immediately remove notification from list when clicked
+                                    if (authState.user?.role?.name == "USER") {
+                                        projectNotificationViewModel.markProjectNotificationAsReadAndRemove(clickedNotification.id)
+                                    } else {
+                                        // For other roles, mark as read but keep in list
+                                        projectNotificationViewModel.markProjectNotificationAsRead(clickedNotification.id)
+                                    }
                                     
                                     // Navigate based on notification type
                                     when (clickedNotification.type) {
@@ -297,7 +322,13 @@ fun ProjectSpecificNotificationScreen(
                                     }
                                 },
                                 onMarkAsRead = { notificationId ->
-                                    projectNotificationViewModel.markProjectNotificationAsRead(notificationId)
+                                    // For USER role, immediately remove notification from list when marked as read
+                                    if (authState.user?.role?.name == "USER") {
+                                        projectNotificationViewModel.markProjectNotificationAsReadAndRemove(notificationId)
+                                    } else {
+                                        // For other roles, mark as read but keep in list
+                                        projectNotificationViewModel.markProjectNotificationAsRead(notificationId)
+                                    }
                                 }
                             )
                         }

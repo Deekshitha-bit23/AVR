@@ -95,23 +95,43 @@ class ProjectNotificationViewModel @Inject constructor(
                 Log.d("ProjectNotificationViewModel", "🔄 Marking project notification as read: $notificationId")
                 
                 notificationRepository.markNotificationAsRead(notificationId).onSuccess {
-                    // Update the notification in the local list
-                    val updatedNotifications = _projectNotifications.value.map { notification ->
-                        if (notification.id == notificationId) {
-                            notification.copy(isRead = true)
-                        } else {
-                            notification
-                        }
+                    // Remove the read notification from the local list since it should disappear
+                    val updatedNotifications = _projectNotifications.value.filter { notification ->
+                        notification.id != notificationId
                     }
                     _projectNotifications.value = updatedNotifications
                     updateProjectNotificationBadge(updatedNotifications)
                     
-                    Log.d("ProjectNotificationViewModel", "✅ Marked project notification as read")
+                    Log.d("ProjectNotificationViewModel", "✅ Marked project notification as read and removed from list")
                 }.onFailure { error ->
                     Log.e("ProjectNotificationViewModel", "❌ Failed to mark project notification as read: ${error.message}")
                 }
             } catch (e: Exception) {
                 Log.e("ProjectNotificationViewModel", "❌ Error marking project notification as read: ${e.message}")
+            }
+        }
+    }
+    
+    // Mark project notification as read and immediately remove from list (for USER role)
+    fun markProjectNotificationAsReadAndRemove(notificationId: String) {
+        viewModelScope.launch {
+            try {
+                Log.d("ProjectNotificationViewModel", "🔄 Marking project notification as read and removing for USER role: $notificationId")
+                
+                notificationRepository.markNotificationAsRead(notificationId).onSuccess {
+                    // Immediately remove the notification from the local list for USER role
+                    val updatedNotifications = _projectNotifications.value.filter { notification ->
+                        notification.id != notificationId
+                    }
+                    _projectNotifications.value = updatedNotifications
+                    updateProjectNotificationBadge(updatedNotifications)
+                    
+                    Log.d("ProjectNotificationViewModel", "✅ Marked project notification as read and immediately removed from list for USER role")
+                }.onFailure { error ->
+                    Log.e("ProjectNotificationViewModel", "❌ Failed to mark project notification as read and remove: ${error.message}")
+                }
+            } catch (e: Exception) {
+                Log.e("ProjectNotificationViewModel", "❌ Error marking project notification as read and remove: ${e.message}")
             }
         }
     }
@@ -122,20 +142,38 @@ class ProjectNotificationViewModel @Inject constructor(
             try {
                 Log.d("ProjectNotificationViewModel", "🔄 Marking all project notifications as read")
                 
-                notificationRepository.markAllNotificationsAsRead(currentUserId).onSuccess {
-                    // Update all notifications in the local list
-                    val updatedNotifications = _projectNotifications.value.map { notification ->
-                        notification.copy(isRead = true)
-                    }
-                    _projectNotifications.value = updatedNotifications
-                    updateProjectNotificationBadge(updatedNotifications)
+                notificationRepository.markAllProjectNotificationsAsRead(currentUserId, currentProjectId).onSuccess {
+                    // Clear the entire list since all notifications are now read and should disappear
+                    _projectNotifications.value = emptyList()
+                    updateProjectNotificationBadge(emptyList())
                     
-                    Log.d("ProjectNotificationViewModel", "✅ Marked all project notifications as read")
+                    Log.d("ProjectNotificationViewModel", "✅ Marked all project notifications as read and cleared list")
                 }.onFailure { error ->
                     Log.e("ProjectNotificationViewModel", "❌ Failed to mark all project notifications as read: ${error.message}")
                 }
             } catch (e: Exception) {
                 Log.e("ProjectNotificationViewModel", "❌ Error marking all project notifications as read: ${e.message}")
+            }
+        }
+    }
+    
+    // Mark all project notifications as read and immediately remove from list (for USER role)
+    fun markAllProjectNotificationsAsReadAndRemove() {
+        viewModelScope.launch {
+            try {
+                Log.d("ProjectNotificationViewModel", "🔄 Marking all project notifications as read and removing for USER role")
+                
+                notificationRepository.markAllProjectNotificationsAsRead(currentUserId, currentProjectId).onSuccess {
+                    // Immediately clear the entire list for USER role
+                    _projectNotifications.value = emptyList()
+                    updateProjectNotificationBadge(emptyList())
+                    
+                    Log.d("ProjectNotificationViewModel", "✅ Marked all project notifications as read and immediately removed from list for USER role")
+                }.onFailure { error ->
+                    Log.e("ProjectNotificationViewModel", "❌ Failed to mark all project notifications as read and remove: ${error.message}")
+                }
+            } catch (e: Exception) {
+                Log.e("ProjectNotificationViewModel", "❌ Error marking all project notifications as read and remove: ${e.message}")
             }
         }
     }

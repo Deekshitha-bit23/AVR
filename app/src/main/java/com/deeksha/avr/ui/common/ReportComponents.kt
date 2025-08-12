@@ -51,10 +51,7 @@ fun OverallReportsContent(
     
     val context = LocalContext.current
     
-    // Load data when screen opens
-    LaunchedEffect(Unit) {
-        overallReportsViewModel.loadDataOnce()
-    }
+    // Data loading is now handled by the parent screen
     
     Column(
         modifier = Modifier

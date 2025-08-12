@@ -16,6 +16,7 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -323,14 +324,22 @@ fun ApproverProjectSelectionScreen(
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                     
+                    Text(
+                        text = "Found ${projects.size} projects:",
+                        fontSize = 14.sp,
+                        color = Color.Gray,
+                        modifier = Modifier.padding(bottom = 16.dp)
+                    )
+                    
                     LazyColumn(
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(projects) { project ->
-                                ProjectCard(
-                                    project = project,
-                                    onProjectClick = { onProjectSelected(project.id) }
-                                )
+                            ProjectCard(
+                                project = project,
+                                onProjectClick = { onProjectSelected(project.id) },
+                                projectNotifications = notifications.filter { it.projectId == project.id }
+                            )
                         }
                         
                         item {
@@ -346,8 +355,18 @@ fun ApproverProjectSelectionScreen(
 @Composable
 private fun ProjectCard(
     project: Project,
-    onProjectClick: () -> Unit
+    onProjectClick: () -> Unit,
+    projectNotifications: List<com.deeksha.avr.model.Notification> = emptyList()
 ) {
+    // Calculate project-specific notification counts
+    val projectNotificationCount = projectNotifications.count { !it.isRead }
+    val projectChangedCount = projectNotifications.count { 
+        it.type == com.deeksha.avr.model.NotificationType.PROJECT_CHANGED && !it.isRead 
+    }
+    val projectAssignmentCount = projectNotifications.count { 
+        it.type == com.deeksha.avr.model.NotificationType.PROJECT_ASSIGNMENT && !it.isRead 
+    }
+    
     Card(
         modifier = Modifier
             .fillMaxWidth()
@@ -362,7 +381,7 @@ private fun ProjectCard(
                 .padding(20.dp),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Project Initial Circle
+            // Project Initial Circle with notification indicator
             Box(
                 modifier = Modifier
                     .size(56.dp)
@@ -373,11 +392,32 @@ private fun ProjectCard(
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = getProjectInitials(project.name),
+                    text = project.code.ifEmpty { getProjectInitials(project.name) },
                     fontSize = 18.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF4285F4)
                 )
+                
+                // Notification badge for this project
+                if (projectNotificationCount > 0) {
+                    Box(
+                        modifier = Modifier
+                            .align(Alignment.TopEnd)
+                            .size(20.dp)
+                            .background(
+                                color = Color(0xFFF44336),
+                                shape = CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = if (projectNotificationCount > 9) "9+" else projectNotificationCount.toString(),
+                            fontSize = 10.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.White
+                        )
+                    }
+                }
             }
             
             Spacer(modifier = Modifier.width(16.dp))
@@ -386,13 +426,66 @@ private fun ProjectCard(
             Column(
                 modifier = Modifier.weight(1f)
             ) {
-                Text(
-                    text = project.name,
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = project.name,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    
+                    // Project notification status indicators
+                    if (projectNotificationCount > 0) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            if (projectChangedCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .background(
+                                            color = Color(0xFF9C27B0),
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "✏",
+                                        fontSize = 8.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                            
+                            if (projectAssignmentCount > 0) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(16.dp)
+                                        .background(
+                                            color = Color(0xFF4CAF50),
+                                            shape = CircleShape
+                                        ),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = "✓",
+                                        fontSize = 8.sp,
+                                        color = Color.White,
+                                        fontWeight = FontWeight.Bold
+                                    )
+                                }
+                            }
+                        }
+                    }
+                }
+                
                 Spacer(modifier = Modifier.height(4.dp))
+                
                 Text(
                     text = "Budget: ${FormatUtils.formatCurrency(project.budget)}",
                     fontSize = 14.sp,
@@ -414,6 +507,32 @@ private fun ProjectCard(
                         fontSize = 12.sp,
                         color = if (daysLeft >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
                     )
+                }
+                
+                // Show project-specific notification summary
+                if (projectNotificationCount > 0) {
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        if (projectChangedCount > 0) {
+                            Text(
+                                text = "✏ $projectChangedCount changes",
+                                fontSize = 11.sp,
+                                color = Color(0xFF9C27B0),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        if (projectAssignmentCount > 0) {
+                            Text(
+                                text = "✓ $projectAssignmentCount assignments",
+                                fontSize = 11.sp,
+                                color = Color(0xFF4CAF50),
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
                 }
             }
         }

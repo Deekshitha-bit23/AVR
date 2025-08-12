@@ -11,9 +11,10 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.withTimeout
 import java.util.*
 import javax.inject.Inject
 
@@ -88,38 +89,109 @@ class OverallReportsViewModel @Inject constructor(
     private var allExpenses: List<Expense> = emptyList()
     private var filteredExpenses: List<DetailedExpenseWithProject> = emptyList()
     
+    // New fields for user-specific filtering
+    private var currentUserId: String? = null
+    private var currentUserRole: String? = null
+    
     init {
+        // Don't auto-load data until user context is set
+    }
+    
+    // New method to set user context and load data
+    fun setUserContextAndLoadData(userId: String, userRole: String) {
+        currentUserId = userId
+        currentUserRole = userRole
         loadOverallReports()
     }
     
+    // Helper method to load approver projects
+    private suspend fun loadApproverProjects(userId: String): List<Project> {
+        return try {
+            android.util.Log.d("OverallReportsViewModel", "🔄 Starting to load approver projects for user: $userId")
+            
+            // Use first() with timeout to get the first emission from the Flow
+            val projects = withTimeout(10000L) { // 10 second timeout
+                projectRepository.getApproverProjects(userId).first()
+            }
+            
+            android.util.Log.d("OverallReportsViewModel", "✅ Successfully loaded ${projects.size} approver projects for user: $userId")
+            projects.forEach { project ->
+                android.util.Log.d("OverallReportsViewModel", "📊 Project: ${project.name} (${project.id})")
+            }
+            
+            projects
+        } catch (e: Exception) {
+            android.util.Log.e("OverallReportsViewModel", "❌ Error loading approver projects: ${e.message}")
+            e.printStackTrace()
+            emptyList()
+        }
+    }
+    
     fun loadOverallReports() {
+        // Don't load if user context is not set
+        if (currentUserId == null || currentUserRole == null) {
+            android.util.Log.w("OverallReportsViewModel", "⚠️ User context not set, cannot load reports")
+            return
+        }
+        
         viewModelScope.launch {
             _isLoading.value = true
             _error.value = null
             
             try {
-                android.util.Log.d("OverallReportsViewModel", "🔄 Loading overall reports...")
+                android.util.Log.d("OverallReportsViewModel", "🔄 Loading overall reports for user: $currentUserId (role: $currentUserRole)")
                 
-                // Load all projects first
-                allProjects = projectRepository.getAllProjects()
-                android.util.Log.d("OverallReportsViewModel", "📊 Loaded ${allProjects.size} projects")
+                // Load projects based on user role
+                allProjects = when (currentUserRole) {
+                    "APPROVER" -> {
+                        android.util.Log.d("OverallReportsViewModel", "🎯 Loading approver-specific projects...")
+                        try {
+                            val approverProjects = loadApproverProjects(currentUserId!!)
+                            android.util.Log.d("OverallReportsViewModel", "✅ Loaded ${approverProjects.size} approver projects")
+                            approverProjects
+                        } catch (e: Exception) {
+                            android.util.Log.e("OverallReportsViewModel", "❌ Failed to load approver projects: ${e.message}")
+                            e.printStackTrace()
+                            emptyList()
+                        }
+                    }
+                    "PRODUCTION_HEAD" -> {
+                        android.util.Log.d("OverallReportsViewModel", "🏭 Loading all projects for production head...")
+                        projectRepository.getAllProjects()
+                    }
+                    else -> {
+                        android.util.Log.d("OverallReportsViewModel", "👤 Loading all projects for other roles...")
+                        projectRepository.getAllProjects()
+                    }
+                }
+                
+                android.util.Log.d("OverallReportsViewModel", "📊 Loaded ${allProjects.size} projects for user: $currentUserId")
                 
                 if (allProjects.isEmpty()) {
-                    android.util.Log.w("OverallReportsViewModel", "⚠️ No projects found")
-                    _error.value = "No projects found in the system"
+                    android.util.Log.w("OverallReportsViewModel", "⚠️ No projects found for user: $currentUserId")
+                    
+                    // For approvers, show a more specific message
+                    val errorMessage = if (currentUserRole == "APPROVER") {
+                        "No projects are currently assigned to you. Please contact your production head."
+                    } else {
+                        "No projects found for your account"
+                    }
+                    
+                    _error.value = errorMessage
+                    _isLoading.value = false
                     return@launch
                 }
                 
-                // Load all approved expenses across all projects
+                // Load all approved expenses across user's projects
                 allExpenses = loadAllApprovedExpenses()
-                android.util.Log.d("OverallReportsViewModel", "💰 Loaded ${allExpenses.size} approved expenses")
+                android.util.Log.d("OverallReportsViewModel", "💰 Loaded ${allExpenses.size} approved expenses for user: $currentUserId")
                 
-                // Calculate total budget
+                // Calculate total budget based on user's projects
                 val totalBudget = allProjects.sumOf { it.budget }
                 
                 // Even if no expenses, show the report with budget info
                 if (allExpenses.isEmpty()) {
-                    android.util.Log.w("OverallReportsViewModel", "⚠️ No approved expenses found")
+                    android.util.Log.w("OverallReportsViewModel", "⚠️ No approved expenses found for user: $currentUserId")
                     _reportData.value = OverallReportData(
                         totalSpent = 0.0,
                         totalBudget = totalBudget,
@@ -135,7 +207,7 @@ class OverallReportsViewModel @Inject constructor(
                 }
                 
             } catch (e: Exception) {
-                android.util.Log.e("OverallReportsViewModel", "❌ Failed to load overall reports: ${e.message}")
+                android.util.Log.e("OverallReportsViewModel", "❌ Failed to load overall reports for user $currentUserId: ${e.message}")
                 e.printStackTrace()
                 _error.value = "Failed to load overall reports: ${e.message}"
             } finally {
@@ -903,82 +975,27 @@ class OverallReportsViewModel @Inject constructor(
      
      // Method to refresh data manually
      fun refreshData() {
-         viewModelScope.launch {
-             _isLoading.value = true
-             try {
-                 android.util.Log.d("OverallReportsViewModel", "🔄 Manual refresh triggered")
-                 
-                 // Reload projects
-                 allProjects = projectRepository.getAllProjects()
-                 
-                 // Reload expenses
-                 allExpenses = loadAllApprovedExpenses()
-                 
-                 // Apply filters and update
-                 applyFiltersAndUpdateReport()
-                 
-                 android.util.Log.d("OverallReportsViewModel", "✅ Manual refresh completed")
-             } catch (e: Exception) {
-                 android.util.Log.e("OverallReportsViewModel", "❌ Manual refresh failed: ${e.message}")
-                 _error.value = "Failed to refresh data: ${e.message}"
-             } finally {
-                 _isLoading.value = false
-             }
-         }
+         // Use the main load method which now handles user context
+         loadOverallReports()
      }
      
-     // Method to load data without real-time observation (for better performance)
-     fun loadDataOnce() {
-         viewModelScope.launch {
-             _isLoading.value = true
-             _error.value = null
-             
-             try {
-                 android.util.Log.d("OverallReportsViewModel", "🔄 Loading data once (no real-time observation)...")
-                 
-                 // Load all projects first
-                 allProjects = projectRepository.getAllProjects()
-                 android.util.Log.d("OverallReportsViewModel", "📊 Loaded ${allProjects.size} projects")
-                 
-                 if (allProjects.isEmpty()) {
-                     android.util.Log.w("OverallReportsViewModel", "⚠️ No projects found")
-                     _error.value = "No projects found in the system"
-                     return@launch
-                 }
-                 
-                 // Check if there are any approved expenses in the system
-                 val hasApprovedExpenses = expenseRepository.hasAnyApprovedExpenses()
-                 android.util.Log.d("OverallReportsViewModel", "🔍 System has approved expenses: $hasApprovedExpenses")
-                 
-                 if (!hasApprovedExpenses) {
-                     android.util.Log.w("OverallReportsViewModel", "⚠️ No approved expenses found in any project")
-                     // Show empty state with budget info
-                     val totalBudget = allProjects.sumOf { it.budget }
-                     _reportData.value = OverallReportData(
-                         totalSpent = 0.0,
-                         totalBudget = totalBudget,
-                         budgetUsagePercentage = 0.0,
-                         timeRange = "This Year",
-                         selectedProject = "All Projects",
-                         availableProjects = allProjects,
-                         expensesByProject = allProjects.associate { it.name to 0.0 }
-                     )
-                     return@launch
-                 }
-                 
-                 // Load all approved expenses across all projects
-                 allExpenses = loadAllApprovedExpenses()
-                 android.util.Log.d("OverallReportsViewModel", "💰 Loaded ${allExpenses.size} approved expenses")
-                 
-                 // Apply current filters and update report data
-                 applyFiltersAndUpdateReport()
-                 
-             } catch (e: Exception) {
-                 android.util.Log.e("OverallReportsViewModel", "❌ Failed to load data: ${e.message}")
-                 _error.value = "Failed to load data: ${e.message}"
-             } finally {
-                 _isLoading.value = false
-             }
-         }
-     }
+         // Method to load data without real-time observation (for better performance)
+    fun loadDataOnce() {
+        // Use the main load method which now handles user context
+        loadOverallReports()
+    }
+    
+    // Debug method to check current state
+    fun getDebugInfo(): String {
+        return """
+            OverallReportsViewModel Debug Info:
+            - Current User ID: $currentUserId
+            - Current User Role: $currentUserRole
+            - Is Loading: ${_isLoading.value}
+            - Error: ${_error.value}
+            - Projects Count: ${allProjects.size}
+            - Expenses Count: ${allExpenses.size}
+            - Report Data Available: ${_reportData.value.availableProjects.isNotEmpty()}
+        """.trimIndent()
+    }
 }  

@@ -36,6 +36,7 @@ import com.deeksha.avr.ui.view.admin.ReportsScreen
 import com.deeksha.avr.ui.view.approver.ApproverDashboardScreen
 import com.deeksha.avr.ui.view.approver.ApproverProjectDashboardScreen
 import com.deeksha.avr.ui.view.approver.ApproverProjectSelectionScreen
+import com.deeksha.avr.ui.view.approver.ApproverNotificationScreen
 import com.deeksha.avr.ui.view.approver.CategoryDetailScreen
 import com.deeksha.avr.ui.view.approver.PendingApprovalsScreen
 import com.deeksha.avr.ui.view.approver.ReviewExpenseScreen
@@ -731,12 +732,25 @@ fun AppNavHost(
                     navController.navigate(Screen.OverallReports.route)
                 },
                 onNavigateToNotifications = {
-                    navController.navigate(Screen.NotificationList.route)
+                    navController.navigate(Screen.ApproverNotificationScreen.route)
                 },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
                     }
+                },
+                authViewModel = authViewModel
+            )
+        }
+        
+        composable(Screen.ApproverNotificationScreen.route) {
+            ApproverNotificationScreen(
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToApproverProjectDashboard = { projectId ->
+                    navController.navigate(Screen.ApproverProjectDashboard.createRoute(projectId))
+                },
+                onNavigateToPendingApprovals = { projectId ->
+                    navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
                 },
                 authViewModel = authViewModel
             )
@@ -812,8 +826,10 @@ fun AppNavHost(
         }
         
         composable(Screen.OverallReports.route) {
+            val authViewModel: AuthViewModel = hiltViewModel()
             OverallReportsScreen(
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                authViewModel = authViewModel
             )
         }
         

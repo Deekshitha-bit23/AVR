@@ -111,7 +111,7 @@ class AuthRepository @Inject constructor(
                 }
                 
                 // Parse device info
-                val deviceInfoData = userData["deviceInfo"] as? Map<String, Any>
+                val deviceInfoData = userData["deviceInfo"] as? Map<*, *>
                 val deviceInfo = DeviceInfo(
                     fcmToken = deviceInfoData?.get("fcmToken") as? String ?: "",
                     deviceId = deviceInfoData?.get("deviceId") as? String ?: "",
@@ -123,7 +123,7 @@ class AuthRepository @Inject constructor(
                 )
                 
                 // Parse notification preferences
-                val notificationPrefsData = userData["notificationPreferences"] as? Map<String, Any>
+                val notificationPrefsData = userData["notificationPreferences"] as? Map<*, *>
                 val notificationPreferences = NotificationPreferences(
                     pushNotifications = notificationPrefsData?.get("pushNotifications") as? Boolean ?: true,
                     expenseSubmitted = notificationPrefsData?.get("expenseSubmitted") as? Boolean ?: true,
@@ -141,7 +141,7 @@ class AuthRepository @Inject constructor(
                     role = userRole,
                     createdAt = (userData["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: System.currentTimeMillis(),
                     isActive = userData["isActive"] as? Boolean ?: true,
-                    assignedProjects = userData["assignedProjects"] as? List<String> ?: emptyList(),
+                    assignedProjects = (userData["assignedProjects"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
                     deviceInfo = deviceInfo,
                     notificationPreferences = notificationPreferences
                 )
@@ -213,7 +213,7 @@ class AuthRepository @Inject constructor(
                     }
                     
                     // Parse device info
-                    val deviceInfoData = userData["deviceInfo"] as? Map<String, Any>
+                    val deviceInfoData = userData["deviceInfo"] as? Map<*, *>
                     val deviceInfo = DeviceInfo(
                         fcmToken = deviceInfoData?.get("fcmToken") as? String ?: "",
                         deviceId = deviceInfoData?.get("deviceId") as? String ?: "",
@@ -225,7 +225,7 @@ class AuthRepository @Inject constructor(
                     )
                     
                     // Parse notification preferences
-                    val notificationPrefsData = userData["notificationPreferences"] as? Map<String, Any>
+                    val notificationPrefsData = userData["notificationPreferences"] as? Map<*, *>
                     val notificationPreferences = NotificationPreferences(
                         pushNotifications = notificationPrefsData?.get("pushNotifications") as? Boolean ?: true,
                         expenseSubmitted = notificationPrefsData?.get("expenseSubmitted") as? Boolean ?: true,
@@ -243,7 +243,7 @@ class AuthRepository @Inject constructor(
                         role = userRole,
                         createdAt = (userData["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: System.currentTimeMillis(),
                         isActive = userData["isActive"] as? Boolean ?: true,
-                        assignedProjects = userData["assignedProjects"] as? List<String> ?: emptyList(),
+                        assignedProjects = (userData["assignedProjects"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
                         deviceInfo = deviceInfo,
                         notificationPreferences = notificationPreferences
                     )
@@ -388,7 +388,7 @@ class AuthRepository @Inject constructor(
                     }
                     
                     // Parse device info
-                    val deviceInfoData = userData["deviceInfo"] as? Map<String, Any>
+                    val deviceInfoData = userData["deviceInfo"] as? Map<*, *>
                     val deviceInfo = DeviceInfo(
                         fcmToken = deviceInfoData?.get("fcmToken") as? String ?: "",
                         deviceId = deviceInfoData?.get("deviceId") as? String ?: "",
@@ -400,7 +400,7 @@ class AuthRepository @Inject constructor(
                     )
                     
                     // Parse notification preferences
-                    val notificationPrefsData = userData["notificationPreferences"] as? Map<String, Any>
+                    val notificationPrefsData = userData["notificationPreferences"] as? Map<*, *>
                     val notificationPreferences = NotificationPreferences(
                         pushNotifications = notificationPrefsData?.get("pushNotifications") as? Boolean ?: true,
                         expenseSubmitted = notificationPrefsData?.get("expenseSubmitted") as? Boolean ?: true,
@@ -418,7 +418,7 @@ class AuthRepository @Inject constructor(
                         role = userRole,
                         createdAt = (userData["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: System.currentTimeMillis(),
                         isActive = userData["isActive"] as? Boolean ?: true,
-                        assignedProjects = userData["assignedProjects"] as? List<String> ?: emptyList(),
+                        assignedProjects = (userData["assignedProjects"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
                         deviceInfo = deviceInfo,
                         notificationPreferences = notificationPreferences
                     )
@@ -503,7 +503,7 @@ class AuthRepository @Inject constructor(
                     }
                     
                     // Parse device info
-                    val deviceInfoData = userData["deviceInfo"] as? Map<String, Any>
+                    val deviceInfoData = userData["deviceInfo"] as? Map<*, *>
                     val deviceInfo = DeviceInfo(
                         fcmToken = deviceInfoData?.get("fcmToken") as? String ?: "",
                         deviceId = deviceInfoData?.get("deviceId") as? String ?: "",
@@ -515,7 +515,7 @@ class AuthRepository @Inject constructor(
                     )
                     
                     // Parse notification preferences
-                    val notificationPrefsData = userData["notificationPreferences"] as? Map<String, Any>
+                    val notificationPrefsData = userData["notificationPreferences"] as? Map<*, *>
                     val notificationPreferences = NotificationPreferences(
                         pushNotifications = notificationPrefsData?.get("pushNotifications") as? Boolean ?: true,
                         expenseSubmitted = notificationPrefsData?.get("expenseSubmitted") as? Boolean ?: true,
@@ -533,7 +533,7 @@ class AuthRepository @Inject constructor(
                         role = userRole,
                         createdAt = (userData["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: System.currentTimeMillis(),
                         isActive = userData["isActive"] as? Boolean ?: true,
-                        assignedProjects = userData["assignedProjects"] as? List<String> ?: emptyList(),
+                        assignedProjects = (userData["assignedProjects"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
                         deviceInfo = deviceInfo,
                         notificationPreferences = notificationPreferences
                     )
@@ -569,7 +569,7 @@ class AuthRepository @Inject constructor(
                 }
                 
                 // Parse device info
-                val deviceInfoData = userData["deviceInfo"] as? Map<String, Any>
+                val deviceInfoData = userData["deviceInfo"] as? Map<*, *>
                 val deviceInfo = DeviceInfo(
                     fcmToken = deviceInfoData?.get("fcmToken") as? String ?: "",
                     deviceId = deviceInfoData?.get("deviceId") as? String ?: "",
@@ -581,7 +581,7 @@ class AuthRepository @Inject constructor(
                 )
                 
                 // Parse notification preferences
-                val notificationPrefsData = userData["notificationPreferences"] as? Map<String, Any>
+                val notificationPrefsData = userData["notificationPreferences"] as? Map<*, *>
                 val notificationPreferences = NotificationPreferences(
                     pushNotifications = notificationPrefsData?.get("pushNotifications") as? Boolean ?: true,
                     expenseSubmitted = notificationPrefsData?.get("expenseSubmitted") as? Boolean ?: true,
@@ -599,7 +599,7 @@ class AuthRepository @Inject constructor(
                     role = userRole,
                     createdAt = (userData["timestamp"] as? com.google.firebase.Timestamp)?.toDate()?.time ?: System.currentTimeMillis(),
                     isActive = userData["isActive"] as? Boolean ?: true,
-                    assignedProjects = userData["assignedProjects"] as? List<String> ?: emptyList(),
+                    assignedProjects = (userData["assignedProjects"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
                     deviceInfo = deviceInfo,
                     notificationPreferences = notificationPreferences
                 )

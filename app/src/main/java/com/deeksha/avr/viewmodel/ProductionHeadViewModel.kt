@@ -193,6 +193,9 @@ class ProductionHeadViewModel @Inject constructor(
                     // Send notifications to assigned team members using the project data we created
                     sendProjectAssignmentNotifications(project, managerId, teamMemberIds)
                     
+                    // Send notifications to approvers about the new project
+                    sendNewProjectNotifications(project, managerId, teamMemberIds)
+                    
                     _successMessage.value = "Project created successfully!"
                     clearProjectForm()
                 } else {
@@ -319,6 +322,9 @@ class ProductionHeadViewModel @Inject constructor(
             try {
                 android.util.Log.d("ProductionHeadViewModel", "🔄 Updating project: $projectName")
                 
+                // Store original project data for comparison
+                val originalProject = _editingProject.value
+                
                 // Validate inputs
                 if (projectName.isBlank()) {
                     throw Exception("Project name cannot be empty")
@@ -362,6 +368,11 @@ class ProductionHeadViewModel @Inject constructor(
                 if (result.isSuccess) {
                     android.util.Log.d("ProductionHeadViewModel", "✅ Project updated successfully")
                     
+                    // Send notifications for project changes
+                    if (originalProject != null) {
+                        sendProjectChangeNotifications(originalProject, updatedProject)
+                    }
+                    
                     // Send notifications to newly assigned team members
                     sendProjectUpdateNotifications(updatedProject, managerId, teamMemberIds)
                     
@@ -381,6 +392,366 @@ class ProductionHeadViewModel @Inject constructor(
         }
     }
     
+    fun updateProjectStatus(projectId: String, newStatus: String) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                android.util.Log.d("ProductionHeadViewModel", "🔄 Updating project status: $projectId to $newStatus")
+                
+                val result = projectRepository.updateProjectStatus(projectId, newStatus)
+                if (result.isSuccess) {
+                    android.util.Log.d("ProductionHeadViewModel", "✅ Project status updated successfully")
+                    
+                    // Send status change notifications
+                    sendProjectStatusChangeNotifications(projectId, newStatus)
+                    
+                    _successMessage.value = "Project status updated to $newStatus!"
+                } else {
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Failed to update project status"
+                    android.util.Log.e("ProductionHeadViewModel", "❌ Project status update failed: $errorMsg")
+                    _error.value = errorMsg
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error updating project status: ${e.message}", e)
+                _error.value = "Error updating project status: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    private fun sendProjectStatusChangeNotifications(projectId: String, newStatus: String) {
+        viewModelScope.launch {
+            try {
+                // Get project details
+                val project = projectRepository.getProjectById(projectId)
+                if (project == null) {
+                    android.util.Log.e("ProductionHeadViewModel", "❌ Project not found for status notifications: $projectId")
+                    return@launch
+                }
+                
+                // Get all users to determine their roles
+                val allUsers = authRepository.getAllUsers()
+                val currentUser = authRepository.getCurrentUser()
+                val changedBy = currentUser?.name ?: "Production Head"
+                
+                val statusMessage = when (newStatus.uppercase()) {
+                    "ACTIVE" -> "Project has been activated"
+                    "PAUSED" -> "Project has been paused"
+                    "COMPLETED" -> "Project has been marked as completed"
+                    "CANCELLED" -> "Project has been cancelled"
+                    else -> "Project status changed to $newStatus"
+                }
+                
+                // Send notification to manager (approver)
+                val manager = allUsers.find { it.phone == project.managerId }
+                if (manager != null) {
+                    notificationRepository.createProjectChangeNotification(
+                        recipientId = manager.phone,
+                        recipientRole = manager.role.name,
+                        projectId = project.id,
+                        projectName = project.name,
+                        changeDescription = statusMessage,
+                        changedBy = changedBy
+                    )
+                }
+                
+                // Send notifications to approvers
+                project.approverIds.forEach { approverId ->
+                    val approver = allUsers.find { it.phone == approverId }
+                    if (approver != null) {
+                        notificationRepository.createProjectChangeNotification(
+                            recipientId = approverId,
+                            recipientRole = approver.role.name,
+                            projectId = project.id,
+                            projectName = project.name,
+                            changeDescription = statusMessage,
+                            changedBy = changedBy
+                        )
+                    }
+                }
+                
+                // Send notifications to team members
+                project.teamMembers.forEach { memberId ->
+                    val member = allUsers.find { it.phone == memberId }
+                    if (member != null) {
+                        notificationRepository.createProjectChangeNotification(
+                            recipientId = memberId,
+                            recipientRole = member.role.name,
+                            projectId = project.id,
+                            projectName = project.name,
+                            changeDescription = statusMessage,
+                            changedBy = changedBy
+                        )
+                    }
+                }
+                
+                android.util.Log.d("ProductionHeadViewModel", "✅ Sent status change notifications for project: ${project.name}")
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending status change notifications: ${e.message}")
+            }
+        }
+    }
+
+    private fun sendProjectAssignmentNotifications(
+        project: Project,
+        managerId: String,
+        teamMemberIds: List<String>
+    ) {
+        viewModelScope.launch {
+            try {
+                // Get all users to determine their roles
+                val allUsers = authRepository.getAllUsers()
+                
+                // Send notification to manager (approver)
+                val manager = allUsers.find { it.phone == managerId }
+                if (manager != null) {
+                    notificationRepository.createProjectAssignmentNotification(
+                        recipientId = managerId,
+                        recipientRole = manager.role.name,
+                        projectId = project.id,
+                        projectName = project.name,
+                        assignedRole = "Project Manager"
+                    )
+                }
+                
+                // Send notifications to team members
+                teamMemberIds.forEach { memberId ->
+                    val member = allUsers.find { it.phone == memberId }
+                    if (member != null) {
+                        notificationRepository.createProjectAssignmentNotification(
+                            recipientId = memberId,
+                            recipientRole = member.role.name,
+                            projectId = project.id,
+                            projectName = project.name,
+                            assignedRole = "Team Member"
+                        )
+                    }
+                }
+                
+                android.util.Log.d("ProductionHeadViewModel", "✅ Sent assignment notifications for project: ${project.name}")
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending assignment notifications: ${e.message}")
+            }
+        }
+    }
+
+    private fun sendNewProjectNotifications(
+        project: Project,
+        managerId: String,
+        teamMemberIds: List<String>
+    ) {
+        viewModelScope.launch {
+            try {
+                // Get all users to determine their roles
+                val allUsers = authRepository.getAllUsers()
+                
+                // Send notification to manager (approver)
+                val manager = allUsers.find { it.phone == managerId }
+                if (manager != null) {
+                    notificationRepository.createNewProjectNotification(
+                        recipientId = managerId,
+                        recipientRole = manager.role.name,
+                        projectId = project.id,
+                        projectName = project.name,
+                        assignedRole = "Project Manager"
+                    )
+                }
+                
+                // Send notifications to team members
+                teamMemberIds.forEach { memberId ->
+                    val member = allUsers.find { it.phone == memberId }
+                    if (member != null) {
+                        notificationRepository.createNewProjectNotification(
+                            recipientId = memberId,
+                            recipientRole = member.role.name,
+                            projectId = project.id,
+                            projectName = project.name,
+                            assignedRole = "Team Member"
+                        )
+                    }
+                }
+                
+                // Send notifications to approvers
+                project.approverIds.forEach { approverId ->
+                    val approver = allUsers.find { it.phone == approverId }
+                    if (approver != null) {
+                        notificationRepository.createNewProjectNotification(
+                            recipientId = approverId,
+                            recipientRole = approver.role.name,
+                            projectId = project.id,
+                            projectName = project.name,
+                            assignedRole = "Approver"
+                        )
+                    }
+                }
+                
+                android.util.Log.d("ProductionHeadViewModel", "✅ Sent new project notifications for project: ${project.name}")
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending new project notifications: ${e.message}")
+            }
+        }
+    }
+
+    private fun sendProjectChangeNotifications(originalProject: Project, updatedProject: Project) {
+        viewModelScope.launch {
+            try {
+                // Get all users to determine their roles
+                val allUsers = authRepository.getAllUsers()
+                
+                // Detect what changes were made
+                val changes = mutableListOf<String>()
+                
+                if (originalProject.name != updatedProject.name) {
+                    changes.add("Project name changed from '${originalProject.name}' to '${updatedProject.name}'")
+                }
+                
+                if (originalProject.description != updatedProject.description) {
+                    changes.add("Project description updated")
+                }
+                
+                if (originalProject.budget != updatedProject.budget) {
+                    changes.add("Budget changed from ₹${originalProject.budget} to ₹${updatedProject.budget}")
+                }
+                
+                if (originalProject.startDate != updatedProject.startDate) {
+                    changes.add("Start date updated")
+                }
+                
+                if (originalProject.endDate != updatedProject.endDate) {
+                    changes.add("End date updated")
+                }
+                
+                if (originalProject.managerId != updatedProject.managerId) {
+                    changes.add("Project manager changed")
+                }
+                
+                if (originalProject.teamMembers != updatedProject.teamMembers) {
+                    changes.add("Team members updated")
+                }
+                
+                if (originalProject.departmentBudgets != updatedProject.departmentBudgets) {
+                    changes.add("Department budgets updated")
+                }
+                
+                if (originalProject.categories != updatedProject.categories) {
+                    changes.add("Project categories updated")
+                }
+                
+                // If no changes detected, don't send notifications
+                if (changes.isEmpty()) {
+                    android.util.Log.d("ProductionHeadViewModel", "ℹ️ No significant changes detected, skipping notifications")
+                    return@launch
+                }
+                
+                val changeDescription = changes.joinToString(". ")
+                val currentUser = authRepository.getCurrentUser()
+                val changedBy = currentUser?.name ?: "Production Head"
+                
+                // Send notification to manager (approver)
+                val manager = allUsers.find { it.phone == updatedProject.managerId }
+                if (manager != null) {
+                    notificationRepository.createProjectChangeNotification(
+                        recipientId = manager.phone,
+                        recipientRole = manager.role.name,
+                        projectId = updatedProject.id,
+                        projectName = updatedProject.name,
+                        changeDescription = changeDescription,
+                        changedBy = changedBy
+                    )
+                }
+                
+                // Send notifications to approvers
+                updatedProject.approverIds.forEach { approverId ->
+                    val approver = allUsers.find { it.phone == approverId }
+                    if (approver != null) {
+                        notificationRepository.createProjectChangeNotification(
+                            recipientId = approverId,
+                            recipientRole = approver.role.name,
+                            projectId = updatedProject.id,
+                            projectName = updatedProject.name,
+                            changeDescription = changeDescription,
+                            changedBy = changedBy
+                        )
+                    }
+                }
+                
+                // Send notifications to team members
+                updatedProject.teamMembers.forEach { memberId ->
+                    val member = allUsers.find { it.phone == memberId }
+                    if (member != null) {
+                        notificationRepository.createProjectChangeNotification(
+                            recipientId = memberId,
+                            recipientRole = member.role.name,
+                            projectId = updatedProject.id,
+                            projectName = updatedProject.name,
+                            changeDescription = changeDescription,
+                            changedBy = changedBy
+                        )
+                    }
+                }
+                
+                // Send special budget change notifications to approvers if budget was modified
+                if (originalProject.budget != updatedProject.budget) {
+                    sendBudgetChangeNotifications(updatedProject, originalProject.budget, updatedProject.budget, changedBy)
+                }
+                
+                android.util.Log.d("ProductionHeadViewModel", "✅ Sent change notifications for project: ${updatedProject.name}")
+                android.util.Log.d("ProductionHeadViewModel", "📝 Changes detected: $changeDescription")
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending change notifications: ${e.message}")
+            }
+        }
+    }
+    
+    private fun sendBudgetChangeNotifications(
+        project: Project,
+        oldBudget: Double,
+        newBudget: Double,
+        changedBy: String
+    ) {
+        viewModelScope.launch {
+            try {
+                val allUsers = authRepository.getAllUsers()
+                val budgetChangeMessage = "Budget changed from ₹$oldBudget to ₹$newBudget"
+                
+                // Send to all approvers
+                project.approverIds.forEach { approverId ->
+                    val approver = allUsers.find { it.phone == approverId }
+                    if (approver != null) {
+                        notificationRepository.createProjectChangeNotification(
+                            recipientId = approverId,
+                            recipientRole = approver.role.name,
+                            projectId = project.id,
+                            projectName = project.name,
+                            changeDescription = budgetChangeMessage,
+                            changedBy = changedBy
+                        )
+                    }
+                }
+                
+                // Send to project manager if they're an approver
+                val manager = allUsers.find { it.phone == project.managerId }
+                if (manager != null && manager.role == UserRole.APPROVER) {
+                    notificationRepository.createProjectChangeNotification(
+                        recipientId = project.managerId,
+                        recipientRole = manager.role.name,
+                        projectId = project.id,
+                        projectName = project.name,
+                        changeDescription = budgetChangeMessage,
+                        changedBy = changedBy
+                    )
+                }
+                
+                android.util.Log.d("ProductionHeadViewModel", "💰 Sent budget change notifications for project: ${project.name}")
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending budget change notifications: ${e.message}")
+            }
+        }
+    }
+
     fun clearEditState() {
         _editingProject.value = null
         _isEditMode.value = false
@@ -426,49 +797,6 @@ class ProductionHeadViewModel @Inject constructor(
                 android.util.Log.d("ProductionHeadViewModel", "✅ Sent update notifications for project: ${project.name}")
             } catch (e: Exception) {
                 android.util.Log.e("ProductionHeadViewModel", "❌ Error sending update notifications: ${e.message}")
-            }
-        }
-    }
-
-    private fun sendProjectAssignmentNotifications(
-        project: Project,
-        managerId: String,
-        teamMemberIds: List<String>
-    ) {
-        viewModelScope.launch {
-            try {
-                // Get all users to determine their roles
-                val allUsers = authRepository.getAllUsers()
-                
-                // Send notification to manager (approver)
-                val manager = allUsers.find { it.phone == managerId }
-                if (manager != null) {
-                    notificationRepository.createProjectAssignmentNotification(
-                        recipientId = managerId,
-                        recipientRole = manager.role.name,
-                        projectId = project.id,
-                        projectName = project.name,
-                        assignedRole = "Project Manager"
-                    )
-                }
-                
-                // Send notifications to team members
-                teamMemberIds.forEach { memberId ->
-                    val member = allUsers.find { it.phone == memberId }
-                    if (member != null) {
-                        notificationRepository.createProjectAssignmentNotification(
-                            recipientId = memberId,
-                            recipientRole = member.role.name,
-                            projectId = project.id,
-                            projectName = project.name,
-                            assignedRole = "Team Member"
-                        )
-                    }
-                }
-                
-                android.util.Log.d("ProductionHeadViewModel", "✅ Sent assignment notifications for project: ${project.name}")
-            } catch (e: Exception) {
-                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending assignment notifications: ${e.message}")
             }
         }
     }
