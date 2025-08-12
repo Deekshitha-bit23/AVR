@@ -93,7 +93,7 @@ fun ProjectNotificationScreen(
                 if (unreadCount > 0) {
                     TextButton(
                             onClick = { 
-                            val currentUserId = authState.user?.uid
+                            val currentUserId = authState.user?.phone
                             if (currentUserId != null) {
                                 notificationViewModel.markAllNotificationsAsRead(currentUserId)
                             }
@@ -144,7 +144,7 @@ fun ProjectNotificationScreen(
                             Button(
                                 onClick = { 
                                 notificationViewModel.clearError()
-                                val currentUserId = authState.user?.uid
+                                val currentUserId = authState.user?.phone
                                 if (currentUserId != null) {
                                     notificationViewModel.refreshNotifications(currentUserId)
                                 }

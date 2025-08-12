@@ -128,10 +128,11 @@ class NotificationRepository @Inject constructor(
             val result = notificationsCollection
                 .whereEqualTo("projectId", projectId)
                 .whereEqualTo("recipientId", userId)
+                .whereEqualTo("read", false)
                 .orderBy("createdAt", Query.Direction.DESCENDING)
                 .get()
                 .await()
-            Log.d("NotificationRepository", "Got the notification for project : ${projectId} userid :${userId}")
+            Log.d("NotificationRepositoryHistory", "Got the notification for project : ${projectId} userid :${userId}")
             result.documents.mapNotNull { doc ->
                 doc.toObject(Notification::class.java)
             }
@@ -338,7 +339,12 @@ class NotificationRepository @Inject constructor(
     suspend fun markNotificationAsRead(notificationId: String): Result<Unit> {
         return try {
             notificationsCollection.document(notificationId)
-                .update("isRead", true)
+                .update(
+                    mapOf(
+                        "read" to true,
+                        "isRead" to true
+                    )
+                )
                 .await()
             Result.success(Unit)
         } catch (e: Exception) {
@@ -352,16 +358,17 @@ class NotificationRepository @Inject constructor(
         return try {
             val notifications = notificationsCollection
                 .whereEqualTo("recipientId", userId)
-                .whereEqualTo("isRead", false)
+                .whereEqualTo("read", false)
                 .get()
                 .await()
 
             notifications.documents.forEach { doc ->
+                doc.reference.update("read", true)
                 doc.reference.update("isRead", true)
             }
             Result.success(Unit)
         } catch (e: Exception) {
-            Log.e("NotificationRepository", "❌ Error marking all notifications as read: ${e.message}")
+            Log.e("NotificationRepositorychecking", "❌ Error marking all notifications as read: ${e.message}")
             Result.failure(e)
         }
     }
@@ -372,11 +379,12 @@ class NotificationRepository @Inject constructor(
             val notifications = notificationsCollection
                 .whereEqualTo("recipientId", userId)
                 .whereEqualTo("projectId", projectId)
-                .whereEqualTo("isRead", false)
+                .whereEqualTo("read", false)
                 .get()
                 .await()
 
             notifications.documents.forEach { doc ->
+                doc.reference.update("read", true)
                 doc.reference.update("isRead", true)
             }
             Result.success(Unit)
@@ -391,7 +399,7 @@ class NotificationRepository @Inject constructor(
         return try {
             val unreadNotifications = notificationsCollection
                 .whereEqualTo("recipientId", userId)
-                .whereEqualTo("isRead", false)
+                .whereEqualTo("read", false)
                 .get()
                 .await()
 

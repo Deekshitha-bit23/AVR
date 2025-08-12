@@ -138,7 +138,7 @@ fun NotificationListScreen(
                 if (notificationBadge.hasUnread) {
                     TextButton(
                         onClick = {
-                            val currentUserId = authState.user?.uid
+                            val currentUserId = authState.user?.phone
                             if (currentUserId != null) {
                                 notificationViewModel.markAllNotificationsAsRead(currentUserId)
                             }
