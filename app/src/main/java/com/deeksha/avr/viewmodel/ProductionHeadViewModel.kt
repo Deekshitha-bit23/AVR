@@ -190,9 +190,6 @@ class ProductionHeadViewModel @Inject constructor(
                 if (result.isSuccess) {
                     android.util.Log.d("ProductionHeadViewModel", "✅ Project created successfully with ID: ${result.getOrNull()}")
                     
-                    // Send notifications to assigned team members using the project data we created
-                    sendProjectAssignmentNotifications(project, managerId, teamMemberIds)
-                    
                     // Send notifications to approvers about the new project
                     sendNewProjectNotifications(project, managerId, teamMemberIds)
                     
@@ -373,8 +370,7 @@ class ProductionHeadViewModel @Inject constructor(
                         sendProjectChangeNotifications(originalProject, updatedProject)
                     }
                     
-                    // Send notifications to newly assigned team members
-                    sendProjectUpdateNotifications(updatedProject, managerId, teamMemberIds)
+
                     
                     _successMessage.value = "Project updated successfully!"
                     clearEditState()
@@ -495,48 +491,7 @@ class ProductionHeadViewModel @Inject constructor(
         }
     }
 
-    private fun sendProjectAssignmentNotifications(
-        project: Project,
-        managerId: String,
-        teamMemberIds: List<String>
-    ) {
-        viewModelScope.launch {
-            try {
-                // Get all users to determine their roles
-                val allUsers = authRepository.getAllUsers()
-                
-                // Send notification to manager (approver)
-                val manager = allUsers.find { it.phone == managerId }
-                if (manager != null) {
-                    notificationRepository.createProjectAssignmentNotification(
-                        recipientId = managerId,
-                        recipientRole = manager.role.name,
-                        projectId = project.id,
-                        projectName = project.name,
-                        assignedRole = "Project Manager"
-                    )
-                }
-                
-                // Send notifications to team members
-                teamMemberIds.forEach { memberId ->
-                    val member = allUsers.find { it.phone == memberId }
-                    if (member != null) {
-                        notificationRepository.createProjectAssignmentNotification(
-                            recipientId = memberId,
-                            recipientRole = member.role.name,
-                            projectId = project.id,
-                            projectName = project.name,
-                            assignedRole = "Team Member"
-                        )
-                    }
-                }
-                
-                android.util.Log.d("ProductionHeadViewModel", "✅ Sent assignment notifications for project: ${project.name}")
-            } catch (e: Exception) {
-                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending assignment notifications: ${e.message}")
-            }
-        }
-    }
+
 
     private fun sendNewProjectNotifications(
         project: Project,
@@ -758,46 +713,5 @@ class ProductionHeadViewModel @Inject constructor(
         clearProjectForm()
     }
     
-    private fun sendProjectUpdateNotifications(
-        project: Project,
-        managerId: String,
-        teamMemberIds: List<String>
-    ) {
-        viewModelScope.launch {
-            try {
-                // Get all users to determine their roles
-                val allUsers = authRepository.getAllUsers()
-                
-                // Send notification to manager (approver)
-                val manager = allUsers.find { it.phone == managerId }
-                if (manager != null) {
-                    notificationRepository.createProjectAssignmentNotification(
-                        recipientId = managerId,
-                        recipientRole = manager.role.name,
-                        projectId = project.id,
-                        projectName = project.name,
-                        assignedRole = "Project Manager"
-                    )
-                }
-                
-                // Send notifications to team members
-                teamMemberIds.forEach { memberId ->
-                    val member = allUsers.find { it.phone == memberId }
-                    if (member != null) {
-                        notificationRepository.createProjectAssignmentNotification(
-                            recipientId = memberId,
-                            recipientRole = member.role.name,
-                            projectId = project.id,
-                            projectName = project.name,
-                            assignedRole = "Team Member"
-                        )
-                    }
-                }
-                
-                android.util.Log.d("ProductionHeadViewModel", "✅ Sent update notifications for project: ${project.name}")
-            } catch (e: Exception) {
-                android.util.Log.e("ProductionHeadViewModel", "❌ Error sending update notifications: ${e.message}")
-            }
-        }
-    }
+
 } 

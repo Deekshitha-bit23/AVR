@@ -447,7 +447,7 @@ class OverallReportsViewModel @Inject constructor(
             
             android.util.Log.d("OverallReportsViewModel", "✅ Successfully loaded ${allExpenses.size} total reportable expenses")
             
-            // Sort by date descending
+            // Sort by date descending and return the sorted list
             allExpenses.sortedByDescending { it.submittedAt?.toDate()?.time ?: 0L }
         } catch (e: Exception) {
             android.util.Log.e("OverallReportsViewModel", "❌ Critical error loading expenses: ${e.message}")
