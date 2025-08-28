@@ -12,7 +12,20 @@
           "package_name": "com.deeksha.avr"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1096496081114-cq7brkab327fj6ghp8hmevbd1t8merpe.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.deeksha.avr",
+            "certificate_hash": "cd0027273c61c2b938f9ec0ba2f64ba3cfdb50e0"
+          }
+        },
+        {
+          "client_id": "1096496081114-9qfrq9b9q7vqoksfpevmsin30m06chsc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCdg2s2uK6quM95uhp2LHU_J1iyh2XWbz8"
@@ -20,7 +33,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1096496081114-9qfrq9b9q7vqoksfpevmsin30m06chsc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1096496081114-p20jua9ccfhh001sk0b127qae6cth5ht.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.cubiquitous.AVREntertainment"
+              }
+            }
+          ]
         }
       }
     },
@@ -31,7 +56,28 @@
           "package_name": "com.deeksha.avrentertainment"
         }
       },
-      "oauth_client": [],
+      "oauth_client": [
+        {
+          "client_id": "1096496081114-54icmiim55ckv76t3gmmgnkp41p1crbm.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.deeksha.avrentertainment",
+            "certificate_hash": "461b7d5831d5cdd284b722310a560e8d6359e8a3"
+          }
+        },
+        {
+          "client_id": "1096496081114-fmkqbrvmeg1qa4jr6n3mnn71u85tndoh.apps.googleusercontent.com",
+          "client_type": 1,
+          "android_info": {
+            "package_name": "com.deeksha.avrentertainment",
+            "certificate_hash": "cd0027273c61c2b938f9ec0ba2f64ba3cfdb50e0"
+          }
+        },
+        {
+          "client_id": "1096496081114-9qfrq9b9q7vqoksfpevmsin30m06chsc.apps.googleusercontent.com",
+          "client_type": 3
+        }
+      ],
       "api_key": [
         {
           "current_key": "AIzaSyCdg2s2uK6quM95uhp2LHU_J1iyh2XWbz8"
@@ -39,7 +85,19 @@
       ],
       "services": {
         "appinvite_service": {
-          "other_platform_oauth_client": []
+          "other_platform_oauth_client": [
+            {
+              "client_id": "1096496081114-9qfrq9b9q7vqoksfpevmsin30m06chsc.apps.googleusercontent.com",
+              "client_type": 3
+            },
+            {
+              "client_id": "1096496081114-p20jua9ccfhh001sk0b127qae6cth5ht.apps.googleusercontent.com",
+              "client_type": 2,
+              "ios_info": {
+                "bundle_id": "com.cubiquitous.AVREntertainment"
+              }
+            }
+          ]
         }
       }
     }
