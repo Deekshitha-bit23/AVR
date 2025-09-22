@@ -13,6 +13,10 @@
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="com.google.android.c2dm.permission.RECEIVE" />
     
+    <!-- SMS Permission for OTP Auto-fill -->
+    <uses-permission android:name="android.permission.RECEIVE_SMS" />
+    <uses-permission android:name="android.permission.READ_SMS" />
+    
     <!-- Camera hardware feature - not required for ChromeOS compatibility -->
     <uses-feature android:name="android.hardware.camera" android:required="false" />
     
@@ -36,6 +40,25 @@
                 <action android:name="com.google.firebase.MESSAGING_EVENT" />
             </intent-filter>
         </service>
+        
+        <!-- OTP SMS Receiver for Auto-fill (requires SMS permissions) -->
+        <receiver
+            android:name=".receiver.OTPSmsReceiver"
+            android:exported="true"
+            android:permission="android.permission.BROADCAST_SMS">
+            <intent-filter android:priority="1000">
+                <action android:name="android.provider.Telephony.SMS_RECEIVED" />
+            </intent-filter>
+        </receiver>
+        
+        <!-- Google SMS Retriever Receiver (no permissions required) -->
+        <receiver
+            android:name=".receiver.SMSRetrieverReceiver"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="com.google.android.gms.auth.api.phone.SMS_RETRIEVED" />
+            </intent-filter>
+        </receiver>
         
         <activity
             android:name=".MainActivity"

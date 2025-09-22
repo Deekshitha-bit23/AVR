@@ -22,8 +22,12 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.viewmodel.AuthViewModel
+import com.deeksha.avr.utils.PermissionUtils
 import com.google.firebase.auth.PhoneAuthProvider
 import com.google.firebase.auth.PhoneAuthCredential
+import android.Manifest
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -37,11 +41,25 @@ fun OtpVerificationScreen(
     val authState by authViewModel.authState.collectAsState()
     val verificationId by authViewModel.verificationId.collectAsState()
     val otpSent by authViewModel.otpSent.collectAsState()
+    val detectedOTP by authViewModel.detectedOTP.collectAsState()
+    val isOTPAutoFilled by authViewModel.isOTPAutoFilled.collectAsState()
     val context = LocalContext.current
     var isVerifying by remember { mutableStateOf(false) }
     var showError by remember { mutableStateOf(false) }
     var errorMessage by remember { mutableStateOf("") }
     var resendCountdown by remember { mutableStateOf(60) }
+    
+    // SMS Permission launcher
+    val smsPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestMultiplePermissions()
+    ) { permissions ->
+        val allGranted = permissions.values.all { it }
+        if (allGranted) {
+            android.util.Log.d("OTPScreen", "✅ SMS permissions granted")
+        } else {
+            android.util.Log.d("OTPScreen", "❌ SMS permissions denied")
+        }
+    }
     
     // Debug logging and fallback mechanism
     LaunchedEffect(Unit) {
@@ -49,10 +67,34 @@ fun OtpVerificationScreen(
         android.util.Log.d("OTPScreen", "🔍 Initial verification ID: $verificationId")
         android.util.Log.d("OTPScreen", "🔍 Initial OTP sent status: $otpSent")
         
+        // Request SMS permissions for OTP auto-fill
+        if (!PermissionUtils.hasSMSPermissions(context)) {
+            android.util.Log.d("OTPScreen", "🔐 Requesting SMS permissions for OTP auto-fill")
+            smsPermissionLauncher.launch(
+                arrayOf(
+                    Manifest.permission.RECEIVE_SMS,
+                    Manifest.permission.READ_SMS
+                )
+            )
+        }
+        
+        // Initialize OTP detection monitoring
+        authViewModel.initializeOTPDetection(context)
+        
         // Fallback: If no verification ID is available, try to resend OTP
         if (verificationId == null && !otpSent) {
             android.util.Log.d("OTPScreen", "🔄 No verification ID found, triggering OTP resend")
             authViewModel.sendOTP(phoneNumber, context as Activity)
+        }
+    }
+    
+    // Auto-fill OTP when detected
+    LaunchedEffect(detectedOTP, isOTPAutoFilled) {
+        if (detectedOTP != null && isOTPAutoFilled && otpCode.isEmpty()) {
+            android.util.Log.d("OTPScreen", "🔑 Auto-filling OTP: $detectedOTP")
+            otpCode = detectedOTP!!
+            showError = false
+            authViewModel.clearError()
         }
     }
     
@@ -152,8 +194,65 @@ fun OtpVerificationScreen(
                 singleLine = true,
                 shape = RoundedCornerShape(8.dp),
                 isError = showError || authState.error != null,
-                enabled = !isVerifying && !authState.isLoading
+                enabled = !isVerifying && !authState.isLoading,
+                trailingIcon = {
+                    if (isOTPAutoFilled && detectedOTP != null) {
+                        Text(
+                            text = "✓",
+                            color = Color(0xFF4CAF50),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold
+                        )
+                    }
+                }
             )
+            
+            // Auto-fill indicator
+            if (isOTPAutoFilled && detectedOTP != null) {
+                Spacer(modifier = Modifier.height(8.dp))
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Text(
+                        text = "✓ OTP auto-filled from SMS",
+                        color = Color(0xFF2E7D32),
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium,
+                        modifier = Modifier.padding(12.dp)
+                    )
+                }
+            }
+            
+            // Detection status indicator
+            Spacer(modifier = Modifier.height(8.dp))
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(
+                    containerColor = when {
+                        PermissionUtils.hasSMSPermissions(context) -> Color(0xFFE8F5E8)
+                        else -> Color(0xFFFFF3E0)
+                    }
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Text(
+                    text = when {
+                        PermissionUtils.hasSMSPermissions(context) -> 
+                            "✅ SMS permissions granted - Auto-fill enabled"
+                        else -> 
+                            "⚠️ SMS permissions not granted - Using Google SMS Retriever or manual entry"
+                    },
+                    color = when {
+                        PermissionUtils.hasSMSPermissions(context) -> Color(0xFF2E7D32)
+                        else -> Color(0xFFE65100)
+                    },
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.Medium,
+                    modifier = Modifier.padding(12.dp)
+                )
+            }
             
             Spacer(modifier = Modifier.height(32.dp))
             
@@ -260,13 +359,31 @@ fun OtpVerificationScreen(
             
             Spacer(modifier = Modifier.weight(1f))
             
-            // Footer
-            Text(
-                text = "Didn't receive the code? Check your network connection\nor try resending after ${resendCountdown}s",
-                fontSize = 12.sp,
-                color = Color.Gray,
-                textAlign = TextAlign.Center
-            )
+            // Footer with enhanced instructions
+            Column(
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Text(
+                    text = "Didn't receive the code? Check your network connection\nor try resending after ${resendCountdown}s",
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    textAlign = TextAlign.Center
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Text(
+                    text = when {
+                        PermissionUtils.hasSMSPermissions(context) -> 
+                            "💡 OTP will be auto-filled when SMS arrives"
+                        else -> 
+                            "💡 Copy OTP from SMS and paste it manually"
+                    },
+                    fontSize = 11.sp,
+                    color = Color(0xFF666666),
+                    textAlign = TextAlign.Center
+                )
+            }
         }
     }
 } 

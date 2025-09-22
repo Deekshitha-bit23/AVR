@@ -46,6 +46,14 @@ fun ReviewExpenseScreen(
     // Track when processing was in progress to detect completion
     var wasProcessing by remember { mutableStateOf(false) }
     
+    // Track edited amount for approval/rejection
+    var editedAmount by remember { mutableStateOf(0.0) }
+    
+    // Update edited amount when expense changes
+    LaunchedEffect(selectedExpense) {
+        selectedExpense?.let { editedAmount = it.amount }
+    }
+    
     // Load the expense when screen opens
     LaunchedEffect(expenseId) {
         approvalViewModel.fetchExpenseById(expenseId)
@@ -75,14 +83,13 @@ fun ReviewExpenseScreen(
         }
     }
 
-    // Use selectedExpense instead of finding from pendingExpenses
-    val expense = selectedExpense
+
     
     // Calculate budget summary for the department (simplified for approval view)
     val departmentBudget = 30000.0 // Default budget for demonstration
     val departmentSpent = 0.0 // Current spent amount
     val remaining = departmentBudget - departmentSpent
-    val afterApproval = remaining - (expense?.amount ?: 0.0)
+    val afterApproval = remaining - editedAmount
 
     Column(
         modifier = Modifier
@@ -113,7 +120,7 @@ fun ReviewExpenseScreen(
             )
         )
 
-        if (expense == null) {
+        if (selectedExpense == null) {
             // Show loading or expense not found
             Box(
                 modifier = Modifier.fillMaxSize(),
@@ -189,20 +196,107 @@ fun ReviewExpenseScreen(
                         modifier = Modifier.padding(20.dp),
                         verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
-                        ExpenseDetailRow(label = "Department", value = expense.department)
-                        ExpenseDetailRow(label = "Subcategory", value = expense.category)
-                        ExpenseDetailRow(label = "Amount", value = FormatUtils.formatCurrency(expense.amount))
+                        ExpenseDetailRow(label = "Department", value = selectedExpense?.department ?: "")
+                        ExpenseDetailRow(label = "Subcategory", value = selectedExpense?.category ?: "")
+                        
+                        // Editable Amount Row
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "Amount",
+                                fontSize = 16.sp,
+                                color = Color.Gray,
+                                modifier = Modifier.weight(1f)
+                            )
+                            
+                            // Amount Input Field
+                            OutlinedTextField(
+                                value = editedAmount.toString(),
+                                onValueChange = { newValue ->
+                                    val amount = newValue.toDoubleOrNull() ?: 0.0
+                                    editedAmount = amount
+                                },
+                                modifier = Modifier.width(120.dp),
+                                textStyle = androidx.compose.ui.text.TextStyle(
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Black
+                                ),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF1976D2),
+                                    unfocusedBorderColor = Color.Gray,
+                                    focusedLabelColor = Color(0xFF1976D2)
+                                ),
+                                label = { Text("₹") },
+                                singleLine = true,
+                                keyboardOptions = androidx.compose.foundation.text.KeyboardOptions(
+                                    keyboardType = androidx.compose.ui.text.input.KeyboardType.Number
+                                )
+                            )
+                        }
+                        
+                        // Show amount change indicator and reset button
+                        if (editedAmount != selectedExpense?.amount) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = "Original: ₹${selectedExpense?.amount} → New: ₹$editedAmount",
+                                    fontSize = 12.sp,
+                                    color = Color(0xFF1976D2),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                
+                                TextButton(
+                                    onClick = { selectedExpense?.let { editedAmount = it.amount } },
+                                    colors = ButtonDefaults.textButtonColors(
+                                        contentColor = Color(0xFF1976D2)
+                                    )
+                                ) {
+                                    Text(
+                                        text = "Reset to Original",
+                                        fontSize = 12.sp
+                                    )
+                                }
+                            }
+                        }
+                        
+                        // Show validation errors
+                        if (editedAmount < 0) {
+                            Text(
+                                text = "Amount cannot be negative",
+                                fontSize = 12.sp,
+                                color = Color.Red,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
+                        // Show warning for very high amounts (more than 10x original)
+                        if (selectedExpense?.let { editedAmount > it.amount * 10 } == true) {
+                            Text(
+                                text = "Warning: Amount is significantly higher than original",
+                                fontSize = 12.sp,
+                                color = Color(0xFFFF9800), // Orange warning color
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                        
                         ExpenseDetailRow(
                             label = "Date", 
-                            value = expense.date?.let { FormatUtils.formatDate(it) } ?: "N/A"
+                            value = selectedExpense?.date?.let { FormatUtils.formatDate(it) } ?: "N/A"
                         )
                         ExpenseDetailRow(
                             label = "Payment Mode",
-                            value = when (expense.modeOfPayment.lowercase()) {
+                            value = when (selectedExpense?.modeOfPayment?.lowercase()) {
                                 "cash" -> "By cash"
                                 "upi" -> "By UPI"
-                                "check" -> "By check"
-                                else -> expense.modeOfPayment.ifEmpty { "Not specified" }
+                                "check" -> "By cheque"
+                                else -> selectedExpense?.modeOfPayment?.ifEmpty { "Not specified" } ?: "Not specified"
                             }
                         )
                     }
@@ -234,7 +328,7 @@ fun ReviewExpenseScreen(
                             )
                             Spacer(modifier = Modifier.height(8.dp))
                             Text(
-                                text = expense.description.ifEmpty { "No notes provided" },
+                                text = selectedExpense?.description?.ifEmpty { "No notes provided" } ?: "No notes provided",
                                 fontSize = 14.sp,
                                 color = Color.Gray
                             )
@@ -267,8 +361,8 @@ fun ReviewExpenseScreen(
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (expense.attachmentUrl.isNotEmpty() || expense.attachmentFileName.isNotEmpty()) {
-                                expense.attachmentFileName.ifEmpty { "File attached" }
+                            text = if (selectedExpense?.attachmentUrl?.isNotEmpty() == true || selectedExpense?.attachmentFileName?.isNotEmpty() == true) {
+                                selectedExpense?.attachmentFileName?.ifEmpty { "File attached" } ?: "File attached"
                             } else {
                                 "No attachment"
                             },
@@ -315,6 +409,60 @@ fun ReviewExpenseScreen(
                             afterApproval,
                             if (afterApproval >= 0) Color(0xFF4CAF50) else Color(0xFFE53935)
                         )
+                        
+                        // Show amount change impact if amount was modified
+                        if (editedAmount != selectedExpense?.amount) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            Divider(color = Color.Gray.copy(alpha = 0.3f))
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            val originalAfterApproval = remaining - (selectedExpense?.amount ?: 0.0)
+                            val amountDifference = (selectedExpense?.amount ?: 0.0) - editedAmount
+                            val budgetImpact = if (amountDifference > 0) "Savings" else "Additional Cost"
+                            
+                            Text(
+                                text = "Amount Change Impact:",
+                                fontSize = 14.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF1976D2)
+                            )
+                            
+                            Spacer(modifier = Modifier.height(4.dp))
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Original After Approval:",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = FormatUtils.formatCurrency(originalAfterApproval),
+                                    fontSize = 12.sp,
+                                    color = if (originalAfterApproval >= 0) Color(0xFF4CAF50) else Color(0xFFE53935),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Text(
+                                    text = "Budget Impact:",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = "${if (amountDifference > 0) "+" else ""}${FormatUtils.formatCurrency(kotlin.math.abs(amountDifference))} $budgetImpact",
+                                    fontSize = 12.sp,
+                                    color = if (amountDifference > 0) Color(0xFF4CAF50) else Color(0xFFE53935),
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -345,11 +493,27 @@ fun ReviewExpenseScreen(
                             val currentUser = authState.user
                             val reviewerName = currentUser?.name?.takeIf { it.isNotEmpty() } ?: "System Approver"
                             
-                            approvalViewModel.approveExpense(
-                                expense = expense,
-                                reviewerName = reviewerName,
-                                comments = reviewerNote.ifEmpty { "Approved by $reviewerName" }
-                            )
+                            // Check if amount was changed
+                            if (editedAmount != selectedExpense?.amount) {
+                                // Amount was changed, use the new method
+                                selectedExpense?.let { expense ->
+                                    approvalViewModel.approveExpenseWithAmount(
+                                        expense = expense,
+                                        newAmount = editedAmount,
+                                        reviewerName = reviewerName,
+                                        comments = reviewerNote.ifEmpty { "Approved with amount change from ₹${expense.amount} to ₹$editedAmount by $reviewerName" }
+                                    )
+                                }
+                            } else {
+                                // No amount change, use the original method
+                                selectedExpense?.let { expense ->
+                                    approvalViewModel.approveExpense(
+                                        expense = expense,
+                                        reviewerName = reviewerName,
+                                        comments = reviewerNote.ifEmpty { "Approved by $reviewerName" }
+                                    )
+                                }
+                            }
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -358,7 +522,7 @@ fun ReviewExpenseScreen(
                             containerColor = Color(0xFF2196F3), // Blue color matching design
                             disabledContainerColor = Color.Gray
                         ),
-                        enabled = !isProcessing,
+                        enabled = !isProcessing && editedAmount >= 0,
                         shape = RoundedCornerShape(25.dp), // More rounded corners
                         elevation = ButtonDefaults.buttonElevation(0.dp) // No elevation for flat look
                     ) {
@@ -382,7 +546,7 @@ fun ReviewExpenseScreen(
                             }
                         } else {
                             Text(
-                                text = "Approve",
+                                text = if (editedAmount != selectedExpense?.amount) "Approve (₹$editedAmount)" else "Approve",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Normal,
                                 color = Color.White,
@@ -396,11 +560,27 @@ fun ReviewExpenseScreen(
                             val currentUser = authState.user
                             val reviewerName = currentUser?.name?.takeIf { it.isNotEmpty() } ?: "System Reviewer"
                             
-                            approvalViewModel.rejectExpense(
-                                expense = expense,
-                                reviewerName = reviewerName,
-                                comments = reviewerNote.ifEmpty { "Rejected by $reviewerName" }
-                            )
+                            // Check if amount was changed
+                            if (editedAmount != selectedExpense?.amount) {
+                                // Amount was changed, use the new method
+                                selectedExpense?.let { expense ->
+                                    approvalViewModel.rejectExpenseWithAmount(
+                                        expense = expense,
+                                        newAmount = editedAmount,
+                                        reviewerName = reviewerName,
+                                        comments = reviewerNote.ifEmpty { "Rejected with amount change from ₹${expense.amount} to ₹$editedAmount by $reviewerName" }
+                                    )
+                                }
+                            } else {
+                                // No amount change, use the original method
+                                selectedExpense?.let { expense ->
+                                    approvalViewModel.rejectExpense(
+                                        expense = expense,
+                                        reviewerName = reviewerName,
+                                        comments = reviewerNote.ifEmpty { "Rejected by $reviewerName" }
+                                    )
+                                }
+                            }
                         },
                         modifier = Modifier
                             .weight(1f)
@@ -409,7 +589,7 @@ fun ReviewExpenseScreen(
                             containerColor = Color(0xFFFF5722), // Orange color matching design
                             disabledContainerColor = Color.Gray
                         ),
-                        enabled = !isProcessing,
+                        enabled = !isProcessing && editedAmount >= 0,
                         shape = RoundedCornerShape(25.dp), // More rounded corners
                         elevation = ButtonDefaults.buttonElevation(0.dp) // No elevation for flat look
                     ) {
@@ -433,7 +613,7 @@ fun ReviewExpenseScreen(
                             }
                         } else {
                             Text(
-                                text = "Reject",
+                                text = if (editedAmount != selectedExpense?.amount) "Reject (₹$editedAmount)" else "Reject",
                                 fontSize = 14.sp,
                                 fontWeight = FontWeight.Normal,
                                 color = Color.White,

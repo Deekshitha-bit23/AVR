@@ -808,7 +808,7 @@ private fun ExpenseSubmissionCard(expense: Expense) {
                         text = when (expense.modeOfPayment) {
                             "cash" -> "By Cash"
                             "upi" -> "By UPI"
-                            "check" -> "By Check"
+                            "check" -> "By Cheque"
                             else -> expense.modeOfPayment.ifEmpty { "Not specified" }
                         },
                         fontSize = 14.sp,

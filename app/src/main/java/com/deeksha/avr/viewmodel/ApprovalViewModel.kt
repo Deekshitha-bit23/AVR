@@ -191,6 +191,40 @@ class ApprovalViewModel @Inject constructor(
             }
         }
     }
+
+    fun approveExpenseWithAmount(
+        expense: Expense, 
+        newAmount: Double, 
+        reviewerName: String, 
+        comments: String
+    ) {
+        viewModelScope.launch {
+            _isProcessing.value = true
+            _error.value = null
+            
+            try {
+                expenseRepository.updateExpenseAmountAndStatus(
+                    projectId = expense.projectId,
+                    expenseId = expense.id,
+                    newAmount = newAmount,
+                    status = com.deeksha.avr.model.ExpenseStatus.APPROVED,
+                    reviewedBy = reviewerName,
+                    reviewComments = comments,
+                    reviewedAt = com.google.firebase.Timestamp.now()
+                )
+                
+                // Send notification to expense submitter with updated amount
+                val updatedExpense = expense.copy(amount = newAmount)
+                sendExpenseStatusNotification(updatedExpense, true, reviewerName)
+                
+            } catch (e: Exception) {
+                _error.value = "Failed to approve expense with amount change: ${e.message}"
+                e.printStackTrace()
+            } finally {
+                _isProcessing.value = false
+            }
+        }
+    }
     
     fun rejectExpense(expense: Expense, reviewerName: String, comments: String) {
         viewModelScope.launch {
@@ -212,6 +246,40 @@ class ApprovalViewModel @Inject constructor(
                 
             } catch (e: Exception) {
                 _error.value = "Failed to reject expense: ${e.message}"
+                e.printStackTrace()
+            } finally {
+                _isProcessing.value = false
+            }
+        }
+    }
+
+    fun rejectExpenseWithAmount(
+        expense: Expense, 
+        newAmount: Double, 
+        reviewerName: String, 
+        comments: String
+    ) {
+        viewModelScope.launch {
+            _isProcessing.value = true
+            _error.value = null
+            
+            try {
+                expenseRepository.updateExpenseAmountAndStatus(
+                    projectId = expense.projectId,
+                    expenseId = expense.id,
+                    newAmount = newAmount,
+                    status = com.deeksha.avr.model.ExpenseStatus.REJECTED,
+                    reviewedBy = reviewerName,
+                    reviewComments = comments,
+                    reviewedAt = com.google.firebase.Timestamp.now()
+                )
+                
+                // Send notification to expense submitter with updated amount
+                val updatedExpense = expense.copy(amount = newAmount)
+                sendExpenseStatusNotification(updatedExpense, false, reviewerName)
+                
+            } catch (e: Exception) {
+                _error.value = "Failed to reject expense with amount change: ${e.message}"
                 e.printStackTrace()
             } finally {
                 _isProcessing.value = false

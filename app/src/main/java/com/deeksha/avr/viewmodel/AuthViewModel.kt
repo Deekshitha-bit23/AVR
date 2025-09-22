@@ -24,7 +24,10 @@ import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import android.content.Context
 import com.deeksha.avr.utils.DeviceUtils
+import com.deeksha.avr.utils.OTPManager
+import com.deeksha.avr.service.OTPDetectionService
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.flow.combine
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
@@ -85,6 +88,13 @@ class AuthViewModel @Inject constructor(
     
     private val _restrictedPhoneNumber = MutableStateFlow<String?>(null)
     val restrictedPhoneNumber: StateFlow<String?> = _restrictedPhoneNumber.asStateFlow()
+    
+    // OTP Auto-fill state
+    private val _detectedOTP = MutableStateFlow<String?>(null)
+    val detectedOTP: StateFlow<String?> = _detectedOTP.asStateFlow()
+    
+    private val _isOTPAutoFilled = MutableStateFlow(false)
+    val isOTPAutoFilled: StateFlow<Boolean> = _isOTPAutoFilled.asStateFlow()
     
     // Development skip session tracking
     private val _isDevelopmentSkipUser = MutableStateFlow(false)
@@ -193,6 +203,64 @@ class AuthViewModel @Inject constructor(
         _resendToken.value = null
         _isAccessRestricted.value = false
         _restrictedPhoneNumber.value = null
+        _detectedOTP.value = null
+        _isOTPAutoFilled.value = false
+    }
+    
+    /**
+     * Initialize OTP detection monitoring
+     * This method starts monitoring for OTP detection from SMS
+     */
+    fun initializeOTPDetection(context: Context) {
+        viewModelScope.launch {
+            // Start the comprehensive OTP detection service
+            val otpDetectionService = OTPDetectionService(context)
+            otpDetectionService.startOTPDetection()
+            
+            Log.d("AuthViewModel", "🔍 OTP Detection Status: ${otpDetectionService.getDetectionStatus()}")
+            
+            // Monitor OTP detection from OTPManager
+            combine(
+                OTPManager.detectedOTP,
+                OTPManager.isOTPDetected
+            ) { detectedOTP, isDetected ->
+                if (isDetected && detectedOTP != null && detectedOTP.isNotEmpty()) {
+                    Log.d("AuthViewModel", "🔑 OTP detected from SMS: $detectedOTP")
+                    _detectedOTP.value = detectedOTP
+                    _isOTPAutoFilled.value = true
+                    
+                    // Auto-verify the OTP if we have a verification ID
+                    if (_verificationId.value != null) {
+                        Log.d("AuthViewModel", "🔄 Auto-verifying detected OTP: $detectedOTP")
+                        verifyOTP(detectedOTP)
+                    }
+                }
+            }.collect { }
+        }
+    }
+    
+    /**
+     * Get the detected OTP for auto-filling
+     */
+    fun getDetectedOTP(): String? {
+        return _detectedOTP.value
+    }
+    
+    /**
+     * Clear the detected OTP after successful verification
+     */
+    fun clearDetectedOTP() {
+        Log.d("AuthViewModel", "🗑️ Clearing detected OTP")
+        _detectedOTP.value = null
+        _isOTPAutoFilled.value = false
+        OTPManager.clearDetectedOTP()
+    }
+    
+    /**
+     * Check if OTP was auto-filled
+     */
+    fun isOTPAutoFilled(): Boolean {
+        return _isOTPAutoFilled.value
     }
     
     /**
@@ -408,6 +476,9 @@ class AuthViewModel @Inject constructor(
                 .onSuccess { user ->
                     Log.d("AuthViewModel", "✅ Sign in successful for user: ${user.name} with role: ${user.role}")
                     setAuthenticatedUser(user, isDevelopmentSkip = false)
+                    
+                    // Clear detected OTP after successful verification
+                    clearDetectedOTP()
                     
                     // Ensure state is fully synchronized
                     delay(200)

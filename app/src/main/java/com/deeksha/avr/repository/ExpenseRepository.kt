@@ -564,6 +564,149 @@ class ExpenseRepository @Inject constructor(
             throw e
         }
     }
+
+    suspend fun updateExpenseAmount(
+        projectId: String,
+        expenseId: String,
+        newAmount: Double,
+        reviewedBy: String,
+        reviewComments: String,
+        reviewedAt: com.google.firebase.Timestamp
+    ) {
+        try {
+            Log.d("ExpenseRepository", "========== UPDATING EXPENSE AMOUNT ==========")
+            Log.d("ExpenseRepository", "🔄 Project ID: $projectId")
+            Log.d("ExpenseRepository", "🔄 Expense ID: $expenseId")
+            Log.d("ExpenseRepository", "🔄 New Amount: $newAmount")
+            Log.d("ExpenseRepository", "🔄 Reviewed By: $reviewedBy")
+            Log.d("ExpenseRepository", "🔄 Comments: $reviewComments")
+            Log.d("ExpenseRepository", "🔄 Reviewed At: $reviewedAt")
+            
+            val updates = mapOf(
+                "amount" to newAmount,
+                "netAmount" to newAmount, // Update net amount as well
+                "reviewedBy" to reviewedBy,
+                "reviewComments" to reviewComments,
+                "reviewedAt" to reviewedAt
+            )
+            
+            Log.d("ExpenseRepository", "📝 Update data: $updates")
+            Log.d("ExpenseRepository", "🎯 Firebase path: projects/$projectId/expenses/$expenseId")
+            
+            // Verify the document exists first
+            val docRef = firestore.collection("projects")
+                .document(projectId)
+                .collection("expenses")
+                .document(expenseId)
+            
+            Log.d("ExpenseRepository", "🔍 Checking if document exists...")
+            val docSnapshot = docRef.get().await()
+            
+            if (!docSnapshot.exists()) {
+                Log.e("ExpenseRepository", "❌ Document does not exist at path: projects/$projectId/expenses/$expenseId")
+                throw Exception("Expense document not found")
+            }
+            
+            Log.d("ExpenseRepository", "✅ Document exists, current data: ${docSnapshot.data}")
+            
+            Log.d("ExpenseRepository", "🔄 Performing Firebase update...")
+            docRef.update(updates).await()
+            
+            Log.d("ExpenseRepository", "✅ Firebase update completed successfully")
+            
+            // Verify the update was applied
+            Log.d("ExpenseRepository", "🔍 Verifying update...")
+            val updatedDoc = docRef.get().await()
+            if (updatedDoc.exists()) {
+                val updatedData = updatedDoc.data
+                Log.d("ExpenseRepository", "✅ Updated document data: $updatedData")
+                Log.d("ExpenseRepository", "✅ Amount in DB: ${updatedData?.get("amount")}")
+                Log.d("ExpenseRepository", "✅ Net Amount in DB: ${updatedData?.get("netAmount")}")
+            } else {
+                Log.e("ExpenseRepository", "❌ Document disappeared after update")
+            }
+                
+        } catch (e: Exception) {
+            Log.e("ExpenseRepository", "❌ Error updating expense amount: ${e.message}")
+            Log.e("ExpenseRepository", "❌ Error type: ${e::class.simpleName}")
+            Log.e("ExpenseRepository", "❌ Full error: $e")
+            e.printStackTrace()
+            throw e
+        }
+    }
+
+    suspend fun updateExpenseAmountAndStatus(
+        projectId: String,
+        expenseId: String,
+        newAmount: Double,
+        status: ExpenseStatus,
+        reviewedBy: String,
+        reviewComments: String,
+        reviewedAt: com.google.firebase.Timestamp
+    ) {
+        try {
+            Log.d("ExpenseRepository", "========== UPDATING EXPENSE AMOUNT AND STATUS ==========")
+            Log.d("ExpenseRepository", "🔄 Project ID: $projectId")
+            Log.d("ExpenseRepository", "🔄 Expense ID: $expenseId")
+            Log.d("ExpenseRepository", "🔄 New Amount: $newAmount")
+            Log.d("ExpenseRepository", "🔄 New Status: $status")
+            Log.d("ExpenseRepository", "🔄 Reviewed By: $reviewedBy")
+            Log.d("ExpenseRepository", "🔄 Comments: $reviewComments")
+            Log.d("ExpenseRepository", "🔄 Reviewed At: $reviewedAt")
+            
+            val updates = mapOf(
+                "amount" to newAmount,
+                "netAmount" to newAmount, // Update net amount as well
+                "status" to status.name,
+                "reviewedBy" to reviewedBy,
+                "reviewComments" to reviewComments,
+                "reviewedAt" to reviewedAt
+            )
+            
+            Log.d("ExpenseRepository", "📝 Update data: $updates")
+            Log.d("ExpenseRepository", "🎯 Firebase path: projects/$projectId/expenses/$expenseId")
+            
+            // Verify the document exists first
+            val docRef = firestore.collection("projects")
+                .document(projectId)
+                .collection("expenses")
+                .document(expenseId)
+            
+            Log.d("ExpenseRepository", "🔍 Checking if document exists...")
+            val docSnapshot = docRef.get().await()
+            
+            if (!docSnapshot.exists()) {
+                Log.e("ExpenseRepository", "❌ Document does not exist at path: projects/$projectId/expenses/$expenseId")
+                throw Exception("Expense document not found")
+            }
+            
+            Log.d("ExpenseRepository", "✅ Document exists, current data: ${docSnapshot.data}")
+            
+            Log.d("ExpenseRepository", "🔄 Performing Firebase update...")
+            docRef.update(updates).await()
+            
+            Log.d("ExpenseRepository", "✅ Firebase update completed successfully")
+            
+            // Verify the update was applied
+            Log.d("ExpenseRepository", "🔍 Verifying update...")
+            val updatedDoc = docRef.get().await()
+            if (updatedDoc.exists()) {
+                val updatedData = updatedDoc.data
+                Log.d("ExpenseRepository", "✅ Updated document data: $updatedData")
+                Log.d("ExpenseRepository", "✅ Amount in DB: ${updatedData?.get("amount")}")
+                Log.d("ExpenseRepository", "✅ Status in DB: ${updatedData?.get("status")}")
+            } else {
+                Log.e("ExpenseRepository", "❌ Document disappeared after update")
+            }
+                
+        } catch (e: Exception) {
+            Log.e("ExpenseRepository", "❌ Error updating expense amount and status: ${e.message}")
+            Log.e("ExpenseRepository", "❌ Error type: ${e::class.simpleName}")
+            Log.e("ExpenseRepository", "❌ Full error: $e")
+            e.printStackTrace()
+            throw e
+        }
+    }
     
     // Method to update user names for existing expenses
     suspend fun updateExpenseUserNames(projectId: String, userId: String, userName: String): Result<Int> {

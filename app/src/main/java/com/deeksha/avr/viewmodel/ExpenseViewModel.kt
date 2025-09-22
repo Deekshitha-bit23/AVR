@@ -87,7 +87,7 @@ class ExpenseViewModel @Inject constructor(
     val paymentModes = listOf(
         "cash" to "By Cash",
         "upi" to "By UPI", 
-        "check" to "By Check"
+        "check" to "By Cheque"
     )
 
     fun loadUserExpenses(userId: String) {
