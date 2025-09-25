@@ -20,7 +20,8 @@ data class Project(
     @PropertyName("updatedAt") val updatedAt: Timestamp? = null,
     @PropertyName("code") val code: String = "", // Project code like "MO", "DO", etc.
     @PropertyName("departmentBudgets") val departmentBudgets: Map<String, Double> = emptyMap(),
-    @PropertyName("categories") val categories: List<String> = emptyList()
+    @PropertyName("categories") val categories: List<String> = emptyList(),
+    @PropertyName("temporaryApproverPhone") val temporaryApproverPhone: String = ""
 )
 
 data class DepartmentBudget(

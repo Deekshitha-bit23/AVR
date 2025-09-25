@@ -11,6 +11,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 import com.deeksha.avr.model.CategoryBudget
@@ -54,13 +55,21 @@ class ApproverProjectViewModel @Inject constructor(
                     Log.d("ApproverProjectLoading", "✅ Valid user ID provided: $userId")
                     Log.d("ApproverProjectLoading", "🔄 Loading projects for specific approver using flow")
                     
-                    // Load projects for specific user using flow
-                    projectRepository.getApproverProjects(userId).collect { projectList ->
-                        Log.d("ApproverProjectLoading", "📊 Received ${projectList.size} projects from repository")
-                        projectList.forEach { project ->
-                            Log.d("ApproverProjectLoading", "  📋 Project: ${project.name} (ID: ${project.id}, Manager: ${project.managerId})")
-                        }
-                        _projects.value = projectList
+                    // Load both regular and temporary projects using combine
+                    combine(
+                        projectRepository.getApproverProjects(userId),
+                        projectRepository.getTemporaryApproverProjects(userId)
+                    ) { regularList, temporaryList ->
+                        Log.d("ApproverProjectLoading", "📊 Received ${regularList.size} regular projects")
+                        Log.d("ApproverProjectLoading", "📊 Received ${temporaryList.size} temporary projects")
+                        
+                        // Combine and deduplicate projects
+                        val allProjects = (regularList + temporaryList).distinctBy { it.id }
+                        Log.d("ApproverProjectLoading", "🎯 Total projects after combining: ${allProjects.size}")
+                        
+                        allProjects
+                    }.collect { allProjects ->
+                        _projects.value = allProjects
                         _isLoading.value = false
                     }
                 } else {
@@ -236,6 +245,11 @@ class ApproverProjectViewModel @Inject constructor(
             .filter { it.key.isNotEmpty() } // Remove empty departments
         
         Log.d("ApproverProjectVM", "📊 Found ${expensesByDepartment.size} departments with expenses: ${expensesByDepartment.keys}")
+        
+        // Log each expense's department for debugging
+        approvedExpenses.forEach { expense ->
+            Log.d("ApproverProjectVM", "💰 Expense: ${expense.category} - Department: '${expense.department}' (trimmed: '${expense.department.trim()}')")
+        }
         
         if (expensesByDepartment.isEmpty()) {
             Log.d("ApproverProjectVM", "✅ No departments with expenses found")

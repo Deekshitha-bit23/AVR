@@ -97,6 +97,11 @@ class ReportsViewModel @Inject constructor(
                 val expensesByDepartment = expenses.groupBy { it.department }
                     .mapValues { it.value.sumOf { expense -> expense.amount } }
                 
+                android.util.Log.d("ReportsViewModel", "🏢 Department breakdown:")
+                expensesByDepartment.forEach { (dept, amount) ->
+                    android.util.Log.d("ReportsViewModel", "   - $dept: ₹$amount")
+                }
+                
                 // Convert to detailed expenses
                 val detailedExpenses = expenses.map { expense ->
                     DetailedExpense(

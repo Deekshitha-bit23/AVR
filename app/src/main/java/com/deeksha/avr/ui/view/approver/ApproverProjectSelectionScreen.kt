@@ -492,6 +492,27 @@ private fun ProjectCard(
                     color = Color.Gray
                 )
                 
+                // Show temporary approver indicator
+                if (project.temporaryApproverPhone.isNotEmpty()) {
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text(
+                            text = "⏰",
+                            fontSize = 12.sp,
+                            color = Color(0xFFFF9800)
+                        )
+                        Text(
+                            text = "Temporary Assignment",
+                            fontSize = 12.sp,
+                            color = Color(0xFFFF9800),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+                
                 // Show project end date if available
                 project.endDate?.let { endDate ->
                     Spacer(modifier = Modifier.height(2.dp))

@@ -190,30 +190,45 @@ fun NotificationIcon(
     type: NotificationType,
     modifier: Modifier = Modifier
 ) {
-    val (icon, tint) = when (type) {
+    val icon: androidx.compose.ui.graphics.vector.ImageVector
+    val tint: androidx.compose.ui.graphics.Color
+    
+    when (type) {
         NotificationType.PROJECT_ASSIGNMENT -> {
-            Icons.Default.Add to Color(0xFF4CAF50)
+            icon = Icons.Default.Add
+            tint = Color(0xFF4CAF50)
         }
         NotificationType.PROJECT_CHANGED -> {
-            Icons.Default.Edit to Color(0xFF9C27B0)
+            icon = Icons.Default.Edit
+            tint = Color(0xFF9C27B0)
         }
         NotificationType.EXPENSE_SUBMITTED -> {
-            Icons.Default.Create to Color(0xFFFF9800)
+            icon = Icons.Default.Create
+            tint = Color(0xFFFF9800)
         }
         NotificationType.EXPENSE_APPROVED -> {
-            Icons.Default.CheckCircle to Color(0xFF4CAF50)
+            icon = Icons.Default.CheckCircle
+            tint = Color(0xFF4CAF50)
         }
         NotificationType.EXPENSE_REJECTED -> {
-            Icons.Default.Close to Color(0xFFF44336)
+            icon = Icons.Default.Close
+            tint = Color(0xFFF44336)
         }
         NotificationType.PENDING_APPROVAL -> {
-            Icons.Default.Notifications to Color(0xFFFF9800)
+            icon = Icons.Default.Notifications
+            tint = Color(0xFFFF9800)
         }
         NotificationType.ROLE_ASSIGNMENT -> {
-            Icons.Default.Person to Color(0xFF2196F3)
+            icon = Icons.Default.Person
+            tint = Color(0xFF2196F3)
+        }
+        NotificationType.TEMPORARY_APPROVER_ASSIGNMENT -> {
+            icon = Icons.Default.Person
+            tint = Color(0xFFFF9800)
         }
         NotificationType.INFO -> {
-            Icons.Default.Info to Color(0xFF607D8B)
+            icon = Icons.Default.Info
+            tint = Color(0xFF607D8B)
         }
     }
     

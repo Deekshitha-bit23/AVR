@@ -24,6 +24,9 @@ import com.deeksha.avr.model.Project
 import com.deeksha.avr.model.User
 import com.deeksha.avr.model.UserRole
 import com.deeksha.avr.viewmodel.ProductionHeadViewModel
+import com.deeksha.avr.ui.components.TemporaryApproverDialog
+import com.deeksha.avr.ui.components.TemporaryApproversSection
+import com.deeksha.avr.viewmodel.AuthViewModel
 import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.*
@@ -33,7 +36,8 @@ import java.util.*
 fun EditProjectScreen(
     projectId: String,
     onNavigateBack: () -> Unit,
-    viewModel: ProductionHeadViewModel = hiltViewModel()
+    viewModel: ProductionHeadViewModel = hiltViewModel(),
+    authViewModel: AuthViewModel = hiltViewModel()
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -46,6 +50,9 @@ fun EditProjectScreen(
     val departmentBudgets by viewModel.departmentBudgets.collectAsState()
     val totalBudget by viewModel.totalBudget.collectAsState()
     val totalAllocated by viewModel.totalAllocated.collectAsState()
+    
+    // Current user for temporary approver assignment
+    val currentUser by authViewModel.currentUser.collectAsState()
     
     // Form state
     var projectName by remember { mutableStateOf("") }
@@ -62,6 +69,9 @@ fun EditProjectScreen(
     var showEndDatePicker by remember { mutableStateOf(false) }
     val startDatePickerState = rememberDatePickerState()
     val endDatePickerState = rememberDatePickerState()
+    
+    // Temporary approver dialog state
+    var showTempApproverDialog by remember { mutableStateOf(false) }
     
     // Date formatter
     val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -287,12 +297,31 @@ fun EditProjectScreen(
                 
                 // Manager Selection
                 item {
-                    Text(
-                        text = "Project Manager",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
-                        color = Color.Black
-                    )
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "Project Manager",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.Black
+                        )
+                        
+                        // Plus icon for adding temporary approver
+                        IconButton(
+                            onClick = { showTempApproverDialog = true },
+                            modifier = Modifier.size(32.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Add,
+                                contentDescription = "Add Temporary Approver",
+                                tint = Color(0xFF4285F4),
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
                 }
                 
                 item {
@@ -312,6 +341,16 @@ fun EditProjectScreen(
                                 modifier = Modifier.padding(start = 8.dp)
                             )
                         }
+                    }
+                }
+                
+                // Temporary Approvers Section (only visible if there are any)
+                editingProject?.let { project ->
+                    item {
+                        TemporaryApproversSection(
+                            projectId = project.id,
+                            currentUserId = currentUser?.uid ?: ""
+                        )
                     }
                 }
                 
@@ -633,6 +672,20 @@ fun EditProjectScreen(
             onDismiss = { showEndDatePicker = false },
             datePickerState = endDatePickerState,
             title = "Select End Date"
+        )
+    }
+    
+    // Temporary Approver Dialog
+    if (showTempApproverDialog) {
+        TemporaryApproverDialog(
+            projectId = projectId,
+            currentUserId = currentUser?.uid ?: "",
+            currentUserName = currentUser?.name ?: "",
+            onDismiss = { showTempApproverDialog = false },
+            onApproverAdded = {
+                // Refresh the project data to show updated temporary approvers
+                viewModel.loadProjectForEdit(projectId)
+            }
         )
     }
 }

@@ -26,6 +26,7 @@ enum class NotificationType {
     EXPENSE_REJECTED,       // When expense is rejected (for users)
     PENDING_APPROVAL,       // General pending approval notifications
     ROLE_ASSIGNMENT,        // When role is assigned/changed
+    TEMPORARY_APPROVER_ASSIGNMENT, // When assigned as temporary approver
     INFO                    // General information
 }
 

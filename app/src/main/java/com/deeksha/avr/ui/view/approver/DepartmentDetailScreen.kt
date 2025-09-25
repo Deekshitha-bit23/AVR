@@ -1,5 +1,6 @@
 package com.deeksha.avr.ui.view.approver
 
+import android.util.Log
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -35,9 +36,21 @@ fun DepartmentDetailScreen(
     
     // Filter expenses for this specific department
     val departmentExpenses = remember(reportData.detailedExpenses, departmentName) {
-        reportData.detailedExpenses.filter { expense ->
-            expense.department.equals(departmentName, ignoreCase = true)
+        Log.d("DepartmentDetailScreen", "🔍 Filtering expenses for department: '$departmentName'")
+        Log.d("DepartmentDetailScreen", "📊 Total detailed expenses: ${reportData.detailedExpenses.size}")
+        
+        // Log all available departments in expenses
+        val availableDepartments = reportData.detailedExpenses.map { it.department }.distinct()
+        Log.d("DepartmentDetailScreen", "🏢 Available departments in expenses: $availableDepartments")
+        
+        val filtered = reportData.detailedExpenses.filter { expense ->
+            val matches = expense.department.equals(departmentName, ignoreCase = true)
+            Log.d("DepartmentDetailScreen", "🔍 Expense department: '${expense.department}' vs target: '$departmentName' -> $matches")
+            matches
         }
+        
+        Log.d("DepartmentDetailScreen", "✅ Filtered expenses count: ${filtered.size}")
+        filtered
     }
     
     val departmentAmount = reportData.expensesByDepartment[departmentName] ?: 0.0

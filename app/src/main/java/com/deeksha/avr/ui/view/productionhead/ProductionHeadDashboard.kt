@@ -546,6 +546,16 @@ fun ProductionHeadProjectCard(
                     color = Color(0xFF1976D2),
                     fontWeight = FontWeight.Medium
                 )
+                
+                // Temporary Approver Phone
+                if (project.temporaryApproverPhone.isNotEmpty()) {
+                    Text(
+                        text = "Temp Approver: ${project.temporaryApproverPhone}",
+                        fontSize = 12.sp,
+                        color = Color(0xFF4285F4),
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
             
             Column(

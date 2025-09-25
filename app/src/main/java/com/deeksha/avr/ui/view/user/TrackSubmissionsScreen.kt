@@ -356,6 +356,19 @@ fun TrackSubmissionsScreen(
                             fontSize = 14.sp,
                     color = Color.Gray
                 )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Temporary Approver Phone
+                        if (project.temporaryApproverPhone.isNotEmpty()) {
+                            Text(
+                                text = "Temporary Approver: ${project.temporaryApproverPhone}",
+                                fontSize = 14.sp,
+                                color = Color(0xFF4285F4),
+                                fontWeight = FontWeight.Medium
+                            )
+                            Spacer(modifier = Modifier.height(4.dp))
+                        }
+                        
                         Spacer(modifier = Modifier.height(8.dp))
                         
                         // Last update time

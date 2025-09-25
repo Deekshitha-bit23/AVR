@@ -1,5 +1,6 @@
 package com.deeksha.avr.ui.view.approver
 
+import android.util.Log
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -309,8 +310,21 @@ fun ApproverProjectDashboardScreen(
                             text = "Budget: ${FormatUtils.formatCurrency(projectBudgetSummary.totalBudget)}",
                             fontSize = 14.sp,
                             color = Color.Gray,
-                            modifier = Modifier.padding(bottom = 24.dp)
+                            modifier = Modifier.padding(bottom = 8.dp)
                         )
+                        
+                        // Temporary Approver Phone
+                        projectBudgetSummary.project?.let { project ->
+                            if (project.temporaryApproverPhone.isNotEmpty()) {
+                                Text(
+                                    text = "Temporary Approver: ${project.temporaryApproverPhone}",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF4285F4),
+                                    fontWeight = FontWeight.Medium,
+                                    modifier = Modifier.padding(bottom = 16.dp)
+                                )
+                            }
+                        }
                         
                         // Budget Summary Card
                         Card(
@@ -404,6 +418,7 @@ fun ApproverProjectDashboardScreen(
                                         department = department,
                                         modifier = Modifier.width(160.dp),
                                         onClick = {
+                                            Log.d("ApproverProjectDashboard", "🔍 Clicking department card: '${department.department}'")
                                             onNavigateToDepartmentDetail(projectId, department.department)
                                         }
                                     )

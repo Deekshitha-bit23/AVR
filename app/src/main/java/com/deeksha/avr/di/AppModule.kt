@@ -6,6 +6,7 @@ import com.deeksha.avr.repository.ExportRepository
 import com.deeksha.avr.repository.ProjectRepository
 import com.deeksha.avr.repository.NotificationRepository
 import com.deeksha.avr.repository.AuthRepository
+import com.deeksha.avr.repository.TemporaryApproverRepository
 import com.deeksha.avr.service.NotificationService
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -36,8 +37,20 @@ object AppModule {
     
     @Provides
     @Singleton
-    fun provideProjectRepository(firestore: FirebaseFirestore): ProjectRepository {
-        return ProjectRepository(firestore)
+    fun provideTemporaryApproverRepository(
+        firestore: FirebaseFirestore,
+        notificationService: NotificationService
+    ): TemporaryApproverRepository {
+        return TemporaryApproverRepository(firestore, notificationService)
+    }
+    
+    @Provides
+    @Singleton
+    fun provideProjectRepository(
+        firestore: FirebaseFirestore,
+        temporaryApproverRepository: TemporaryApproverRepository
+    ): ProjectRepository {
+        return ProjectRepository(firestore, temporaryApproverRepository)
     }
     
     @Provides
@@ -56,11 +69,10 @@ object AppModule {
     @Singleton
     fun provideNotificationService(
         notificationRepository: NotificationRepository,
-        projectRepository: ProjectRepository,
         authRepository: AuthRepository,
         firestore: FirebaseFirestore
     ): NotificationService {
-        return NotificationService(notificationRepository, projectRepository, authRepository, firestore)
+        return NotificationService(notificationRepository, authRepository, firestore)
     }
     
     @Provides

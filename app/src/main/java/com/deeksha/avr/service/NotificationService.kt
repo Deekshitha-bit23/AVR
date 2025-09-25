@@ -8,6 +8,7 @@ import com.deeksha.avr.model.User
 import com.deeksha.avr.repository.NotificationRepository
 import com.deeksha.avr.repository.ProjectRepository
 import com.deeksha.avr.repository.AuthRepository
+import com.deeksha.avr.repository.TemporaryApproverRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -17,7 +18,6 @@ import javax.inject.Singleton
 @Singleton
 class NotificationService @Inject constructor(
     private val notificationRepository: NotificationRepository,
-    private val projectRepository: ProjectRepository,
     private val authRepository: AuthRepository,
     private val firestore: FirebaseFirestore
 ) {
@@ -35,32 +35,38 @@ class NotificationService @Inject constructor(
         return try {
             Log.d("NotificationService", "🔄 Sending expense submission notification for project: $projectId, expense: $expenseId")
             
-            // Get project details
-            val project = projectRepository.getProjectById(projectId)
-            if (project == null) {
+            // Get project details directly from Firestore
+            val projectDoc = firestore.collection("projects").document(projectId).get().await()
+            if (!projectDoc.exists()) {
                 Log.e("NotificationService", "❌ Project not found: $projectId")
                 return Result.failure(Exception("Project not found"))
             }
             
-            Log.d("NotificationService", "📋 Project: ${project.name}")
-            Log.d("NotificationService", "📋 Project approverIds: ${project.approverIds}")
-            Log.d("NotificationService", "📋 Project productionHeadIds: ${project.productionHeadIds}")
-            Log.d("NotificationService", "📋 Project managerId: ${project.managerId}")
+            val projectData = projectDoc.data ?: return Result.failure(Exception("Project data is null"))
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
+            val approverIds = projectData["approverIds"] as? List<String> ?: emptyList()
+            val productionHeadIds = projectData["productionHeadIds"] as? List<String> ?: emptyList()
+            val managerId = projectData["managerId"] as? String ?: ""
+            
+            Log.d("NotificationService", "📋 Project: $projectName")
+            Log.d("NotificationService", "📋 Project approverIds: $approverIds")
+            Log.d("NotificationService", "📋 Project productionHeadIds: $productionHeadIds")
+            Log.d("NotificationService", "📋 Project managerId: $managerId")
             
             // Get all users to find approvers and production heads
             val allUsers = authRepository.getAllUsers()
             Log.d("NotificationService", "📋 Total users found: ${allUsers.size}")
             
             // Collect approver and production head IDs
-            val approverIds = mutableListOf<String>()
-            val productionHeadIds = mutableListOf<String>()
+            val approverIdsList = mutableListOf<String>()
+            val productionHeadIdsList = mutableListOf<String>()
 
             // Add project-specific approvers
-            project.approverIds.forEach { approverId ->
+            approverIds.forEach { approverId ->
                 Log.d("NotificationService", "🔍 Checking approver ID: $approverId")
                 val user = allUsers.find { it.phone == approverId }
                 if (user?.role == com.deeksha.avr.model.UserRole.APPROVER) {
-                    approverIds.add(approverId)
+                    approverIdsList.add(approverId)
                     Log.d("NotificationService", "✅ Added approver: ${user.name} (${user.uid})")
                 } else {
                     Log.w("NotificationService", "⚠️ User not found or not approver: $approverId")
@@ -68,11 +74,11 @@ class NotificationService @Inject constructor(
             }
             
             // Add project-specific production heads
-            project.productionHeadIds.forEach { productionHeadId ->
+            productionHeadIds.forEach { productionHeadId ->
                 Log.d("NotificationService", "🔍 Checking production head ID: $productionHeadId")
                 val user = allUsers.find { it.uid == productionHeadId }
                 if (user?.role == com.deeksha.avr.model.UserRole.PRODUCTION_HEAD) {
-                    productionHeadIds.add(productionHeadId)
+                    productionHeadIdsList.add(productionHeadId)
                     Log.d("NotificationService", "✅ Added production head: ${user.name} (${user.uid})")
                 } else {
                     Log.w("NotificationService", "⚠️ User not found or not production head: $productionHeadId")
@@ -80,22 +86,22 @@ class NotificationService @Inject constructor(
             }
             
             // Add project manager as approver if not already included
-            if (project.managerId.isNotEmpty() && !approverIds.contains(project.managerId)) {
-                Log.d("NotificationService", "🔍 Checking manager ID: ${project.managerId}")
-                val manager = allUsers.find { it.phone == project.managerId }
+            if (managerId.isNotEmpty() && !approverIds.contains(managerId)) {
+                Log.d("NotificationService", "🔍 Checking manager ID: $managerId")
+                val manager = allUsers.find { it.phone == managerId }
                 if (manager?.role == com.deeksha.avr.model.UserRole.APPROVER) {
-                    approverIds.add(project.managerId)
+                    approverIdsList.add(managerId)
                     Log.d("NotificationService", "✅ Added manager as approver: ${manager.name} (${manager.uid})")
                 } else {
-                    Log.w("NotificationService", "⚠️ Manager not found or not approver: ${project.managerId}")
+                    Log.w("NotificationService", "⚠️ Manager not found or not approver: $managerId")
                 }
             }
             
-            Log.d("NotificationService", "📋 Final: ${approverIds.size} approvers and ${productionHeadIds.size} production heads")
+            Log.d("NotificationService", "📋 Final: ${approverIdsList.size} approvers and ${productionHeadIdsList.size} production heads")
             
             // If no approvers or production heads found, log a warning
-            if (approverIds.isEmpty() && productionHeadIds.isEmpty()) {
-                Log.w("NotificationService", "⚠️ No approvers or production heads found for project: ${project.name}")
+            if (approverIdsList.isEmpty() && productionHeadIdsList.isEmpty()) {
+                Log.w("NotificationService", "⚠️ No approvers or production heads found for project: $projectName")
                 Log.w("NotificationService", "⚠️ This means notifications won't be sent to anyone!")
                 
                 // TEMPORARY FIX: Send to all approvers and production heads if project-specific ones are not set
@@ -104,7 +110,7 @@ class NotificationService @Inject constructor(
                 allUsers.forEach { user ->
                     when (user.role) {
                         com.deeksha.avr.model.UserRole.APPROVER -> {
-                            if (!approverIds.contains(user.uid)) {
+                            if (!approverIdsList.contains(user.uid)) {
                                 val firestore = FirebaseFirestore.getInstance()
 
                                 firestore.collection("users")
@@ -115,7 +121,7 @@ class NotificationService @Inject constructor(
                                             val document = querySnapshot.documents[0]
                                             val phoneNumber = document.getString("phoneNumber")
                                             Log.d("UserPhone", "📱 Approver phone number: $phoneNumber")
-                                            if (phoneNumber != null) { approverIds.add(phoneNumber) }
+                                            if (phoneNumber != null) { approverIdsList.add(phoneNumber) }
                                             Log.d("NotificationService", "✅ Added fallback approver: ${user.name} (${user.uid})")
                                         } else {
                                             Log.w("UserPhone", "⚠️ No user found with UID: $user.uid")
@@ -128,8 +134,8 @@ class NotificationService @Inject constructor(
                             }
                         }
                         com.deeksha.avr.model.UserRole.PRODUCTION_HEAD -> {
-                            if (!productionHeadIds.contains(user.uid)) {
-                                 productionHeadIds.add(user.uid)
+                            if (!productionHeadIdsList.contains(user.uid)) {
+                                 productionHeadIdsList.add(user.uid)
                                 Log.d("NotificationService", "✅ Added fallback production head: ${user.name} (${user.uid})")
                             }
                         }
@@ -137,11 +143,11 @@ class NotificationService @Inject constructor(
                     }
                 }
                 
-                Log.d("NotificationService", "📋 After fallback: ${approverIds.size} approvers and ${productionHeadIds.size} production heads")
+                Log.d("NotificationService", "📋 After fallback: ${approverIdsList.size} approvers and ${productionHeadIdsList.size} production heads")
             }
             
             // Send notifications to approvers
-            approverIds.forEach { approverId ->
+            approverIdsList.forEach { approverId ->
                 if (approverId.isNotEmpty()) {
 
 
@@ -149,10 +155,10 @@ class NotificationService @Inject constructor(
                         recipientId = approverId,
                         recipientRole = "APPROVER",
                         title = "New Expense Submitted",
-                        message = "New expense of ₹${String.format("%.2f", amount)} submitted by $submittedBy in ${project.name} (Category: $category)",
+                        message = "New expense of ₹${String.format("%.2f", amount)} submitted by $submittedBy in ${projectName} (Category: $category)",
                         type = NotificationType.EXPENSE_SUBMITTED,
                         projectId = projectId,
-                        projectName = project.name,
+                        projectName = projectName,
                         relatedId = expenseId,
                         actionRequired = true,
                         navigationTarget = "pending_approvals/$projectId"
@@ -169,16 +175,16 @@ class NotificationService @Inject constructor(
             }
 
             // Send notifications to production heads
-            productionHeadIds.forEach { productionHeadId ->
+            productionHeadIdsList.forEach { productionHeadId ->
                 if (productionHeadId.isNotEmpty()) {
                     val notification = Notification(
                         recipientId = productionHeadId,
                         recipientRole = "PRODUCTION_HEAD",
                         title = "New Expense Submitted",
-                        message = "New expense of ₹${String.format("%.2f", amount)} submitted by $submittedBy in ${project.name} (Category: $category)",
+                        message = "New expense of ₹${String.format("%.2f", amount)} submitted by $submittedBy in ${projectName} (Category: $category)",
                         type = NotificationType.EXPENSE_SUBMITTED,
                         projectId = projectId,
-                        projectName = project.name,
+                        projectName = projectName,
                         relatedId = expenseId,
                         actionRequired = true,
                         navigationTarget = "pending_approvals/$projectId"
@@ -226,12 +232,15 @@ class NotificationService @Inject constructor(
             Log.d("NotificationService", "📋 Amount: $amount")
             Log.d("NotificationService", "📋 Is approved: $isApproved")
             
-            // Get project details
-            val project = projectRepository.getProjectById(projectId)
-            if (project == null) {
+            // Get project details directly from Firestore
+            val projectDoc = firestore.collection("projects").document(projectId).get().await()
+            if (!projectDoc.exists()) {
                 Log.e("NotificationService", "❌ Project not found: $projectId")
                 return Result.failure(Exception("Project not found"))
             }
+            
+            val projectData = projectDoc.data ?: return Result.failure(Exception("Project data is null"))
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
             
             // Get user details to include in notification
             val allUsers = authRepository.getAllUsers()
@@ -243,9 +252,9 @@ class NotificationService @Inject constructor(
             // Create more detailed notification message
             val notificationTitle = if (isApproved) "✅ Expense Approved" else "❌ Expense Rejected"
             val notificationMessage = if (isApproved) {
-                "Your expense of ₹${String.format("%.2f", amount)} in ${project.name} has been approved by $reviewerName"
+                "Your expense of ₹${String.format("%.2f", amount)} in ${projectName} has been approved by $reviewerName"
             } else {
-                val baseMessage = "Your expense of ₹${String.format("%.2f", amount)} in ${project.name} has been rejected by $reviewerName"
+                val baseMessage = "Your expense of ₹${String.format("%.2f", amount)} in ${projectName} has been rejected by $reviewerName"
                 if (comments.isNotEmpty()) {
                     "$baseMessage - Reason: $comments"
                 } else {
@@ -263,7 +272,7 @@ class NotificationService @Inject constructor(
                 message = notificationMessage,
                 type = if (isApproved) NotificationType.EXPENSE_APPROVED else NotificationType.EXPENSE_REJECTED,
                 projectId = projectId,
-                projectName = project.name,
+                projectName = projectName,
                 relatedId = expenseId,
                 actionRequired = false, // User doesn't need to take action, just informational
                 navigationTarget = "expense_list/$projectId" // Navigate to expense list for the specific project
@@ -303,12 +312,15 @@ class NotificationService @Inject constructor(
         return try {
             Log.d("NotificationService", "🔄 Sending project assignment notification for user: $userId")
             
-            // Get project details
-            val project = projectRepository.getProjectById(projectId)
-            if (project == null) {
+            // Get project details directly from Firestore
+            val projectDoc = firestore.collection("projects").document(projectId).get().await()
+            if (!projectDoc.exists()) {
                 Log.e("NotificationService", "❌ Project not found: $projectId")
                 return Result.failure(Exception("Project not found"))
             }
+            
+            val projectData = projectDoc.data ?: return Result.failure(Exception("Project data is null"))
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
             
             // Get user details
             val user = authRepository.getAllUsers().find { it.uid == userId }
@@ -321,10 +333,10 @@ class NotificationService @Inject constructor(
                 recipientId = userId,
                 recipientRole = user.role.name,
                 title = "New Project Assignment",
-                message = "You have been assigned as $assignedRole to project: ${project.name}",
+                message = "You have been assigned as $assignedRole to project: ${projectName}",
                 type = NotificationType.PROJECT_ASSIGNMENT,
                 projectId = projectId,
-                projectName = project.name,
+                projectName = projectName,
                 actionRequired = true,
                 navigationTarget = when (user.role) {
                     com.deeksha.avr.model.UserRole.USER -> "user_project_dashboard/$projectId"
@@ -358,28 +370,32 @@ class NotificationService @Inject constructor(
         return try {
             Log.d("NotificationService", "🔄 Sending pending approval notification for project: $projectId")
             
-            // Get project details
-            val project = projectRepository.getProjectById(projectId)
-            if (project == null) {
+            // Get project details directly from Firestore
+            val projectDoc = firestore.collection("projects").document(projectId).get().await()
+            if (!projectDoc.exists()) {
                 Log.e("NotificationService", "❌ Project not found: $projectId")
                 return Result.failure(Exception("Project not found"))
             }
+            
+            val projectData = projectDoc.data ?: return Result.failure(Exception("Project data is null"))
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
+            val productionHeadIds = projectData["productionHeadIds"] as? List<String> ?: emptyList()
             
             // Get all users to find production heads
             val allUsers = authRepository.getAllUsers()
             
             // Send to project-specific production heads
-            project.productionHeadIds.forEach { productionHeadId ->
+            productionHeadIds.forEach { productionHeadId ->
                 val user = allUsers.find { it.uid == productionHeadId }
                 if (user?.role == com.deeksha.avr.model.UserRole.PRODUCTION_HEAD) {
                     val notification = Notification(
                         recipientId = productionHeadId,
                         recipientRole = "PRODUCTION_HEAD",
                         title = "Pending Approvals",
-                        message = "$pendingCount expenses awaiting approval in ${project.name}",
+                        message = "$pendingCount expenses awaiting approval in ${projectName}",
                         type = NotificationType.PENDING_APPROVAL,
                         projectId = projectId,
-                        projectName = project.name,
+                        projectName = projectName,
                         actionRequired = true,
                         navigationTarget = "pending_approvals/$projectId"
                     )
@@ -396,6 +412,38 @@ class NotificationService @Inject constructor(
             
         } catch (e: Exception) {
             Log.e("NotificationService", "❌ Error sending pending approval notification: ${e.message}")
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Send a generic notification
+     */
+    suspend fun sendNotification(notification: Notification): Result<Unit> {
+        return try {
+            Log.d("NotificationService", "🔄 Sending notification: ${notification.title}")
+            Log.d("NotificationService", "📋 Notification details:")
+            Log.d("NotificationService", "   - recipientId: ${notification.recipientId}")
+            Log.d("NotificationService", "   - recipientRole: ${notification.recipientRole}")
+            Log.d("NotificationService", "   - type: ${notification.type}")
+            Log.d("NotificationService", "   - projectId: ${notification.projectId}")
+            
+            val result = notificationRepository.createNotification(notification)
+            
+            result.onSuccess { notificationId ->
+                Log.d("NotificationService", "✅ Notification created successfully: $notificationId")
+            }.onFailure { error ->
+                Log.e("NotificationService", "❌ Failed to create notification: ${error.message}")
+            }
+            
+            // Convert Result<String> to Result<Unit>
+            if (result.isSuccess) {
+                Result.success(Unit)
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Unknown error"))
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationService", "❌ Error sending notification: ${e.message}")
             Result.failure(e)
         }
     }

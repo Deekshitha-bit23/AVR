@@ -12,7 +12,8 @@ import javax.inject.Singleton
 
 @Singleton
 class ProjectRepository @Inject constructor(
-    private val firestore: FirebaseFirestore
+    private val firestore: FirebaseFirestore,
+    private val temporaryApproverRepository: TemporaryApproverRepository
 ) {
     
     fun getUserProjects(userId: String): Flow<List<Project>> = callbackFlow {
@@ -74,6 +75,85 @@ class ProjectRepository @Inject constructor(
         }
     }
 
+    /**
+     * Get projects where the user is a temporary approver
+     */
+    fun getTemporaryApproverProjects(userId: String): Flow<List<Project>> = callbackFlow {
+        Log.d("ProjectRepository", "🔥 Starting to fetch temporary approver projects for user: $userId")
+        Log.d("ProjectRepository", "📱 User ID type: ${userId::class.simpleName}, length: ${userId.length}")
+
+        val listener = firestore.collection("projects")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("ProjectRepository", "❌ Error fetching temporary approver projects: ${error.message}")
+                    close(error)
+                    return@addSnapshotListener
+                }
+
+                Log.d("ProjectRepository", "📊 Received ${snapshot?.documents?.size ?: 0} projects for temporary approver check")
+
+                val allProjects = snapshot?.documents?.mapNotNull { doc ->
+                    Log.d("ProjectRepository", "🔍 Processing project document: ${doc.id}")
+                    try {
+                        val projectData = doc.data ?: emptyMap()
+                        Project(
+                            id = doc.id,
+                            name = projectData["name"] as? String ?: "",
+                            description = projectData["description"] as? String ?: "",
+                            budget = (projectData["budget"] as? Number)?.toDouble() ?: 0.0,
+                            spent = (projectData["spent"] as? Number)?.toDouble() ?: 0.0,
+                            startDate = projectData["startDate"] as? com.google.firebase.Timestamp,
+                            endDate = projectData["endDate"] as? com.google.firebase.Timestamp,
+                            status = projectData["status"] as? String ?: "ACTIVE",
+                            managerId = projectData["managerId"] as? String ?: "",
+                            approverIds = projectData["approverIds"] as? List<String> ?: emptyList(),
+                            productionHeadIds = projectData["productionHeadIds"] as? List<String> ?: emptyList(),
+                            teamMembers = projectData["teamMembers"] as? List<String> ?: emptyList(),
+                            createdAt = projectData["createdAt"] as? com.google.firebase.Timestamp,
+                            updatedAt = projectData["updatedAt"] as? com.google.firebase.Timestamp,
+                            code = projectData["code"] as? String ?: "",
+                            departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues {
+                                (it.value as? Number)?.toDouble() ?: 0.0
+                            } ?: emptyMap(),
+                            categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                            temporaryApproverPhone = projectData["temporaryApproverPhone"] as? String ?: ""
+                        ).also { project ->
+                            Log.d("ProjectRepository", "📋 Project ${project.name}: temporaryApproverPhone='${project.temporaryApproverPhone}'")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ProjectRepository", "Error parsing project document ${doc.id}: ${e.message}")
+                        null
+                    }
+                } ?: emptyList()
+
+                // Filter projects where user is a temporary approver
+                val temporaryProjects = allProjects.filter { project ->
+                    // Normalize phone numbers for comparison (remove +91, spaces, etc.)
+                    val normalizedProjectPhone = project.temporaryApproverPhone.replace("+91", "").replace(" ", "").trim()
+                    val normalizedUserId = userId.replace("+91", "").replace(" ", "").trim()
+                    
+                    val isMatch = normalizedProjectPhone == normalizedUserId
+                    Log.d("ProjectRepository", "🔍 Checking project ${project.name}:")
+                    Log.d("ProjectRepository", "   - temporaryApproverPhone='${project.temporaryApproverPhone}' -> normalized='$normalizedProjectPhone'")
+                    Log.d("ProjectRepository", "   - userId='$userId' -> normalized='$normalizedUserId'")
+                    Log.d("ProjectRepository", "   - Match: $isMatch")
+                    isMatch
+                }
+
+                Log.d("ProjectRepository", "🎯 Sending ${temporaryProjects.size} temporary approver projects for user $userId to UI")
+                temporaryProjects.forEach { project ->
+                    Log.d("ProjectRepository", "  📋 Temporary Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
+                }
+                
+                trySend(temporaryProjects)
+            }
+        
+        awaitClose { 
+            Log.d("ProjectRepository", "🔚 Closing temporary approver projects listener for user: $userId")
+            listener.remove() 
+        }
+    }
+
     fun getApproverProjects(userId: String): Flow<List<Project>> = callbackFlow {
         Log.d("ProjectRepository", "🔥 Starting to fetch projects for user: $userId")
 
@@ -88,7 +168,7 @@ class ProjectRepository @Inject constructor(
 
                 Log.d("ProjectRepository", "📊 Received ${snapshot?.documents?.size ?: 0} projects for user $userId from Firebase")
 
-                val projects = snapshot?.documents?.mapNotNull { doc ->
+                val regularProjects = snapshot?.documents?.mapNotNull { doc ->
                     try {
                         val projectData = doc.data ?: emptyMap()
 
@@ -111,7 +191,8 @@ class ProjectRepository @Inject constructor(
                             departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues {
                                 (it.value as? Number)?.toDouble() ?: 0.0
                             } ?: emptyMap(),
-                            categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                            categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                            temporaryApproverPhone = projectData["temporaryApproverPhone"] as? String ?: ""
                         )
                     } catch (e: Exception) {
                         Log.e("ProjectRepository", "Error parsing user project document ${doc.id}: ${e.message}")
@@ -119,17 +200,25 @@ class ProjectRepository @Inject constructor(
                     }
                 } ?: emptyList()
 
-                Log.d("ProjectRepository", "🎯 Sending ${projects.size} projects for user $userId to UI")
-                projects.forEach { project ->
-                    Log.d("ProjectRepository", "  📋 User Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
+                // For now, we'll only show regular projects
+                // Temporary approver projects will be handled by a separate query
+                val temporaryProjects = emptyList<Project>()
+
+                // Combine regular and temporary projects
+                val allProjects = (regularProjects + temporaryProjects).distinctBy { it.id }
+
+                Log.d("ProjectRepository", "🎯 Sending ${allProjects.size} projects for user $userId to UI (${regularProjects.size} regular + ${temporaryProjects.size} temporary)")
+                allProjects.forEach { project ->
+                    val projectType = if (project.managerId == userId) "Regular" else "Temporary"
+                    Log.d("ProjectRepository", "  📋 $projectType Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
                 }
-
-                trySend(projects)
+                
+                trySend(allProjects)
             }
-
-        awaitClose {
+        
+        awaitClose { 
             Log.d("ProjectRepository", "🔚 Closing user projects listener for user: $userId")
-            listener.remove()
+            listener.remove() 
         }
     }
     
@@ -161,7 +250,8 @@ class ProjectRepository @Inject constructor(
                     departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues { 
                         (it.value as? Number)?.toDouble() ?: 0.0 
                     } ?: emptyMap(),
-                    categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                    categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                    temporaryApproverPhone = projectData["temporaryApproverPhone"] as? String ?: ""
                 )
                 
                 Log.d("ProjectRepository", "✅ Found project: ${project.name}")
@@ -251,7 +341,8 @@ class ProjectRepository @Inject constructor(
                         departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues { 
                             (it.value as? Number)?.toDouble() ?: 0.0 
                         } ?: emptyMap(),
-                        categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                        categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                        temporaryApproverPhone = projectData["temporaryApproverPhone"] as? String ?: ""
                     )
                 } catch (e: Exception) {
                     Log.e("ProjectRepository", "Error parsing project document ${doc.id}: ${e.message}")
@@ -308,7 +399,8 @@ class ProjectRepository @Inject constructor(
                             departmentBudgets = (projectData["departmentBudgets"] as? Map<String, Any>)?.mapValues { 
                                 (it.value as? Number)?.toDouble() ?: 0.0 
                             } ?: emptyMap(),
-                            categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList()
+                            categories = (projectData["categories"] as? List<*>)?.mapNotNull { it as? String } ?: emptyList(),
+                            temporaryApproverPhone = projectData["temporaryApproverPhone"] as? String ?: ""
                         )
                     } catch (e: Exception) {
                         Log.e("ProjectRepository", "Error parsing project document ${doc.id}: ${e.message}")
