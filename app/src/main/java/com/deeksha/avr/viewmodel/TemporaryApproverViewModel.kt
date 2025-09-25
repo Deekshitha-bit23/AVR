@@ -133,6 +133,7 @@ class TemporaryApproverViewModel @Inject constructor(
         approverId: String,
         approverName: String,
         approverPhone: String,
+        startDate: Date,
         expiringDate: Date,
         assignedBy: String,
         assignedByName: String
@@ -146,12 +147,14 @@ class TemporaryApproverViewModel @Inject constructor(
                 Log.d(TAG, "🔄 Adding temporary approver: $approverName to project: $projectId")
                 
                 val expiringTimestamp = Timestamp(expiringDate)
+                val startingTimestamp = Timestamp(startDate)
                 
                 val result = temporaryApproverRepository.addTemporaryApprover(
                     projectId = projectId,
                     approverId = approverId,
                     approverName = approverName,
                     approverPhone = approverPhone,
+                    startdate = startingTimestamp,
                     expiringDate = expiringTimestamp,
                     assignedBy = assignedBy,
                     assignedByName = assignedByName
@@ -210,6 +213,86 @@ class TemporaryApproverViewModel @Inject constructor(
         }
     }
     
+    /**
+     * Accept a temporary approver assignment
+     */
+    fun acceptTemporaryApproverAssignment(
+        projectId: String,
+        approverId: String,
+        responseMessage: String = ""
+    ) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _error.value = null
+                _successMessage.value = null
+                
+                Log.d(TAG, "🔄 Accepting temporary approver assignment for project $projectId by approver $approverId")
+                
+                val result = temporaryApproverRepository.acceptTemporaryApproverAssignment(
+                    projectId = projectId,
+                    approverId = approverId,
+                    responseMessage = responseMessage
+                )
+                
+                if (result.isSuccess) {
+                    _successMessage.value = "Assignment accepted successfully"
+                    Log.d(TAG, "✅ Temporary approver assignment accepted successfully")
+                } else {
+                    val exception = result.exceptionOrNull()
+                    _error.value = "Failed to accept assignment: ${exception?.message}"
+                    Log.e(TAG, "❌ Failed to accept temporary approver assignment", exception)
+                }
+                
+            } catch (e: Exception) {
+                _error.value = "Error accepting assignment: ${e.message}"
+                Log.e(TAG, "❌ Exception while accepting temporary approver assignment", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    /**
+     * Reject a temporary approver assignment
+     */
+    fun rejectTemporaryApproverAssignment(
+        projectId: String,
+        approverId: String,
+        responseMessage: String = ""
+    ) {
+        viewModelScope.launch {
+            try {
+                _isLoading.value = true
+                _error.value = null
+                _successMessage.value = null
+                
+                Log.d(TAG, "🔄 Rejecting temporary approver assignment for project $projectId by approver $approverId")
+                
+                val result = temporaryApproverRepository.rejectTemporaryApproverAssignment(
+                    projectId = projectId,
+                    approverId = approverId,
+                    responseMessage = responseMessage
+                )
+                
+                if (result.isSuccess) {
+                    _successMessage.value = "Assignment rejected successfully"
+                    Log.d(TAG, "✅ Temporary approver assignment rejected successfully")
+                } else {
+                    val exception = result.exceptionOrNull()
+                    _error.value = "Failed to reject assignment: ${exception?.message}"
+                    Log.e(TAG, "❌ Failed to reject temporary approver assignment", exception)
+                }
+                
+            } catch (e: Exception) {
+                _error.value = "Error rejecting assignment: ${e.message}"
+                Log.e(TAG, "❌ Exception while rejecting temporary approver assignment", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     /**
      * Update expiring date of a temporary approver
      */
@@ -348,6 +431,167 @@ class TemporaryApproverViewModel @Inject constructor(
     fun getInactiveTemporaryApprovers(): List<TemporaryApprover> {
         return _temporaryApprovers.value.filter { tempApprover ->
             !tempApprover.isActive
+        }
+    }
+    
+    /**
+     * Create a new temporary approver assignment
+     */
+    fun createTemporaryApprover(
+        projectId: String,
+        approverId: String,
+        approverName: String,
+        approverPhone: String,
+        startDate: Timestamp,
+        expiringDate: Timestamp?
+    ) {
+        viewModelScope.launch {
+            _isAddingApprover.value = true
+            _error.value = null
+            
+            try {
+                val result = temporaryApproverRepository.createTemporaryApprover(
+                    projectId = projectId,
+                    approverId = approverId,
+                    approverName = approverName,
+                    approverPhone = approverPhone,
+                    startDate = startDate,
+                    expiringDate = expiringDate
+                )
+                
+                if (result.isSuccess) {
+                    _successMessage.value = "Temporary approver assigned successfully"
+                    // Reload the list
+                    loadTemporaryApprovers(projectId)
+                } else {
+                    _error.value = result.exceptionOrNull()?.message ?: "Failed to assign temporary approver"
+                }
+            } catch (e: Exception) {
+                _error.value = e.message ?: "Failed to assign temporary approver"
+            } finally {
+                _isAddingApprover.value = false
+            }
+        }
+    }
+    
+    /**
+     * Update an existing temporary approver assignment
+     */
+    fun updateTemporaryApprover(
+        projectId: String,
+        updatedApprover: TemporaryApprover
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                Log.d(TAG, "🔄 Updating temporary approver: ${updatedApprover.id}")
+                Log.d(TAG, "   - approverId: ${updatedApprover.approverId}")
+                Log.d(TAG, "   - approverName: ${updatedApprover.approverName}")
+                Log.d(TAG, "   - startDate: ${updatedApprover.startDate}")
+                Log.d(TAG, "   - expiringDate: ${updatedApprover.expiringDate}")
+                
+                val result = temporaryApproverRepository.updateTemporaryApprover(
+                    projectId = projectId,
+                    updatedApprover = updatedApprover
+                )
+                
+                if (result.isSuccess) {
+                    _successMessage.value = "Temporary approver updated successfully"
+                    Log.d(TAG, "✅ Temporary approver updated successfully")
+                    // Reload the list
+                    loadTemporaryApprovers(projectId)
+                } else {
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Failed to update temporary approver"
+                    _error.value = errorMsg
+                    Log.e(TAG, "❌ Failed to update temporary approver: $errorMsg")
+                }
+            } catch (e: Exception) {
+                val errorMsg = e.message ?: "Failed to update temporary approver"
+                _error.value = errorMsg
+                Log.e(TAG, "❌ Exception while updating temporary approver: $errorMsg", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    /**
+     * Remove a temporary approver assignment by document ID
+     */
+    fun removeTemporaryApproverById(
+        projectId: String,
+        documentId: String
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                Log.d(TAG, "🔄 Removing temporary approver by document ID: $documentId")
+                
+                val result = temporaryApproverRepository.removeTemporaryApproverById(
+                    projectId = projectId,
+                    documentId = documentId
+                )
+                
+                if (result.isSuccess) {
+                    _successMessage.value = "Temporary approver removed successfully"
+                    Log.d(TAG, "✅ Temporary approver removed successfully")
+                    // Reload the list
+                    loadTemporaryApprovers(projectId)
+                } else {
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Failed to remove temporary approver"
+                    _error.value = errorMsg
+                    Log.e(TAG, "❌ Failed to remove temporary approver: $errorMsg")
+                }
+            } catch (e: Exception) {
+                val errorMsg = e.message ?: "Failed to remove temporary approver"
+                _error.value = errorMsg
+                Log.e(TAG, "❌ Exception while removing temporary approver: $errorMsg", e)
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+    
+    /**
+     * Remove a temporary approver assignment by approver ID (fallback method)
+     */
+    fun removeTemporaryApprover(
+        projectId: String,
+        approverId: String
+    ) {
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                Log.d(TAG, "🔄 Removing temporary approver: $approverId")
+                
+                val result = temporaryApproverRepository.removeTemporaryApprover(
+                    projectId = projectId,
+                    approverId = approverId
+                )
+                
+                if (result.isSuccess) {
+                    _successMessage.value = "Temporary approver removed successfully"
+                    Log.d(TAG, "✅ Temporary approver removed successfully")
+                    // Reload the list
+                    loadTemporaryApprovers(projectId)
+                } else {
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Failed to remove temporary approver"
+                    _error.value = errorMsg
+                    Log.e(TAG, "❌ Failed to remove temporary approver: $errorMsg")
+                }
+            } catch (e: Exception) {
+                val errorMsg = e.message ?: "Failed to remove temporary approver"
+                _error.value = errorMsg
+                Log.e(TAG, "❌ Exception while removing temporary approver: $errorMsg", e)
+            } finally {
+                _isLoading.value = false
+            }
         }
     }
 }

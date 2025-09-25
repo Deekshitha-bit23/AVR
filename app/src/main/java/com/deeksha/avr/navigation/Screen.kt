@@ -88,4 +88,7 @@ sealed class Screen(val route: String) {
         fun createRoute(projectId: String, categoryName: String) = "production_head_category_detail/$projectId/$categoryName"
     }
     object ProductionHeadOverallReports : Screen("production_head_overall_reports")
+    object Delegation : Screen("delegation/{projectId}") {
+        fun createRoute(projectId: String) = "delegation/$projectId"
+    }
 } 

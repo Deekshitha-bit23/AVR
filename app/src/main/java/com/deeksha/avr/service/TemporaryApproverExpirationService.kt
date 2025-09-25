@@ -89,13 +89,13 @@ class TemporaryApproverExpirationWorker(
             // For expiration service, we don't need notifications, so we'll create a minimal notification service
             val notificationRepository = com.deeksha.avr.repository.NotificationRepository(firestore)
             val authRepository = com.deeksha.avr.repository.AuthRepository(firestore)
-            val temporaryApproverRepository = TemporaryApproverRepository(firestore, null)
-            val projectRepository = com.deeksha.avr.repository.ProjectRepository(firestore, temporaryApproverRepository)
             val notificationService = com.deeksha.avr.service.NotificationService(
                 notificationRepository,
                 authRepository,
                 firestore
             )
+            val temporaryApproverRepository = TemporaryApproverRepository(firestore, notificationService)
+            val projectRepository = com.deeksha.avr.repository.ProjectRepository(firestore, temporaryApproverRepository)
             
             // Get all projects
             val allProjects = getAllProjects()

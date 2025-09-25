@@ -32,6 +32,7 @@ class TemporaryApproverRepository @Inject constructor(
         approverId: String,
         approverName: String,
         approverPhone: String,
+        startdate: Timestamp,
         expiringDate: Timestamp,
         assignedBy: String,
         assignedByName: String
@@ -46,6 +47,7 @@ class TemporaryApproverRepository @Inject constructor(
                 approverName = approverName,
                 approverPhone = approverPhone,
                 assignedDate = Timestamp.now(),
+                startDate = startdate,
                 expiringDate = expiringDate,
                 isActive = true,
                 assignedBy = assignedBy,
@@ -130,7 +132,7 @@ class TemporaryApproverRepository @Inject constructor(
     }
     
     /**
-     * Get active temporary approvers for a project (not expired and isActive = true)
+     * Get active temporary approvers for a project (only accepted ones, not expired and isActive = true)
      */
     suspend fun getActiveTemporaryApprovers(projectId: String): Result<List<TemporaryApprover>> {
         return try {
@@ -138,9 +140,11 @@ class TemporaryApproverRepository @Inject constructor(
             if (result.isSuccess) {
                 val allTempApprovers = result.getOrNull() ?: emptyList()
                 val activeTempApprovers = allTempApprovers.filter { tempApprover ->
-                    tempApprover.isActive && !tempApprover.isExpired()
+                    tempApprover.isActive && 
+                    !tempApprover.isExpired() && 
+                    tempApprover.status == "ACCEPTED" // Only include accepted assignments
                 }
-                Log.d(TAG, "✅ Found ${activeTempApprovers.size} active temporary approvers")
+                Log.d(TAG, "✅ Found ${activeTempApprovers.size} active accepted temporary approvers")
                 Result.success(activeTempApprovers)
             } else {
                 result
@@ -303,6 +307,396 @@ class TemporaryApproverRepository @Inject constructor(
     }
     
     /**
+     * Check if a user is an accepted temporary approver for a project by phone number
+     */
+    suspend fun isAcceptedTemporaryApproverByPhone(projectId: String, userPhone: String): Result<Boolean> {
+        return try {
+            Log.d(TAG, "🔄 Checking if user with phone $userPhone is accepted temporary approver for project $projectId")
+            
+            val querySnapshot = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .whereEqualTo("approverPhone", userPhone)
+                .whereEqualTo("isActive", true)
+                .whereEqualTo("status", "ACCEPTED")
+                .limit(1)
+                .get()
+                .await()
+            
+            val isAccepted = !querySnapshot.isEmpty
+            Log.d(TAG, "✅ User $userPhone is accepted temporary approver: $isAccepted")
+            Result.success(isAccepted)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to check accepted temporary approver status", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Get all accepted temporary approver project IDs for a user by phone number
+     */
+    suspend fun getAcceptedTemporaryApproverProjectIds(userPhone: String): Result<List<String>> {
+        return try {
+            Log.d(TAG, "🔄 Getting accepted temporary approver project IDs for user $userPhone")
+            
+            // Query all temporary approver assignments for this user
+            val querySnapshot = firestore.collectionGroup(SUBCOLLECTION_TEMP_APPROVERS)
+                .whereEqualTo("approverPhone", userPhone)
+                .whereEqualTo("isActive", true)
+                .whereEqualTo("status", "ACCEPTED")
+                .get()
+                .await()
+            
+            val projectIds = querySnapshot.documents.mapNotNull { doc ->
+                doc.getString("projectId")
+            }.distinct()
+            
+            Log.d(TAG, "✅ Found ${projectIds.size} accepted temporary approver projects for user $userPhone")
+            Result.success(projectIds)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to get accepted temporary approver project IDs", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Accept a temporary approver assignment - only accepted assignments remain active
+     */
+    suspend fun acceptTemporaryApproverAssignment(
+        projectId: String,
+        approverId: String,
+        responseMessage: String = ""
+    ): Result<Unit> {
+        return try {
+            Log.d(TAG, "🔄 Accepting temporary approver assignment for project $projectId by approver $approverId")
+            Log.d(TAG, "🔍 Debug: approverId type: ${approverId::class.simpleName}, length: ${approverId.length}")
+            
+            // Find the temporary approver record by approverId
+            var tempApproversQuery = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .whereEqualTo("approverId", approverId)
+                .whereEqualTo("isActive", true)
+                .limit(1)
+                .get()
+                .await()
+            
+            // If not found by approverId, try to find by phone number (in case approverId is actually a phone)
+            if (tempApproversQuery.isEmpty) {
+                Log.d(TAG, "🔄 Not found by approverId, trying to find by phone number: $approverId")
+                tempApproversQuery = firestore.collection(COLLECTION_PROJECTS)
+                    .document(projectId)
+                    .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                    .whereEqualTo("approverPhone", approverId)
+                    .whereEqualTo("isActive", true)
+                    .limit(1)
+                    .get()
+                    .await()
+            }
+            
+            if (tempApproversQuery.isEmpty) {
+                Log.e(TAG, "❌ No active temporary approver assignment found for approver $approverId in project $projectId")
+                return Result.failure(Exception("No active temporary approver assignment found"))
+            }
+            
+            val tempApproverDoc = tempApproversQuery.documents.first()
+            val tempApproverId = tempApproverDoc.id
+            val docData = tempApproverDoc.data
+            Log.d(TAG, "🔍 Found temporary approver record:")
+            Log.d(TAG, "   - Document ID: $tempApproverId")
+            Log.d(TAG, "   - approverId: ${docData?.get("approverId")}")
+            Log.d(TAG, "   - approverPhone: ${docData?.get("approverPhone")}")
+            Log.d(TAG, "   - status: ${docData?.get("status")}")
+            Log.d(TAG, "   - isActive: ${docData?.get("isActive")}")
+            
+            // Update the temporary approver record to mark as accepted
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .document(tempApproverId)
+                .update(
+                    mapOf(
+                        "isAccepted" to true,
+                        "acceptedAt" to Timestamp.now(),
+                        "responseMessage" to responseMessage,
+                        "updatedAt" to Timestamp.now(),
+                        "status" to "ACCEPTED"
+                    )
+                )
+                .await()
+            
+            Log.d(TAG, "✅ Temporary approver assignment accepted successfully - status updated to ACCEPTED")
+            
+            // Clean up any other pending temporary approver assignments for this project
+            cleanupPendingAssignments(projectId)
+            
+            // Send notification to production head about acceptance
+            notificationService?.let { service ->
+                sendAssignmentResponseNotification(projectId, approverId, true, responseMessage, service)
+            }
+            
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to accept temporary approver assignment", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Clean up pending temporary approver assignments that haven't been responded to
+     * This ensures only accepted assignments remain active
+     */
+    private suspend fun cleanupPendingAssignments(projectId: String) {
+        try {
+            Log.d(TAG, "🔄 Cleaning up pending temporary approver assignments for project $projectId")
+            
+            // Find all temporary approvers for this project that are still pending (isAccepted is null)
+            val pendingQuery = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .whereEqualTo("isActive", true)
+                .get()
+                .await()
+            
+            val batch = firestore.batch()
+            var hasUpdates = false
+            
+            for (doc in pendingQuery.documents) {
+                val status = doc.get("status") as? String
+                if (status == "PENDING" || status == null) {
+                    // This is a pending assignment, remove it
+                    batch.delete(doc.reference)
+                    hasUpdates = true
+                    Log.d(TAG, "🗑️ Removing pending assignment: ${doc.id}")
+                }
+            }
+            
+            if (hasUpdates) {
+                batch.commit().await()
+                Log.d(TAG, "✅ Cleaned up pending temporary approver assignments")
+            } else {
+                Log.d(TAG, "ℹ️ No pending assignments to clean up")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to cleanup pending assignments", e)
+            // Don't fail the main operation if cleanup fails
+        }
+    }
+    
+    /**
+     * Clean up expired temporary approver assignments
+     * This removes assignments that have passed their expiry date
+     */
+    suspend fun cleanupExpiredAssignments(projectId: String): Result<Unit> {
+        return try {
+            Log.d(TAG, "🔄 Cleaning up expired temporary approver assignments for project $projectId")
+            
+            val querySnapshot = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .whereEqualTo("isActive", true)
+                .get()
+                .await()
+            
+            val batch = firestore.batch()
+            var hasUpdates = false
+            
+            for (doc in querySnapshot.documents) {
+                try {
+                    val tempApprover = doc.toObject(TemporaryApprover::class.java)
+                    if (tempApprover != null && tempApprover.isExpired()) {
+                        // This assignment has expired, remove it
+                        batch.delete(doc.reference)
+                        hasUpdates = true
+                        Log.d(TAG, "🗑️ Removing expired assignment: ${doc.id}")
+                    }
+                } catch (e: Exception) {
+                    Log.e(TAG, "❌ Error processing document ${doc.id}", e)
+                }
+            }
+            
+            if (hasUpdates) {
+                batch.commit().await()
+                Log.d(TAG, "✅ Cleaned up expired temporary approver assignments")
+            } else {
+                Log.d(TAG, "ℹ️ No expired assignments to clean up")
+            }
+            
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to cleanup expired assignments", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Reject a temporary approver assignment - completely removes them from the project
+     */
+    suspend fun rejectTemporaryApproverAssignment(
+        projectId: String,
+        approverId: String,
+        responseMessage: String = ""
+    ): Result<Unit> {
+        return try {
+            Log.d(TAG, "🔄 Rejecting temporary approver assignment for project $projectId by approver $approverId")
+            Log.d(TAG, "🔍 Debug: approverId type: ${approverId::class.simpleName}, length: ${approverId.length}")
+            
+            // Find the temporary approver record by approverId
+            var tempApproversQuery = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .whereEqualTo("approverId", approverId)
+                .whereEqualTo("isActive", true)
+                .limit(1)
+                .get()
+                .await()
+            
+            // If not found by approverId, try to find by phone number (in case approverId is actually a phone)
+            if (tempApproversQuery.isEmpty) {
+                Log.d(TAG, "🔄 Not found by approverId, trying to find by phone number: $approverId")
+                tempApproversQuery = firestore.collection(COLLECTION_PROJECTS)
+                    .document(projectId)
+                    .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                    .whereEqualTo("approverPhone", approverId)
+                    .whereEqualTo("isActive", true)
+                    .limit(1)
+                    .get()
+                    .await()
+            }
+            
+            if (tempApproversQuery.isEmpty) {
+                Log.e(TAG, "❌ No active temporary approver assignment found for approver $approverId in project $projectId")
+                return Result.failure(Exception("No active temporary approver assignment found"))
+            }
+            
+            val tempApproverDoc = tempApproversQuery.documents.first()
+            val tempApproverId = tempApproverDoc.id
+            val docData = tempApproverDoc.data
+            Log.d(TAG, "🔍 Found temporary approver record:")
+            Log.d(TAG, "   - Document ID: $tempApproverId")
+            Log.d(TAG, "   - approverId: ${docData?.get("approverId")}")
+            Log.d(TAG, "   - approverPhone: ${docData?.get("approverPhone")}")
+            Log.d(TAG, "   - status: ${docData?.get("status")}")
+            Log.d(TAG, "   - isActive: ${docData?.get("isActive")}")
+            
+            // Mark as rejected and deactivate instead of deleting (for audit trail)
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .document(tempApproverId)
+                .update(
+                    mapOf(
+                        "isAccepted" to false,
+                        "rejectedAt" to Timestamp.now(),
+                        "responseMessage" to responseMessage,
+                        "updatedAt" to Timestamp.now(),
+                        "status" to "REJECTED",
+                        "isActive" to false
+                    )
+                )
+                .await()
+            
+            Log.d(TAG, "✅ Temporary approver assignment rejected successfully - status updated to REJECTED")
+            
+            // Also remove the temporary approver phone from the project document
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .update("temporaryApproverPhone", com.google.firebase.firestore.FieldValue.delete())
+                .await()
+            
+            Log.d(TAG, "✅ Temporary approver assignment rejected and completely removed from project")
+            
+            // Send notification to production head about rejection
+            notificationService?.let { service ->
+                sendAssignmentResponseNotification(projectId, approverId, false, responseMessage, service)
+            }
+            
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to reject temporary approver assignment", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Send notification to production head about assignment response
+     */
+    private suspend fun sendAssignmentResponseNotification(
+        projectId: String,
+        approverId: String,
+        isAccepted: Boolean,
+        responseMessage: String,
+        notificationService: NotificationService
+    ) {
+        try {
+            Log.d(TAG, "🔄 Sending assignment response notification for project $projectId")
+            
+            // Get project details
+            val projectDoc = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .get()
+                .await()
+            
+            if (!projectDoc.exists()) {
+                Log.e(TAG, "❌ Project not found for notification: $projectId")
+                return
+            }
+            
+            val projectData = projectDoc.data ?: return
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
+            val productionHeadId = projectData["productionHeadId"] as? String ?: return
+            val productionHeadPhone = projectData["productionHeadPhone"] as? String ?: return
+            
+            // Get approver details
+            val approverDoc = firestore.collection("users")
+                .whereEqualTo("uid", approverId)
+                .limit(1)
+                .get()
+                .await()
+            
+            val approverName = if (!approverDoc.isEmpty) {
+                approverDoc.documents.first().getString("name") ?: "Unknown Approver"
+            } else {
+                "Unknown Approver"
+            }
+            
+            val action = if (isAccepted) "accepted" else "rejected"
+            val title = "Temporary Approver Assignment $action"
+            val message = "$approverName has $action the temporary approver assignment for project '$projectName'."
+            
+            val notification = Notification(
+                recipientId = productionHeadPhone,
+                recipientRole = "PRODUCTION_HEAD",
+                title = title,
+                message = message,
+                type = NotificationType.TEMPORARY_APPROVER_ASSIGNMENT,
+                projectId = projectId,
+                projectName = projectName,
+                actionRequired = false,
+                navigationTarget = "project_dashboard/$projectId"
+            )
+            
+            // Send the notification
+            val notificationResult = notificationService.sendNotification(notification)
+            
+            if (notificationResult.isSuccess) {
+                Log.d(TAG, "✅ Assignment response notification sent successfully")
+            } else {
+                Log.e(TAG, "❌ Failed to send assignment response notification: ${notificationResult.exceptionOrNull()?.message}")
+            }
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to send assignment response notification", e)
+        }
+    }
+
+    /**
      * Send notification to temporary approver about their assignment
      */
     private suspend fun sendTemporaryApproverNotification(
@@ -343,6 +737,7 @@ class TemporaryApproverRepository @Inject constructor(
                 type = NotificationType.TEMPORARY_APPROVER_ASSIGNMENT,
                 projectId = projectId,
                 projectName = projectName,
+                relatedId = approverId, // Store the actual approver ID for reference
                 actionRequired = true,
                 navigationTarget = "approver_project_dashboard/$projectId"
             )
@@ -367,6 +762,213 @@ class TemporaryApproverRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to send temporary approver notification", e)
             // Don't fail the main operation if notification fails
+        }
+    }
+    
+    /**
+     * Create a new temporary approver assignment
+     */
+    suspend fun createTemporaryApprover(
+        projectId: String,
+        approverId: String,
+        approverName: String,
+        approverPhone: String,
+        startDate: Timestamp,
+        expiringDate: Timestamp?
+    ): Result<Unit> {
+        return try {
+            Log.d(TAG, "🔄 Creating temporary approver assignment for project $projectId")
+            
+            val tempApprover = TemporaryApprover(
+                id = "", // Will be auto-generated by Firestore
+                projectId = projectId,
+                approverId = approverId,
+                approverName = approverName,
+                approverPhone = approverPhone,
+                startDate = startDate,
+                expiringDate = expiringDate,
+                isActive = true,
+                assignedBy = "", // Will be set by the calling code
+                assignedByName = "",
+                createdAt = Timestamp.now(),
+                updatedAt = Timestamp.now(),
+                status = "PENDING"
+            )
+            
+            // Add to Firestore
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .add(tempApprover)
+                .await()
+            
+            // Update project document with temporary approver phone
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .update("temporaryApproverPhone", approverPhone)
+                .await()
+            
+            Log.d(TAG, "✅ Temporary approver assignment created successfully")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to create temporary approver assignment", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Update an existing temporary approver assignment
+     */
+    suspend fun updateTemporaryApprover(
+        projectId: String,
+        updatedApprover: TemporaryApprover
+    ): Result<Unit> {
+        return try {
+            Log.d(TAG, "🔄 Updating temporary approver assignment: ${updatedApprover.id}")
+            
+            // If we have the document ID, use it directly
+            if (updatedApprover.id.isNotEmpty()) {
+                val updatedData = updatedApprover.copy(updatedAt = Timestamp.now())
+                
+                firestore.collection(COLLECTION_PROJECTS)
+                    .document(projectId)
+                    .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                    .document(updatedApprover.id)
+                    .set(updatedData)
+                    .await()
+                
+                Log.d(TAG, "✅ Temporary approver assignment updated successfully using document ID")
+                return Result.success(Unit)
+            }
+            
+            // Fallback: Find the document by approverId
+            val query = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .whereEqualTo("approverId", updatedApprover.approverId)
+                .whereEqualTo("isActive", true)
+                .limit(1)
+                .get()
+                .await()
+            
+            if (query.isEmpty) {
+                Log.e(TAG, "❌ No active temporary approver found with ID: ${updatedApprover.approverId}")
+                return Result.failure(Exception("Temporary approver not found"))
+            }
+            
+            val doc = query.documents.first()
+            val updatedData = updatedApprover.copy(updatedAt = Timestamp.now())
+            
+            // Update the document
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .document(doc.id)
+                .set(updatedData)
+                .await()
+            
+            Log.d(TAG, "✅ Temporary approver assignment updated successfully")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to update temporary approver assignment", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Remove a temporary approver assignment by document ID
+     */
+    suspend fun removeTemporaryApproverById(
+        projectId: String,
+        documentId: String
+    ): Result<Unit> {
+        return try {
+            Log.d(TAG, "🔄 Removing temporary approver assignment by document ID: $documentId")
+            
+            // Get the document data first to get the approver phone
+            val docRef = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .document(documentId)
+            
+            val docSnapshot = docRef.get().await()
+            if (!docSnapshot.exists()) {
+                Log.e(TAG, "❌ Temporary approver document not found: $documentId")
+                return Result.failure(Exception("Temporary approver not found"))
+            }
+            
+            val docData = docSnapshot.data
+            val approverPhone = docData?.get("approverPhone") as? String ?: ""
+            
+            // Completely delete the temporary approver document
+            docRef.delete().await()
+            
+            // Remove temporary approver phone from project document
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .update("temporaryApproverPhone", com.google.firebase.firestore.FieldValue.delete())
+                .await()
+            
+            Log.d(TAG, "✅ Temporary approver assignment completely removed from project")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to remove temporary approver assignment", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Remove a temporary approver assignment by approver ID (fallback method)
+     */
+    suspend fun removeTemporaryApprover(
+        projectId: String,
+        approverId: String
+    ): Result<Unit> {
+        return try {
+            Log.d(TAG, "🔄 Removing temporary approver assignment: $approverId")
+            
+            // Find the document by approverId
+            val query = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .whereEqualTo("approverId", approverId)
+                .whereEqualTo("isActive", true)
+                .limit(1)
+                .get()
+                .await()
+            
+            if (query.isEmpty) {
+                Log.e(TAG, "❌ No active temporary approver found with ID: $approverId")
+                return Result.failure(Exception("Temporary approver not found"))
+            }
+            
+            val doc = query.documents.first()
+            val docData = doc.data
+            val approverPhone = docData?.get("approverPhone") as? String ?: ""
+            
+            // Completely delete the temporary approver document
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .document(doc.id)
+                .delete()
+                .await()
+            
+            // Remove temporary approver phone from project document
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .update("temporaryApproverPhone", com.google.firebase.firestore.FieldValue.delete())
+                .await()
+            
+            Log.d(TAG, "✅ Temporary approver assignment completely removed from project")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to remove temporary approver assignment", e)
+            Result.failure(e)
         }
     }
 }

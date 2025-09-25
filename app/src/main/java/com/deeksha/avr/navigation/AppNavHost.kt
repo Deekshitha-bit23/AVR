@@ -62,6 +62,7 @@ import com.deeksha.avr.ui.view.productionhead.ProductionHeadProjectDashboard
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadReports
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadOverallReports
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadCategoryDetail
+import com.deeksha.avr.ui.view.productionhead.DelegationScreen
 import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.viewmodel.ProjectViewModel
 import com.deeksha.avr.ui.view.approver.DepartmentDetailScreen
@@ -998,7 +999,21 @@ fun AppNavHost(
                 },
                 onNavigateToDepartmentDetail = { projectId, departmentName ->
                     navController.navigate(Screen.DepartmentDetail.createRoute(projectId, departmentName))
+                },
+                onNavigateToDelegation = {
+                    navController.navigate(Screen.Delegation.createRoute(projectId))
                 }
+            )
+        }
+        
+        composable(
+            route = Screen.Delegation.route,
+            arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            DelegationScreen(
+                projectId = projectId,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
         

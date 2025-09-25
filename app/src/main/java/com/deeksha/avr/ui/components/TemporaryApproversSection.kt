@@ -254,11 +254,34 @@ private fun TemporaryApproverItem(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text(
-                    text = tempApprover.approverName,
-                    fontWeight = FontWeight.Medium,
-                    fontSize = 16.sp
-                )
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = tempApprover.approverName,
+                        fontWeight = FontWeight.Medium,
+                        fontSize = 16.sp
+                    )
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    // Temporary Approver Label - only show for active temporary approvers
+                    if (tempApprover.isActive) {
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE)),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Text(
+                                text = "TEMPORARY",
+                                color = Color(0xFFD32F2F),
+                                fontSize = 10.sp,
+                                fontWeight = FontWeight.Bold,
+                                modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                            )
+                        }
+                    }
+                }
                 
                 Card(
                     colors = CardDefaults.cardColors(containerColor = statusColor.copy(alpha = 0.1f)),

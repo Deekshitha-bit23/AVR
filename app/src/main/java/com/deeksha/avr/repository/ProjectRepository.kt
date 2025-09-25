@@ -126,7 +126,7 @@ class ProjectRepository @Inject constructor(
                     }
                 } ?: emptyList()
 
-                // Filter projects where user is a temporary approver
+                // Filter projects where user is a temporary approver (only accepted assignments)
                 val temporaryProjects = allProjects.filter { project ->
                     // Normalize phone numbers for comparison (remove +91, spaces, etc.)
                     val normalizedProjectPhone = project.temporaryApproverPhone.replace("+91", "").replace(" ", "").trim()
@@ -140,12 +140,20 @@ class ProjectRepository @Inject constructor(
                     isMatch
                 }
 
-                Log.d("ProjectRepository", "🎯 Sending ${temporaryProjects.size} temporary approver projects for user $userId to UI")
-                temporaryProjects.forEach { project ->
-                    Log.d("ProjectRepository", "  📋 Temporary Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
+                // Filter out rejected assignments - rejected assignments have empty temporaryApproverPhone
+                // because the reject logic removes this field from the project document
+                val acceptedTemporaryProjects = temporaryProjects.filter { project ->
+                    val hasTemporaryApproverPhone = project.temporaryApproverPhone.isNotEmpty()
+                    Log.d("ProjectRepository", "🔍 Project ${project.name}: hasTemporaryApproverPhone=$hasTemporaryApproverPhone")
+                    hasTemporaryApproverPhone
+                }
+
+                Log.d("ProjectRepository", "🎯 Sending ${acceptedTemporaryProjects.size} accepted temporary approver projects for user $userId to UI")
+                acceptedTemporaryProjects.forEach { project ->
+                    Log.d("ProjectRepository", "  📋 Accepted Temporary Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
                 }
                 
-                trySend(temporaryProjects)
+                trySend(acceptedTemporaryProjects)
             }
         
         awaitClose { 

@@ -58,6 +58,7 @@ fun EditProjectScreen(
     var projectName by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedManagerId by remember { mutableStateOf("") }
+    var selectedTempararyId by remember { mutableStateOf("") }
     var selectedTeamMembers by remember { mutableStateOf(setOf<String>()) }
     var startDate by remember { mutableStateOf<Date?>(null) }
     var endDate by remember { mutableStateOf<Date?>(null) }
@@ -87,6 +88,7 @@ fun EditProjectScreen(
             projectName = project.name
             description = project.description
             selectedManagerId = project.managerId
+            selectedTempararyId = project.temporaryApproverPhone
             selectedTeamMembers = project.teamMembers.toSet()
             
             project.startDate?.let { start ->
@@ -326,6 +328,10 @@ fun EditProjectScreen(
                 
                 item {
                     availableApprovers.forEach { approver ->
+                        // Check if this approver is the current project's permanent approver
+                        val isCurrentProjectApprover = selectedManagerId == approver.phone
+                        val isCurrentTemporaryApprover = selectedTempararyId == approver.phone
+                        
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
@@ -333,13 +339,49 @@ fun EditProjectScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = selectedManagerId == approver.phone,
+                                selected = selectedManagerId == approver.phone && selectedTempararyId == approver.phone,
                                 onClick = { selectedManagerId = approver.phone }
                             )
                             Text(
                                 text = "${approver.name} (${approver.phone})",
-                                modifier = Modifier.padding(start = 8.dp)
+                                modifier = Modifier
+                                    .padding(start = 8.dp)
+                                    .weight(1f)
                             )
+                            
+                            // Show Permanent Approver Label only for current project's approver
+                            if (isCurrentProjectApprover) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = "PERMANENT",
+                                        color = Color(0xFF2E7D32),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
+
+                            if (isCurrentTemporaryApprover) {
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(
+                                        0xFFEEC4C4
+                                    )
+                                    ),
+                                    shape = RoundedCornerShape(12.dp)
+                                )  {
+                                    Text(
+                                        text = "Temporary",
+                                        color = Color(0xFFFF0000),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            }
                         }
                     }
                 }

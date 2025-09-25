@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.Menu
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,7 +39,12 @@ import com.deeksha.avr.utils.FormatUtils
 import com.deeksha.avr.model.CategoryBudget
 import com.deeksha.avr.model.DepartmentBudgetBreakdown
 import com.deeksha.avr.model.ProjectBudgetSummary
+import com.deeksha.avr.model.User
+import com.deeksha.avr.repository.AuthRepository
 import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import androidx.compose.runtime.remember
 import java.text.NumberFormat
 import java.util.*
 import kotlin.math.cos
@@ -54,14 +60,22 @@ fun ApproverProjectDashboardScreen(
     onNavigateToReports: (String) -> Unit = {},
     onNavigateToDepartmentDetail: (String, String) -> Unit = { _, _ -> },
     onNavigateToProjectNotifications: (String) -> Unit = {},
+    onNavigateToDelegation: () -> Unit = {},
     approverProjectViewModel: ApproverProjectViewModel = hiltViewModel(),
     notificationViewModel: NotificationViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
 ) {
     val projectBudgetSummary by approverProjectViewModel.projectBudgetSummary.collectAsState()
     val isLoading by approverProjectViewModel.isLoading.collectAsState()
     val error by approverProjectViewModel.error.collectAsState()
     val authState by authViewModel.authState.collectAsState()
+    
+    // State for temporary approver user data
+    var temporaryApproverUser by remember { mutableStateOf<User?>(null) }
+    var isLoadingTemporaryApprover by remember { mutableStateOf(false) }
+    
+    // Create AuthRepository instance
+    val authRepository = remember { AuthRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance()) }
     
     // Project-specific notifications
     val notifications by notificationViewModel.notifications.collectAsState()
@@ -90,6 +104,24 @@ fun ApproverProjectDashboardScreen(
         // Initialize notifications for this user
         authState.user?.uid?.let { userId ->
             notificationViewModel.loadNotifications(userId)
+        }
+    }
+    
+    // Load temporary approver user data when project data is loaded
+    LaunchedEffect(projectBudgetSummary.project?.temporaryApproverPhone) {
+        val tempApproverPhone = projectBudgetSummary.project?.temporaryApproverPhone
+        if (!tempApproverPhone.isNullOrEmpty()) {
+            isLoadingTemporaryApprover = true
+            try {
+                val user = authRepository.getUserByPhoneNumber(tempApproverPhone)
+                temporaryApproverUser = user
+            } catch (e: Exception) {
+                Log.e("ApproverProjectDashboard", "Error loading temporary approver user: ${e.message}")
+            } finally {
+                isLoadingTemporaryApprover = false
+            }
+        } else {
+            temporaryApproverUser = null
         }
     }
     
@@ -149,7 +181,12 @@ fun ApproverProjectDashboardScreen(
                 onNavigateToAddExpense = {
                     scope.launch { drawerState.close() }
                     onNavigateToAddExpense()
-                }
+                },
+                onNavigateToDelegation = {
+                    scope.launch { drawerState.close() }
+                    onNavigateToDelegation()
+                },
+                userRole = authState.user?.role?.name ?: "APPROVER"
             )
         }
     ) {
@@ -313,16 +350,36 @@ fun ApproverProjectDashboardScreen(
                             modifier = Modifier.padding(bottom = 8.dp)
                         )
                         
-                        // Temporary Approver Phone
+                        // Temporary Approver Display
                         projectBudgetSummary.project?.let { project ->
                             if (project.temporaryApproverPhone.isNotEmpty()) {
-                                Text(
-                                    text = "Temporary Approver: ${project.temporaryApproverPhone}",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF4285F4),
-                                    fontWeight = FontWeight.Medium,
-                                    modifier = Modifier.padding(bottom = 16.dp)
-                                )
+                                if (isLoadingTemporaryApprover) {
+                                    Row(
+                                        modifier = Modifier.padding(bottom = 16.dp),
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        CircularProgressIndicator(
+                                            modifier = Modifier.size(16.dp),
+                                            color = Color(0xFF4285F4),
+                                            strokeWidth = 2.dp
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text(
+                                            text = "Loading temporary approver...",
+                                            fontSize = 14.sp,
+                                            color = Color(0xFF4285F4),
+                                            fontWeight = FontWeight.Medium
+                                        )
+                                    }
+                                } else {
+                                    Text(
+                                        text = "Temporary Approver: ${temporaryApproverUser?.name ?: project.temporaryApproverPhone}",
+                                        fontSize = 14.sp,
+                                        color = Color(0xFF4285F4),
+                                        fontWeight = FontWeight.Medium,
+                                        modifier = Modifier.padding(bottom = 16.dp)
+                                    )
+                                }
                             }
                         }
                         
@@ -543,7 +600,9 @@ private fun ApproverNavigationDrawer(
     projectId: String,
     onNavigateToDashboard: () -> Unit,
     onNavigateToPendingApprovals: () -> Unit,
-    onNavigateToAddExpense: () -> Unit
+    onNavigateToAddExpense: () -> Unit,
+    onNavigateToDelegation: () -> Unit = {},
+    userRole: String = "APPROVER"
 ) {
     ModalDrawerSheet(
         modifier = Modifier.width(280.dp)
@@ -580,6 +639,15 @@ private fun ApproverNavigationDrawer(
                 title = "Add Expenses",
                 onClick = onNavigateToAddExpense
             )
+            
+            // Only show Delegation for Production Heads
+            if (userRole == "PRODUCTION_HEAD") {
+                DrawerMenuItem(
+                    icon = Icons.Default.Person,
+                    title = "Delegation",
+                    onClick = onNavigateToDelegation
+                )
+            }
         }
     }
 }

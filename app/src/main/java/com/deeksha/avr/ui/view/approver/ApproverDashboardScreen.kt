@@ -24,6 +24,11 @@ import com.deeksha.avr.utils.FormatUtils
 import java.text.NumberFormat
 import java.util.*
 import com.deeksha.avr.viewmodel.AuthViewModel
+import com.deeksha.avr.model.User
+import com.deeksha.avr.repository.AuthRepository
+import kotlinx.coroutines.launch
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -38,6 +43,11 @@ fun ApproverDashboardScreen(
     val error by approvalViewModel.error.collectAsState()
     val authState by authViewModel.authState.collectAsState()
     
+    // State for user data
+    var currentUser by remember { mutableStateOf<User?>(null) }
+    var temporaryApproverUser by remember { mutableStateOf<User?>(null) }
+    var isLoadingUserData by remember { mutableStateOf(false) }
+    
     // Refresh user data when screen opens to ensure current user is loaded
     LaunchedEffect(Unit) {
         authViewModel.refreshUserData()
@@ -46,6 +56,13 @@ fun ApproverDashboardScreen(
     // Load pending approvals when screen starts
     LaunchedEffect(Unit) {
         approvalViewModel.loadPendingApprovals()
+    }
+    
+    // Load user data for display
+    LaunchedEffect(authState.user) {
+        if (authState.user != null) {
+            currentUser = authState.user
+        }
     }
     
     Column(

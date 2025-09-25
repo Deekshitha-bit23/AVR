@@ -32,6 +32,7 @@ import com.deeksha.avr.utils.FormatUtils
 import android.util.Log
 import java.util.*
 import com.deeksha.avr.viewmodel.AuthViewModel
+import kotlinx.coroutines.delay
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -111,6 +112,16 @@ fun ApproverProjectSelectionScreen(
             hasAttemptedProjectLoad = true
             approverProjectViewModel.loadProjects(effectiveUserId)
             notificationViewModel.loadNotifications(effectiveUserId)
+        }
+    }
+    
+    // Auto-retry on error with a delay
+    LaunchedEffect(error) {
+        if (error != null && effectiveUserId.isNotEmpty() && effectiveUserId != "1234567891") {
+            println("🔄 Auto-retrying project load due to error: $error")
+            delay(2000) // Wait 2 seconds before retry
+            approverProjectViewModel.clearError()
+            approverProjectViewModel.loadProjects(effectiveUserId)
         }
     }
     
@@ -252,7 +263,7 @@ fun ApproverProjectSelectionScreen(
                         Button(
                             onClick = { 
                                 approverProjectViewModel.clearError()
-                                approverProjectViewModel.loadProjects() 
+                                approverProjectViewModel.loadProjects(effectiveUserId) 
                             },
                             colors = ButtonDefaults.buttonColors(
                                 containerColor = Color(0xFF4285F4)

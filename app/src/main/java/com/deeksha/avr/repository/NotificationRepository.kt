@@ -28,6 +28,13 @@ class NotificationRepository @Inject constructor(
             val notificationWithId = notification.copy(id = docRef.id)
             docRef.set(notificationWithId).await()
             Log.d("NotificationRepository", "✅ Created notification: ${notification.title}")
+            Log.d("NotificationRepository", "📋 Notification details:")
+            Log.d("NotificationRepository", "   - ID: ${docRef.id}")
+            Log.d("NotificationRepository", "   - recipientId: '${notification.recipientId}'")
+            Log.d("NotificationRepository", "   - recipientRole: '${notification.recipientRole}'")
+            Log.d("NotificationRepository", "   - type: '${notification.type}'")
+            Log.d("NotificationRepository", "   - projectId: '${notification.projectId}'")
+            Log.d("NotificationRepository", "   - projectName: '${notification.projectName}'")
             Result.success(docRef.id)
         } catch (e: Exception) {
             Log.e("NotificationRepository", "❌ Error creating notification: ${e.message}")
@@ -50,13 +57,19 @@ class NotificationRepository @Inject constructor(
                 .get()
                 .await()
 
-            val notifications = result.documents.mapNotNull { doc ->
-                doc.toObject(Notification::class.java)
-            }
+            val notifications = result.documents
+                .filter { doc ->
+                    // Only include unread notifications (isRead is false or missing)
+                    val isRead = doc.getBoolean("isRead") ?: false
+                    !isRead
+                }
+                .mapNotNull { doc ->
+                    doc.toObject(Notification::class.java)
+                }
             
-            Log.d("NotificationRepository", "📋 Found ${notifications.size} notifications for user: $userId")
+            Log.d("NotificationRepository", "📋 Found ${notifications.size} unread notifications for user: $userId")
             notifications.forEach { notification ->
-                Log.d("NotificationRepository", "📋 Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName}")
+                Log.d("NotificationRepository", "📋 Unread Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName}")
             }
             
             notifications
@@ -74,6 +87,8 @@ class NotificationRepository @Inject constructor(
         return callbackFlow {
             try {
                 Log.d("NotificationRepository", "🔄 Setting up real-time notifications for user: $userId")
+                Log.d("NotificationRepository", "🔍 Querying notifications with recipientId: $userId")
+                Log.d("NotificationRepository", "🔍 User ID type: ${userId::class.simpleName}, length: ${userId.length}")
 
                 val query = notificationsCollection
                     .whereEqualTo("recipientId", userId)
@@ -84,19 +99,34 @@ class NotificationRepository @Inject constructor(
                 val listener = query.addSnapshotListener { snapshot, error ->
                     if (error != null) {
                         Log.e("NotificationRepository", "❌ Error in real-time listener: ${error.message}")
+                        Log.e("NotificationRepository", "❌ Error details: ${error}")
                         return@addSnapshotListener
                     }
 
                     val notifications = snapshot?.documents
                         ?.filter { doc ->
-                            // ✅ Include if isRead is false or missing (null), exclude if true
-                            doc.getBoolean("isRead") != true
+                            // Only include unread notifications (isRead is false or missing)
+                            val isRead = doc.getBoolean("isRead") ?: false
+                            !isRead
                         }
                         ?.mapNotNull { doc ->
-                            doc.toObject(Notification::class.java)
+                            try {
+                                doc.toObject(Notification::class.java)
+                            } catch (e: Exception) {
+                                Log.e("NotificationRepository", "❌ Error parsing notification document: ${e.message}")
+                                null
+                            }
                         } ?: emptyList()
 
-                    Log.d("NotificationRepository", "📡 Real-time update: ${notifications.size} notifications for user: $userId")
+                    Log.d("NotificationRepository", "📡 Real-time update: ${notifications.size} unread notifications for user: $userId")
+                    if (notifications.isEmpty()) {
+                        Log.d("NotificationRepository", "⚠️ No unread notifications found for user: $userId")
+                        Log.d("NotificationRepository", "🔍 Checking if there are any notifications in the database for this user...")
+                    } else {
+                        notifications.forEach { notification ->
+                            Log.d("NotificationRepository", "📋 Unread Notification: ${notification.title} - Recipient: '${notification.recipientId}' - Project: ${notification.projectName} - Read: ${notification.isRead} - Type: ${notification.type}")
+                        }
+                    }
 
                     try {
                         trySend(notifications)
@@ -161,7 +191,7 @@ class NotificationRepository @Inject constructor(
                 doc.toObject(Notification::class.java)
             }
             
-            // Apply role-based filtering
+            // Apply role-based filtering - only show unread notifications for all roles
             val filteredNotifications = when (userRole) {
                 "USER" -> {
                     // For USER role, only show unread notifications that will vanish when read
@@ -170,14 +200,16 @@ class NotificationRepository @Inject constructor(
                     unreadNotifications
                 }
                 "APPROVER", "PRODUCTION_HEAD", "ADMIN" -> {
-                    // For other roles, show all notifications (read and unread)
-                    Log.d("NotificationRepository", "👥 ${userRole} role: showing all ${notifications.size} notifications")
-                    notifications
+                    // For other roles, also only show unread notifications
+                    val unreadNotifications = notifications.filter { !it.isRead }
+                    Log.d("NotificationRepository", "👥 ${userRole} role: showing ${unreadNotifications.size} unread notifications out of ${notifications.size} total")
+                    unreadNotifications
                 }
                 else -> {
-                    // Default to showing all notifications for unknown roles
-                    Log.d("NotificationRepository", "❓ Unknown role '$userRole': showing all ${notifications.size} notifications")
-                    notifications
+                    // Default to showing only unread notifications for unknown roles
+                    val unreadNotifications = notifications.filter { !it.isRead }
+                    Log.d("NotificationRepository", "❓ Unknown role '$userRole': showing ${unreadNotifications.size} unread notifications out of ${notifications.size} total")
+                    unreadNotifications
                 }
             }
             
@@ -243,7 +275,7 @@ class NotificationRepository @Inject constructor(
                         doc.toObject(Notification::class.java)
                     } ?: emptyList()
                     
-                    // Apply role-based filtering
+                    // Apply role-based filtering - only show unread notifications for all roles
                     val filteredNotifications = when (userRole) {
                         "USER" -> {
                             // For USER role, only show unread notifications that will vanish when read
@@ -252,14 +284,16 @@ class NotificationRepository @Inject constructor(
                             unreadNotifications
                         }
                         "APPROVER", "PRODUCTION_HEAD", "ADMIN" -> {
-                            // For other roles, show all notifications (read and unread)
-                            Log.d("NotificationRepository", "👥 ${userRole} role: showing all ${notifications.size} notifications")
-                            notifications
+                            // For other roles, also only show unread notifications
+                            val unreadNotifications = notifications.filter { !it.isRead }
+                            Log.d("NotificationRepository", "👥 ${userRole} role: showing ${unreadNotifications.size} unread notifications out of ${notifications.size} total")
+                            unreadNotifications
                         }
                         else -> {
-                            // Default to showing all notifications for unknown roles
-                            Log.d("NotificationRepository", "❓ Unknown role '$userRole': showing all ${notifications.size} notifications")
-                            notifications
+                            // Default to showing only unread notifications for unknown roles
+                            val unreadNotifications = notifications.filter { !it.isRead }
+                            Log.d("NotificationRepository", "❓ Unknown role '$userRole': showing ${unreadNotifications.size} unread notifications out of ${notifications.size} total")
+                            unreadNotifications
                         }
                     }
                     

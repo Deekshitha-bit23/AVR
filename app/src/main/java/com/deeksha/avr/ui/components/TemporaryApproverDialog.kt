@@ -4,7 +4,9 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Close
@@ -41,21 +43,39 @@ fun TemporaryApproverDialog(
     
     // Dialog state
     var selectedApprover by remember { mutableStateOf<User?>(null) }
-    var numberOfDays by remember { mutableStateOf("7") }
+    var startDate by remember { mutableStateOf<Date?>(null) }
+    var endDate by remember { mutableStateOf<Date?>(null) }
     var searchQuery by remember { mutableStateOf("") }
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
     
-    // Calculate expiring date based on number of days
-    val expiringDate = remember(numberOfDays) {
-        try {
-            val days = numberOfDays.toIntOrNull() ?: 7
-            val calendar = Calendar.getInstance()
-            calendar.add(Calendar.DAY_OF_MONTH, days)
-            calendar.time
-        } catch (e: Exception) {
+    // Date picker states
+    val startDatePickerState = rememberDatePickerState()
+    val endDatePickerState = rememberDatePickerState()
+    
+    // Calculate expiring date based on end date
+    val expiringDate = remember(endDate) {
+        endDate ?: run {
             val calendar = Calendar.getInstance()
             calendar.add(Calendar.DAY_OF_MONTH, 7)
             calendar.time
         }
+    }
+
+    val startingDate = remember(startDate) {
+        startDate ?: run {
+            val calendar = Calendar.getInstance()
+            calendar.add(Calendar.DAY_OF_MONTH, 7)
+            calendar.time
+        }
+    }
+    
+    // Calculate duration in days
+    val durationInDays = remember(startDate, endDate) {
+        if (startDate != null && endDate != null) {
+            val diffInMillis = endDate!!.time - startDate!!.time
+            (diffInMillis / (24 * 60 * 60 * 1000)).toInt() + 1
+        } else 0
     }
     
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
@@ -79,13 +99,31 @@ fun TemporaryApproverDialog(
         }
     }
     
-    // No need for date picker state handling since we're using days input
+    // Handle start date picker selection
+    LaunchedEffect(startDatePickerState.selectedDateMillis) {
+        startDatePickerState.selectedDateMillis?.let { millis ->
+            if (millis > 0) {
+                startDate = Date(millis)
+                showStartDatePicker = false
+            }
+        }
+    }
+    
+    // Handle end date picker selection
+    LaunchedEffect(endDatePickerState.selectedDateMillis) {
+        endDatePickerState.selectedDateMillis?.let { millis ->
+            if (millis > 0) {
+                endDate = Date(millis)
+                showEndDatePicker = false
+            }
+        }
+    }
     
     Dialog(onDismissRequest = onDismiss) {
         Card(
             modifier = Modifier
                 .fillMaxWidth()
-                .fillMaxHeight(0.8f),
+                .fillMaxHeight(0.85f),
             shape = RoundedCornerShape(16.dp),
             colors = CardDefaults.cardColors(containerColor = Color.White)
         ) {
@@ -94,6 +132,12 @@ fun TemporaryApproverDialog(
                     .fillMaxSize()
                     .padding(24.dp)
             ) {
+                // Scrollable content area
+                Column(
+                    modifier = Modifier
+                        .weight(1f)
+                        .verticalScroll(rememberScrollState())
+                ) {
                 // Header
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -310,7 +354,7 @@ fun TemporaryApproverDialog(
                     }
                 }
                 
-                // Number of days selection
+                // Date range selection
                 if (selectedApprover != null) {
                     Spacer(modifier = Modifier.height(16.dp))
                     
@@ -320,62 +364,115 @@ fun TemporaryApproverDialog(
                         modifier = Modifier.padding(bottom = 8.dp)
                     )
                     
+                    // Start Date Selection
                     OutlinedTextField(
-                        value = numberOfDays,
-                        onValueChange = { newValue ->
-                            // Only allow numeric input and limit to reasonable range (1-365 days)
-                            if (newValue.isEmpty()) {
-                                numberOfDays = newValue
-                            } else if (newValue.all { it.isDigit() }) {
-                                val value = newValue.toIntOrNull()
-                                if (value != null && value > 0 && value <= 365) {
-                                    numberOfDays = newValue
-                                }
+                        value = startDate?.let { dateFormatter.format(it) } ?: "",
+                        onValueChange = { },
+                        label = { Text("Start Date") },
+                        readOnly = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showStartDatePicker = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = "Select Start Date",
+                                    tint = Color(0xFF4285F4)
+                                )
                             }
                         },
-                        label = { Text("Number of days (1-365)") },
-                        modifier = Modifier.fillMaxWidth(),
-                        keyboardOptions = KeyboardOptions(keyboardType = androidx.compose.ui.text.input.KeyboardType.Number),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
                         colors = OutlinedTextFieldDefaults.colors(
                             focusedBorderColor = Color(0xFF4285F4),
                             focusedLabelColor = Color(0xFF4285F4)
                         ),
                         supportingText = {
                             Text(
-                                text = "Enter delegation period between 1 and 365 days",
+                                text = "Select when temporary approval should start",
                                 fontSize = 12.sp,
                                 color = Color.Gray
                             )
                         }
                     )
                     
-                    Spacer(modifier = Modifier.height(8.dp))
-                    
-                    // Show calculated expiration date
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp)
-                        ) {
+                    // End Date Selection
+                    OutlinedTextField(
+                        value = endDate?.let { dateFormatter.format(it) } ?: "",
+                        onValueChange = { },
+                        label = { Text("End Date") },
+                        readOnly = true,
+                        trailingIcon = {
+                            IconButton(onClick = { showEndDatePicker = true }) {
+                                Icon(
+                                    imageVector = Icons.Default.DateRange,
+                                    contentDescription = "Select End Date",
+                                    tint = Color(0xFF4285F4)
+                                )
+                            }
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF4285F4),
+                            focusedLabelColor = Color(0xFF4285F4)
+                        ),
+                        supportingText = {
                             Text(
-                                text = "Will expire on: ${dateFormatter.format(expiringDate)}",
-                                fontSize = 14.sp,
-                                color = Color(0xFF1976D2),
-                                fontWeight = FontWeight.Medium
-                            )
-                            Text(
-                                text = "(${numberOfDays} days from now)",
+                                text = "Select when temporary approval should end",
                                 fontSize = 12.sp,
                                 color = Color.Gray
                             )
                         }
+                    )
+                    
+                    // Show validation errors
+                    if (startDate != null && endDate != null && startDate!!.after(endDate)) {
+                        Card(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(bottom = 8.dp),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFFFEBEE))
+                        ) {
+                            Text(
+                                text = "End date must be after start date",
+                                color = Color(0xFFD32F2F),
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(12.dp)
+                            )
+                        }
                     }
                     
-                    Spacer(modifier = Modifier.height(24.dp))
+                    // Show calculated duration and expiration date
+                    if (startDate != null && endDate != null && !startDate!!.after(endDate)) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(12.dp)
+                            ) {
+                                Text(
+                                    text = "Will expire on: ${dateFormatter.format(expiringDate)}",
+                                    fontSize = 14.sp,
+                                    color = Color(0xFF1976D2),
+                                    fontWeight = FontWeight.Medium
+                                )
+                                Text(
+                                    text = "(${durationInDays} days duration)",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                        }
+                    }
+                }
+                } // Close scrollable column
+                
+                // Action buttons - always visible at bottom
+                if (selectedApprover != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
                     
-                    // Action buttons
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.spacedBy(12.dp)
@@ -395,6 +492,7 @@ fun TemporaryApproverDialog(
                                         approverId = approver.uid,
                                         approverName = approver.name,
                                         approverPhone = approver.phone,
+                                        startDate = startingDate,
                                         expiringDate = expiringDate,
                                         assignedBy = currentUserId,
                                         assignedByName = currentUserName
@@ -402,8 +500,9 @@ fun TemporaryApproverDialog(
                                 }
                             },
                             enabled = selectedApprover != null && 
-                                     numberOfDays.isNotEmpty() && 
-                                     numberOfDays.toIntOrNull()?.let { it > 0 && it <= 365 } == true && 
+                                     startDate != null && 
+                                     endDate != null && 
+                                     !startDate!!.after(endDate) &&
                                      !isAddingApprover,
                             modifier = Modifier.weight(1f),
                             colors = ButtonDefaults.buttonColors(
@@ -423,6 +522,82 @@ fun TemporaryApproverDialog(
                     }
                 }
             }
+        }
+    }
+    
+    // Start Date Picker Dialog
+    if (showStartDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showStartDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        startDatePickerState.selectedDateMillis?.let { millis ->
+                            if (millis > 0) {
+                                startDate = Date(millis)
+                            }
+                        }
+                        showStartDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(
+                state = startDatePickerState,
+                modifier = Modifier.padding(16.dp),
+                title = {
+                    Text(
+                        text = "Select Start Date",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                },
+                showModeToggle = false
+            )
+        }
+    }
+    
+    // End Date Picker Dialog
+    if (showEndDatePicker) {
+        DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        endDatePickerState.selectedDateMillis?.let { millis ->
+                            if (millis > 0) {
+                                endDate = Date(millis)
+                            }
+                        }
+                        showEndDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(
+                state = endDatePickerState,
+                modifier = Modifier.padding(16.dp),
+                title = {
+                    Text(
+                        text = "Select End Date",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                },
+                showModeToggle = false
+            )
         }
     }
 }

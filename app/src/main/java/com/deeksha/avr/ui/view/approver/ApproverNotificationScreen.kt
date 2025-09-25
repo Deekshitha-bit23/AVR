@@ -11,6 +11,8 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -26,6 +28,7 @@ import com.deeksha.avr.model.NotificationType
 import com.deeksha.avr.utils.FormatUtils
 import com.deeksha.avr.viewmodel.NotificationViewModel
 import com.deeksha.avr.viewmodel.AuthViewModel
+import com.deeksha.avr.viewmodel.TemporaryApproverViewModel
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -34,7 +37,8 @@ fun ApproverNotificationScreen(
     onNavigateToApproverProjectDashboard: (String) -> Unit,
     onNavigateToPendingApprovals: (String) -> Unit,
     notificationViewModel: NotificationViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel
+    authViewModel: AuthViewModel,
+    temporaryApproverViewModel: TemporaryApproverViewModel = hiltViewModel()
 ) {
     val notifications by notificationViewModel.notifications.collectAsState()
     val isLoading by notificationViewModel.isLoading.collectAsState()
@@ -224,6 +228,20 @@ fun ApproverNotificationScreen(
                                         notificationViewModel.markNotificationAsRead(notification.id)
                                     }
                                 )
+                            },
+                            onAcceptAssignment = { projectId, approverId ->
+                                temporaryApproverViewModel.acceptTemporaryApproverAssignment(
+                                    projectId = projectId,
+                                    approverId = approverId
+                                )
+                                notificationViewModel.markNotificationAsRead(notification.id)
+                            },
+                            onRejectAssignment = { projectId, approverId ->
+                                temporaryApproverViewModel.rejectTemporaryApproverAssignment(
+                                    projectId = projectId,
+                                    approverId = approverId
+                                )
+                                notificationViewModel.markNotificationAsRead(notification.id)
                             }
                         )
                     }
@@ -236,7 +254,9 @@ fun ApproverNotificationScreen(
 @Composable
 private fun ApproverNotificationItem(
     notification: Notification,
-    onNotificationClick: () -> Unit
+    onNotificationClick: () -> Unit,
+    onAcceptAssignment: (String, String) -> Unit = { _, _ -> },
+    onRejectAssignment: (String, String) -> Unit = { _, _ -> }
 ) {
     Card(
         modifier = Modifier
@@ -310,7 +330,69 @@ private fun ApproverNotificationItem(
                         color = Color.Gray
                     )
                     
-                    if (notification.actionRequired && !notification.isRead) {
+                    // Show accept/reject buttons for temporary approver assignments
+                    if (notification.type == NotificationType.TEMPORARY_APPROVER_ASSIGNMENT && 
+                        notification.actionRequired && 
+                        !notification.isRead) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            // Accept Button
+                            Button(
+                                onClick = {
+                                    onAcceptAssignment(notification.projectId, notification.relatedId)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFF4CAF50)
+                                ),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.height(32.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Check,
+                                    contentDescription = "Accept",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Accept",
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                            
+                            // Reject Button
+                            Button(
+                                onClick = {
+                                    onRejectAssignment(notification.projectId, notification.relatedId)
+                                },
+                                colors = ButtonDefaults.buttonColors(
+                                    containerColor = Color(0xFFF44336)
+                                ),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier.height(32.dp),
+                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Reject",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = "Reject",
+                                    fontSize = 12.sp,
+                                    color = Color.White,
+                                    fontWeight = FontWeight.Medium
+                                )
+                            }
+                        }
+                    } else if (notification.actionRequired && !notification.isRead) {
+                        // Show regular action required badge for other notification types
                         Badge(
                             containerColor = Color.Red,
                             contentColor = Color.White

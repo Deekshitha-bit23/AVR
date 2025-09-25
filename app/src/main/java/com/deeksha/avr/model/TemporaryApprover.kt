@@ -11,12 +11,18 @@ data class TemporaryApprover(
     @PropertyName("approverName") val approverName: String = "",
     @PropertyName("approverPhone") val approverPhone: String = "",
     @PropertyName("assignedDate") val assignedDate: Timestamp = Timestamp.now(),
+    @PropertyName("startdate") val startDate: Timestamp = Timestamp.now(),
     @PropertyName("expiringDate") val expiringDate: Timestamp? = null,
     @PropertyName("isActive") val isActive: Boolean = true,
     @PropertyName("assignedBy") val assignedBy: String = "", // Production head who assigned
     @PropertyName("assignedByName") val assignedByName: String = "",
     @PropertyName("createdAt") val createdAt: Timestamp = Timestamp.now(),
-    @PropertyName("updatedAt") val updatedAt: Timestamp = Timestamp.now()
+    @PropertyName("updatedAt") val updatedAt: Timestamp = Timestamp.now(),
+    @PropertyName("isAccepted") val isAccepted: Boolean? = null, // null = pending, true = accepted, false = rejected
+    @PropertyName("acceptedAt") val acceptedAt: Timestamp? = null,
+    @PropertyName("rejectedAt") val rejectedAt: Timestamp? = null,
+    @PropertyName("responseMessage") val responseMessage: String = "", // Optional message from approver
+    @PropertyName("status") val status: String = "PENDING" // PENDING, ACCEPTED, REJECTED
 )
 
 // Helper function to check if temporary approver is expired
