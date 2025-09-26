@@ -647,6 +647,7 @@ private fun ApproverNavigationDrawer(
                     title = "Delegation",
                     onClick = onNavigateToDelegation
                 )
+
             }
         }
     }

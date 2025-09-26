@@ -27,6 +27,7 @@ enum class NotificationType {
     PENDING_APPROVAL,       // General pending approval notifications
     ROLE_ASSIGNMENT,        // When role is assigned/changed
     TEMPORARY_APPROVER_ASSIGNMENT, // When assigned as temporary approver
+    DELEGATION_CHANGED,     // When delegation settings are modified
     INFO                    // General information
 }
 

@@ -214,7 +214,14 @@ fun DelegationScreen(
                             onSaveEdit = { updatedApprover ->
                                 // Save updated delegation with the original document ID
                                 val approverToUpdate = updatedApprover.copy(id = tempApprover.id)
-                                temporaryApproverViewModel.updateTemporaryApprover(projectId, approverToUpdate)
+                                val currentUser = authState.user
+                                val changedBy = currentUser?.name ?: "Unknown User"
+                                temporaryApproverViewModel.updateTemporaryApprover(
+                                    projectId = projectId, 
+                                    updatedApprover = approverToUpdate,
+                                    originalApprover = tempApprover,
+                                    changedBy = changedBy
+                                )
                                 editingApprover = null
                             },
                             onCancelEdit = {

@@ -447,4 +447,45 @@ class NotificationService @Inject constructor(
             Result.failure(e)
         }
     }
+    
+    /**
+     * Send delegation change notification to approver
+     */
+    suspend fun sendDelegationChangeNotification(
+        approverId: String,
+        approverPhone: String,
+        projectId: String,
+        projectName: String,
+        changeDescription: String,
+        changedBy: String
+    ): Result<Unit> {
+        return try {
+            Log.d("NotificationService", "🔄 Sending delegation change notification to: $approverPhone")
+            
+            val result = notificationRepository.createDelegationChangeNotification(
+                approverId = approverId,
+                approverPhone = approverPhone,
+                projectId = projectId,
+                projectName = projectName,
+                changeDescription = changeDescription,
+                changedBy = changedBy
+            )
+            
+            result.onSuccess { notificationId ->
+                Log.d("NotificationService", "✅ Delegation change notification sent successfully: $notificationId")
+            }.onFailure { error ->
+                Log.e("NotificationService", "❌ Failed to send delegation change notification: ${error.message}")
+            }
+            
+            // Convert Result<String> to Result<Unit>
+            if (result.isSuccess) {
+                Result.success(Unit)
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Unknown error"))
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationService", "❌ Error sending delegation change notification: ${e.message}")
+            Result.failure(e)
+        }
+    }
 } 

@@ -723,5 +723,30 @@ class NotificationRepository @Inject constructor(
         }
     }
 
+    // Create delegation change notification (for approvers)
+    suspend fun createDelegationChangeNotification(
+        approverId: String,
+        approverPhone: String,
+        projectId: String,
+        projectName: String,
+        changeDescription: String,
+        changedBy: String
+    ): Result<String> {
+        val notification = Notification(
+            recipientId = approverPhone, // Use phone number for filtering
+            recipientRole = "APPROVER",
+            title = "Delegation Settings Updated",
+            message = "Your delegation settings for project '$projectName' have been updated by $changedBy. $changeDescription",
+            type = NotificationType.DELEGATION_CHANGED,
+            projectId = projectId,
+            projectName = projectName,
+            relatedId = approverId, // Store the actual approver ID for reference
+            actionRequired = false,
+            navigationTarget = "approver_project_dashboard/$projectId"
+        )
+
+        return createNotification(notification)
+    }
+
 
 } 

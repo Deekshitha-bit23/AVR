@@ -822,7 +822,9 @@ class TemporaryApproverRepository @Inject constructor(
      */
     suspend fun updateTemporaryApprover(
         projectId: String,
-        updatedApprover: TemporaryApprover
+        updatedApprover: TemporaryApprover,
+        originalApprover: TemporaryApprover? = null,
+        changedBy: String = "System"
     ): Result<Unit> {
         return try {
             Log.d(TAG, "🔄 Updating temporary approver assignment: ${updatedApprover.id}")
@@ -839,6 +841,10 @@ class TemporaryApproverRepository @Inject constructor(
                     .await()
                 
                 Log.d(TAG, "✅ Temporary approver assignment updated successfully using document ID")
+                
+                // Send notification about delegation changes
+                sendDelegationChangeNotification(projectId, updatedApprover, originalApprover, changedBy)
+                
                 return Result.success(Unit)
             }
             
@@ -869,6 +875,10 @@ class TemporaryApproverRepository @Inject constructor(
                 .await()
             
             Log.d(TAG, "✅ Temporary approver assignment updated successfully")
+            
+            // Send notification about delegation changes
+            sendDelegationChangeNotification(projectId, updatedApprover, originalApprover, changedBy)
+            
             Result.success(Unit)
             
         } catch (e: Exception) {
@@ -969,6 +979,101 @@ class TemporaryApproverRepository @Inject constructor(
         } catch (e: Exception) {
             Log.e(TAG, "❌ Failed to remove temporary approver assignment", e)
             Result.failure(e)
+        }
+    }
+    
+    /**
+     * Send notification about delegation changes to the approver
+     */
+    private suspend fun sendDelegationChangeNotification(
+        projectId: String,
+        updatedApprover: TemporaryApprover,
+        originalApprover: TemporaryApprover?,
+        changedBy: String
+    ) {
+        try {
+            // Get project details for the notification
+            val projectDoc = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .get()
+                .await()
+            
+            if (!projectDoc.exists()) {
+                Log.e(TAG, "❌ Project not found for notification: $projectId")
+                return
+            }
+            
+            val projectData = projectDoc.data ?: return
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
+            
+            // Determine what changed
+            val changeDescription = buildChangeDescription(updatedApprover, originalApprover)
+            
+            // Send notification using the notification service
+            notificationService?.sendDelegationChangeNotification(
+                approverId = updatedApprover.approverId,
+                approverPhone = updatedApprover.approverPhone,
+                projectId = projectId,
+                projectName = projectName,
+                changeDescription = changeDescription,
+                changedBy = changedBy
+            )
+            
+            Log.d(TAG, "📧 Delegation change notification sent to: ${updatedApprover.approverName}")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to send delegation change notification", e)
+        }
+    }
+    
+    /**
+     * Build a description of what changed in the delegation
+     */
+    private fun buildChangeDescription(
+        updatedApprover: TemporaryApprover,
+        originalApprover: TemporaryApprover?
+    ): String {
+        if (originalApprover == null) {
+            return "Delegation settings have been updated."
+        }
+        
+        val changes = mutableListOf<String>()
+        
+        // Check if start date changed
+        if (originalApprover.startDate != updatedApprover.startDate) {
+            val originalDate = originalApprover.startDate.toDate()
+            val updatedDate = updatedApprover.startDate.toDate()
+            val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+            changes.add("Start date changed from ${dateFormat.format(originalDate)} to ${dateFormat.format(updatedDate)}")
+        }
+        
+        // Check if end date changed
+        val originalEndDate = originalApprover.expiringDate?.toDate()
+        val updatedEndDate = updatedApprover.expiringDate?.toDate()
+        
+        when {
+            originalEndDate == null && updatedEndDate != null -> {
+                val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+                changes.add("End date set to ${dateFormat.format(updatedEndDate)}")
+            }
+            originalEndDate != null && updatedEndDate == null -> {
+                changes.add("End date removed (delegation now has no expiry)")
+            }
+            originalEndDate != null && updatedEndDate != null && originalEndDate != updatedEndDate -> {
+                val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+                changes.add("End date changed from ${dateFormat.format(originalEndDate)} to ${dateFormat.format(updatedEndDate)}")
+            }
+        }
+        
+        // Check if approver changed
+        if (originalApprover.approverId != updatedApprover.approverId) {
+            changes.add("Approver changed from ${originalApprover.approverName} to ${updatedApprover.approverName}")
+        }
+        
+        return if (changes.isEmpty()) {
+            "Delegation settings have been updated."
+        } else {
+            changes.joinToString(". ")
         }
     }
 }

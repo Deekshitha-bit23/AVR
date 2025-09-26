@@ -226,6 +226,10 @@ fun NotificationIcon(
             icon = Icons.Default.Person
             tint = Color(0xFFFF9800)
         }
+        NotificationType.DELEGATION_CHANGED -> {
+            icon = Icons.Default.Edit
+            tint = Color(0xFF9C27B0)
+        }
         NotificationType.INFO -> {
             icon = Icons.Default.Info
             tint = Color(0xFF607D8B)

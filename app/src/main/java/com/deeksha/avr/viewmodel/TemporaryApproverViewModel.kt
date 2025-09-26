@@ -479,7 +479,9 @@ class TemporaryApproverViewModel @Inject constructor(
      */
     fun updateTemporaryApprover(
         projectId: String,
-        updatedApprover: TemporaryApprover
+        updatedApprover: TemporaryApprover,
+        originalApprover: TemporaryApprover? = null,
+        changedBy: String = "System"
     ) {
         viewModelScope.launch {
             _isLoading.value = true
@@ -494,7 +496,9 @@ class TemporaryApproverViewModel @Inject constructor(
                 
                 val result = temporaryApproverRepository.updateTemporaryApprover(
                     projectId = projectId,
-                    updatedApprover = updatedApprover
+                    updatedApprover = updatedApprover,
+                    originalApprover = originalApprover,
+                    changedBy = changedBy
                 )
                 
                 if (result.isSuccess) {
