@@ -627,30 +627,8 @@ private fun DatePickerDialog(
         yearRange = IntRange(2024, 2030)
     )
     
-    AlertDialog(
+    androidx.compose.material3.DatePickerDialog(
         onDismissRequest = onDismissRequest,
-        title = {
-            Text("Select Date")
-        },
-        text = {
-            Column(
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                DatePicker(
-                    state = datePickerState,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(400.dp),
-                    colors = DatePickerDefaults.colors(
-                        selectedDayContainerColor = Color(0xFF8B4513),
-                        todayDateBorderColor = Color(0xFF8B4513),
-                        dayContentColor = Color.Black,
-                        weekdayContentColor = Color.Black,
-                        yearContentColor = Color.Black
-                    )
-                )
-            }
-        },
         confirmButton = {
             TextButton(
                 onClick = {
@@ -667,7 +645,29 @@ private fun DatePickerDialog(
                 Text("Cancel")
             }
         }
-    )
+    ) {
+        DatePicker(
+            state = datePickerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            title = {
+                Text(
+                    text = "Select Date",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
+            showModeToggle = false,
+            colors = DatePickerDefaults.colors(
+                selectedDayContainerColor = Color(0xFF8B4513),
+                todayDateBorderColor = Color(0xFF8B4513),
+                dayContentColor = Color.Black,
+                weekdayContentColor = Color.Black,
+                yearContentColor = Color.Black
+            )
+        )
+    }
 }
 
 @Composable
