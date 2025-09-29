@@ -47,6 +47,9 @@ sealed class Screen(val route: String) {
     object ApproverReports : Screen("approver_reports/{projectId}") {
         fun createRoute(projectId: String) = "approver_reports/$projectId"
     }
+    object ApproverAnalytics : Screen("approver_analytics/{projectId}") {
+        fun createRoute(projectId: String) = "approver_analytics/$projectId"
+    }
     object CategoryDetail : Screen("category_detail/{projectId}/{categoryName}") {
         fun createRoute(projectId: String, categoryName: String) = "category_detail/$projectId/$categoryName"
     }
@@ -83,6 +86,9 @@ sealed class Screen(val route: String) {
     }
     object ProductionHeadReports : Screen("production_head_reports/{projectId}") {
         fun createRoute(projectId: String) = "production_head_reports/$projectId"
+    }
+    object ProductionHeadAnalytics : Screen("production_head_analytics/{projectId}") {
+        fun createRoute(projectId: String) = "production_head_analytics/$projectId"
     }
     object ProductionHeadCategoryDetail : Screen("production_head_category_detail/{projectId}/{categoryName}") {
         fun createRoute(projectId: String, categoryName: String) = "production_head_category_detail/$projectId/$categoryName"

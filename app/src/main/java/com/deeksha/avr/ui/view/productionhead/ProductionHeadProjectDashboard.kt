@@ -24,6 +24,7 @@ fun ProductionHeadProjectDashboard(
     onNavigateToPendingApprovals: () -> Unit,
     onNavigateToAddExpense: (String) -> Unit,
     onNavigateToReports: () -> Unit,
+    onNavigateToAnalytics: () -> Unit = {},
     onNavigateToProjectNotifications: (String) -> Unit = {},
     onNavigateToDepartmentDetail: (String, String) -> Unit = { _, _ -> },
     onNavigateToDelegation: () -> Unit = {}
@@ -35,6 +36,7 @@ fun ProductionHeadProjectDashboard(
         onNavigateToPendingApprovals = { _ -> onNavigateToPendingApprovals() },
         onNavigateToAddExpense = { onNavigateToAddExpense(projectId) },
         onNavigateToReports = { _ -> onNavigateToReports() },
+        onNavigateToAnalytics = { _ -> onNavigateToAnalytics() },
         onNavigateToProjectNotifications = onNavigateToProjectNotifications,
         onNavigateToDepartmentDetail = onNavigateToDepartmentDetail,
         onNavigateToDelegation = onNavigateToDelegation

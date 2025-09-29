@@ -41,6 +41,7 @@ import com.deeksha.avr.ui.view.approver.CategoryDetailScreen
 import com.deeksha.avr.ui.view.approver.PendingApprovalsScreen
 import com.deeksha.avr.ui.view.approver.ReviewExpenseScreen
 import com.deeksha.avr.ui.view.approver.ReportsScreen as ApproverReportsScreen
+import com.deeksha.avr.ui.view.approver.AnalyticsScreen
 import com.deeksha.avr.ui.view.approver.OverallReportsScreen
 import com.deeksha.avr.ui.view.auth.LoginScreen
 import com.deeksha.avr.ui.view.auth.OtpVerificationScreen
@@ -60,6 +61,7 @@ import com.deeksha.avr.ui.view.productionhead.ProductionHeadDashboard
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadPendingApprovals
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadProjectDashboard
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadReports
+import com.deeksha.avr.ui.view.productionhead.ProductionHeadAnalytics
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadOverallReports
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadCategoryDetail
 import com.deeksha.avr.ui.view.productionhead.DelegationScreen
@@ -774,6 +776,9 @@ fun AppNavHost(
                 onNavigateToReports = { projectId ->
                     navController.navigate(Screen.ApproverReports.createRoute(projectId))
                 },
+                onNavigateToAnalytics = { projectId ->
+                    navController.navigate(Screen.ApproverAnalytics.createRoute(projectId))
+                },
                 onNavigateToDepartmentDetail = { projectId, departmentName ->
                     navController.navigate(Screen.DepartmentDetail.createRoute(projectId, departmentName))
                 },
@@ -821,6 +826,17 @@ fun AppNavHost(
         ) { backStackEntry ->
             val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
             ApproverReportsScreen(
+                projectId = projectId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(
+            route = Screen.ApproverAnalytics.route,
+            arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            AnalyticsScreen(
                 projectId = projectId,
                 onNavigateBack = { navController.popBackStack() }
             )
@@ -994,6 +1010,9 @@ fun AppNavHost(
                 onNavigateToReports = { 
                     navController.navigate(Screen.ProductionHeadReports.createRoute(projectId))
                 },
+                onNavigateToAnalytics = {
+                    navController.navigate(Screen.ProductionHeadAnalytics.createRoute(projectId))
+                },
                 onNavigateToProjectNotifications = { projectId ->
                     navController.navigate(Screen.ProjectNotifications.createRoute(projectId))
                 },
@@ -1058,6 +1077,17 @@ fun AppNavHost(
         ) { backStackEntry ->
             val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
             ProductionHeadReports(
+                projectId = projectId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
+        
+        composable(
+            route = Screen.ProductionHeadAnalytics.route,
+            arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            ProductionHeadAnalytics(
                 projectId = projectId,
                 onNavigateBack = { navController.popBackStack() }
             )

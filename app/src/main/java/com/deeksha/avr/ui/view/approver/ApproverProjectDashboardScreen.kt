@@ -58,6 +58,7 @@ fun ApproverProjectDashboardScreen(
     onNavigateToPendingApprovals: (String) -> Unit,
     onNavigateToAddExpense: () -> Unit = {},
     onNavigateToReports: (String) -> Unit = {},
+    onNavigateToAnalytics: (String) -> Unit = {},
     onNavigateToDepartmentDetail: (String, String) -> Unit = { _, _ -> },
     onNavigateToProjectNotifications: (String) -> Unit = {},
     onNavigateToDelegation: () -> Unit = {},
@@ -181,6 +182,10 @@ fun ApproverProjectDashboardScreen(
                 onNavigateToAddExpense = {
                     scope.launch { drawerState.close() }
                     onNavigateToAddExpense()
+                },
+                onNavigateToAnalytics = {
+                    scope.launch { drawerState.close() }
+                    onNavigateToAnalytics(projectId)
                 },
                 onNavigateToDelegation = {
                     scope.launch { drawerState.close() }
@@ -601,6 +606,7 @@ private fun ApproverNavigationDrawer(
     onNavigateToDashboard: () -> Unit,
     onNavigateToPendingApprovals: () -> Unit,
     onNavigateToAddExpense: () -> Unit,
+    onNavigateToAnalytics: () -> Unit = {},
     onNavigateToDelegation: () -> Unit = {},
     userRole: String = "APPROVER"
 ) {
@@ -631,13 +637,25 @@ private fun ApproverNavigationDrawer(
             DrawerMenuItem(
                 icon = Icons.Default.Notifications,
                 title = "Pending Approvals",
-                onClick = onNavigateToPendingApprovals
+                onClick = onNavigateToPendingApprovals                              
+            )
+            
+            DrawerMenuItem(
+                icon = Icons.Default.Person,
+                title = "Chats",
+                onClick = { /* TODO: Implement chat functionality */ }
             )
             
             DrawerMenuItem(
                 icon = Icons.Default.Add,
                 title = "Add Expenses",
                 onClick = onNavigateToAddExpense
+            )
+            
+            DrawerMenuItem(
+                icon = Icons.Default.CheckCircle,
+                title = "Analytics",
+                onClick = onNavigateToAnalytics
             )
             
             // Only show Delegation for Production Heads

@@ -98,7 +98,7 @@ fun ProductionHeadProjectSelectionScreen(
                     IconButton(onClick = onNavigateToOverallReports) {
                         Icon(
                             Icons.Default.Info,
-                            contentDescription = "Analytics",
+                            contentDescription = "Analysis",
                             tint = Color(0xFF4285F4)
                         )
                     }
