@@ -35,6 +35,7 @@ fun ProjectNotificationScreen(
     onNavigateToProject: (String) -> Unit,
     onNavigateToExpense: (String, String) -> Unit,
     onNavigateToPendingApprovals: (String) -> Unit,
+    onNavigateToChat: (String, String, String) -> Unit = { _, _, _ -> }, // projectId, chatId, otherUserName
     notificationViewModel: NotificationViewModel = hiltViewModel(),
     authViewModel: AuthViewModel
 ) {
@@ -198,6 +199,7 @@ fun ProjectNotificationScreen(
                                     onNavigateToProject = onNavigateToProject,
                                     onNavigateToExpense = onNavigateToExpense,
                                     onNavigateToPendingApprovals = onNavigateToPendingApprovals,
+                                    onNavigateToChat = onNavigateToChat,
                                     onMarkAsRead = {
                                         notificationViewModel.markNotificationAsRead(notification.id)
                                     }
@@ -310,6 +312,7 @@ private fun handleNotificationClick(
     onNavigateToProject: (String) -> Unit,
     onNavigateToExpense: (String, String) -> Unit,
     onNavigateToPendingApprovals: (String) -> Unit,
+    onNavigateToChat: (String, String, String) -> Unit,
     onMarkAsRead: () -> Unit
 ) {
     // Mark notification as read
@@ -336,7 +339,22 @@ private fun handleNotificationClick(
         }
         NotificationType.PENDING_APPROVAL -> {
             if (notification.projectId.isNotEmpty()) {
-                onNavigateToPendingApprovals(notification.projectId)
+onNavigateToPendingApprovals(notification.projectId)
+            }
+        }
+        NotificationType.CHAT_MESSAGE -> {
+            // Navigate to specific chat
+            if (notification.navigationTarget.startsWith("chat/")) {
+                val parts = notification.navigationTarget.split("/")
+                if (parts.size >= 4) {
+                    val projectId = parts[1]
+                    val chatId = parts[2]
+                    val otherUserName = parts[3]
+                    // Navigate to chat screen
+                    onNavigateToChat(projectId, chatId, otherUserName)
+                }
+            } else if (notification.projectId.isNotEmpty()) {
+                onNavigateToProject(notification.projectId)
             }
         }
         else -> {

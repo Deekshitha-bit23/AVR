@@ -97,4 +97,12 @@ sealed class Screen(val route: String) {
     object Delegation : Screen("delegation/{projectId}") {
         fun createRoute(projectId: String) = "delegation/$projectId"
     }
+    
+    // Chat Screens
+    object ChatList : Screen("chat_list/{projectId}/{projectName}") {
+        fun createRoute(projectId: String, projectName: String) = "chat_list/$projectId/$projectName"
+    }
+    object Chat : Screen("chat/{projectId}/{chatId}/{otherUserName}") {
+        fun createRoute(projectId: String, chatId: String, otherUserName: String) = "chat/$projectId/$chatId/$otherUserName"
+    }
 } 

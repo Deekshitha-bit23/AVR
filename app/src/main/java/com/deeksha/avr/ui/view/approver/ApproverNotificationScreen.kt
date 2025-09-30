@@ -36,6 +36,7 @@ fun ApproverNotificationScreen(
     onNavigateBack: () -> Unit,
     onNavigateToApproverProjectDashboard: (String) -> Unit,
     onNavigateToPendingApprovals: (String) -> Unit,
+    onNavigateToChat: (String, String, String) -> Unit = { _, _, _ -> }, // projectId, chatId, otherUserName
     notificationViewModel: NotificationViewModel = hiltViewModel(),
     authViewModel: AuthViewModel,
     temporaryApproverViewModel: TemporaryApproverViewModel = hiltViewModel()
@@ -224,6 +225,7 @@ fun ApproverNotificationScreen(
                                     notification = notification,
                                     onNavigateToApproverProjectDashboard = onNavigateToApproverProjectDashboard,
                                     onNavigateToPendingApprovals = onNavigateToPendingApprovals,
+                                    onNavigateToChat = onNavigateToChat,
                                     onMarkAsRead = {
                                         notificationViewModel.markNotificationAsRead(notification.id)
                                     }
@@ -413,6 +415,7 @@ private fun handleApproverNotificationClick(
     notification: Notification,
     onNavigateToApproverProjectDashboard: (String) -> Unit,
     onNavigateToPendingApprovals: (String) -> Unit,
+    onNavigateToChat: (String, String, String) -> Unit,
     onMarkAsRead: () -> Unit
 ) {
     // Mark notification as read
@@ -424,6 +427,22 @@ private fun handleApproverNotificationClick(
             NotificationType.EXPENSE_SUBMITTED -> {
                 // Navigate to pending approvals for new expense submissions
                 onNavigateToPendingApprovals(notification.projectId)
+            }
+            NotificationType.CHAT_MESSAGE -> {
+                // Navigate to specific chat
+                if (notification.navigationTarget.startsWith("chat/")) {
+                    val parts = notification.navigationTarget.split("/")
+                    if (parts.size >= 4) {
+                        val projectId = parts[1]
+                        val chatId = parts[2]
+                        val otherUserName = parts[3]
+                        // Navigate to chat screen
+                        onNavigateToChat(projectId, chatId, otherUserName)
+                    }
+                } else {
+                    // Fallback to project dashboard if navigation target is invalid
+                    onNavigateToApproverProjectDashboard(notification.projectId)
+                }
             }
             else -> {
                 // For other notification types, navigate to project dashboard

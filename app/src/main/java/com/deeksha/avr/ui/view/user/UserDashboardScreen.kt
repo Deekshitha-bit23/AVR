@@ -42,6 +42,7 @@ fun UserDashboardScreen(
     onNavigateToAddExpense: () -> Unit,
     onNavigateToExpenseList: () -> Unit,
     onNavigateToTrackSubmissions: () -> Unit,
+    onNavigateToChat: (String, String) -> Unit = { _, _ -> },
     onLogout: () -> Unit = {},
     authViewModel: AuthViewModel = hiltViewModel(),
     expenseViewModel: ExpenseViewModel = hiltViewModel()
@@ -313,6 +314,24 @@ fun UserDashboardScreen(
                                 icon = Icons.Default.LocationOn,
                                 onClick = onNavigateToProjectSelection
                             )
+                        }
+                    }
+                    
+                    item {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                        ) {
+                            ActionCard(
+                                modifier = Modifier.weight(1f),
+                                title = "Team Chat",
+                                subtitle = "Select project",
+                                icon = Icons.Default.Person,
+                                onClick = onNavigateToProjectSelection
+                            )
+                            
+                            // Empty space to balance the row
+                            Spacer(modifier = Modifier.weight(1f))
                         }
                     }
                     

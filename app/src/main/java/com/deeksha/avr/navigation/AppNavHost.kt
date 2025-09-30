@@ -49,6 +49,8 @@ import com.deeksha.avr.ui.view.auth.AccessRestrictedScreen
 import com.deeksha.avr.ui.view.common.ProjectSelectionScreen
 import com.deeksha.avr.ui.view.common.NotificationListScreen
 import com.deeksha.avr.ui.view.common.ProjectNotificationScreen
+import com.deeksha.avr.ui.view.common.ChatListScreen
+import com.deeksha.avr.ui.view.common.ChatScreen
 import com.deeksha.avr.ui.view.user.AddExpenseScreen
 import com.deeksha.avr.ui.view.user.ExpenseListScreen
 import com.deeksha.avr.ui.view.user.TrackSubmissionsScreen
@@ -285,6 +287,9 @@ fun AppNavHost(
                 onNotificationClick = { userId ->
                     navController.navigate(Screen.NotificationList.route)
                 },
+                onNavigateToChat = { projectId, projectName ->
+                    navController.navigate(Screen.ChatList.createRoute(projectId, projectName))
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -299,15 +304,18 @@ fun AppNavHost(
             NotificationListScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onNavigateToProject = { projectId ->
-                            navController.navigate(Screen.ExpenseList.createRoute(projectId))
+                    navController.navigate(Screen.ExpenseList.createRoute(projectId))
                 },
                 onNavigateToExpense = { projectId, expenseId ->
                     // Navigate to expense detail or list
                     navController.navigate(Screen.ExpenseList.createRoute(projectId))
                 },
                 onNavigateToPendingApprovals = { projectId ->
-                            navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
-                        },
+                    navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
+                },
+                onNavigateToChat = { projectId, chatId, otherUserName ->
+                    navController.navigate(Screen.Chat.createRoute(projectId, chatId, otherUserName))
+                },
                 authViewModel = authViewModel
             )
         }
@@ -355,14 +363,17 @@ fun AppNavHost(
                         projectName = selectedProject.name,
                         onNavigateBack = { navController.popBackStack() },
                         onNavigateToProject = { projectId ->
-                                    navController.navigate(Screen.ExpenseList.createRoute(projectId))
+                            navController.navigate(Screen.ExpenseList.createRoute(projectId))
                         },
                         onNavigateToExpense = { projectId, expenseId ->
                             navController.navigate(Screen.ExpenseList.createRoute(projectId))
                         },
                         onNavigateToPendingApprovals = { projectId ->
-                                    navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
-                                },
+                            navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
+                        },
+                        onNavigateToChat = { projectId, chatId, otherUserName ->
+                            navController.navigate(Screen.Chat.createRoute(projectId, chatId, otherUserName))
+                        },
                         authViewModel = authViewModel
                     )
                 }
@@ -703,6 +714,9 @@ fun AppNavHost(
                 onNavigateToTrackSubmissions = {
                     navController.navigate(Screen.ProjectSelection.route)
                 },
+                onNavigateToChat = { projectId, projectName ->
+                    navController.navigate(Screen.ChatList.createRoute(projectId, projectName))
+                },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
                         popUpTo(0) { inclusive = true }
@@ -755,6 +769,9 @@ fun AppNavHost(
                 onNavigateToPendingApprovals = { projectId ->
                     navController.navigate(Screen.ProjectPendingApprovals.createRoute(projectId))
                 },
+                onNavigateToChat = { projectId, chatId, otherUserName ->
+                    navController.navigate(Screen.Chat.createRoute(projectId, chatId, otherUserName))
+                },
                 authViewModel = authViewModel
             )
         }
@@ -784,6 +801,9 @@ fun AppNavHost(
                 },
                 onNavigateToProjectNotifications = { projectId ->
                     navController.navigate(Screen.ProjectNotifications.createRoute(projectId))
+                },
+                onNavigateToChat = { projectId, projectName ->
+                    navController.navigate(Screen.ChatList.createRoute(projectId, projectName))
                 }
             )
         }
@@ -1021,6 +1041,9 @@ fun AppNavHost(
                 },
                 onNavigateToDelegation = {
                     navController.navigate(Screen.Delegation.createRoute(projectId))
+                },
+                onNavigateToChat = { projectId, projectName ->
+                    navController.navigate(Screen.ChatList.createRoute(projectId, projectName))
                 }
             )
         }
@@ -1126,6 +1149,45 @@ fun AppNavHost(
             NewProjectScreen(
                 onNavigateBack = { navController.popBackStack() },
                 onProjectCreated = { navController.popBackStack() }
+            )
+        }
+        
+        // Chat Screens
+        composable(
+            route = Screen.ChatList.route,
+            arguments = listOf(
+                navArgument("projectId") { type = NavType.StringType },
+                navArgument("projectName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            val projectName = backStackEntry.arguments?.getString("projectName") ?: ""
+            ChatListScreen(
+                projectId = projectId,
+                projectName = projectName,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToChat = { pId, chatId, otherUserId, otherUserName ->
+                    navController.navigate(Screen.Chat.createRoute(pId, chatId, otherUserName))
+                }
+            )
+        }
+        
+        composable(
+            route = Screen.Chat.route,
+            arguments = listOf(
+                navArgument("projectId") { type = NavType.StringType },
+                navArgument("chatId") { type = NavType.StringType },
+                navArgument("otherUserName") { type = NavType.StringType }
+            )
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            val chatId = backStackEntry.arguments?.getString("chatId") ?: ""
+            val otherUserName = backStackEntry.arguments?.getString("otherUserName") ?: ""
+            ChatScreen(
+                projectId = projectId,
+                chatId = chatId,
+                otherUserName = otherUserName,
+                onNavigateBack = { navController.popBackStack() }
             )
         }
     }

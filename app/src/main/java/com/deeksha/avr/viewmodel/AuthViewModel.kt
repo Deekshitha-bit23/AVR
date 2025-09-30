@@ -53,6 +53,8 @@ class AuthViewModel @Inject constructor(
                         Log.e("AuthViewModel", "❌ Failed to save device info", e)
                     }
 
+                // FCM token will be saved by the FCM service automatically
+
             } catch (e: Exception) {
                 Log.e("AuthViewModel", "❌ Exception while saving device info", e)
             }

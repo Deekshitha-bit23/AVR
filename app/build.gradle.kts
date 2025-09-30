@@ -91,8 +91,10 @@ dependencies {
     implementation("com.google.firebase:firebase-auth")
     implementation("com.google.firebase:firebase-firestore")
     implementation("com.google.firebase:firebase-messaging")
+    implementation("com.google.firebase:firebase-messaging")
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.7.1")
     implementation ("com.google.firebase:firebase-storage-ktx:20.3.0")
+    implementation("androidx.compose.material:material-icons-extended:1.7.0")
 
 
     // Google SMS Retriever API (no permissions required)
@@ -111,6 +113,12 @@ dependencies {
     // Charts and Export
     implementation("com.github.PhilJay:MPAndroidChart:v3.1.0")
     implementation("com.itextpdf:itext7-core:7.2.5")
+    
+    // Image Picker
+    implementation("com.github.dhaval2404:imagepicker:2.1")
+    
+    // Image Loading
+    implementation("io.coil-kt:coil-compose:2.5.0")
     
     testImplementation(libs.junit)
     testImplementation("androidx.test:core:1.5.0")

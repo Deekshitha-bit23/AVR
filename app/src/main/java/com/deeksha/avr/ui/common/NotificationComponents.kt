@@ -230,6 +230,10 @@ fun NotificationIcon(
             icon = Icons.Default.Edit
             tint = Color(0xFF9C27B0)
         }
+        NotificationType.CHAT_MESSAGE -> {
+            icon = Icons.Default.Chat
+            tint = Color(0xFF2196F3)
+        }
         NotificationType.INFO -> {
             icon = Icons.Default.Info
             tint = Color(0xFF607D8B)

@@ -10,6 +10,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +39,7 @@ import androidx.compose.material.icons.filled.ExitToApp
 fun ProjectSelectionScreen(
     onProjectSelected: (String) -> Unit,
     onNotificationClick: (String) -> Unit = {},
+    onNavigateToChat: (String, String) -> Unit = { _, _ -> }, // projectId, projectName
     onLogout: () -> Unit = {},
     currentUserId: String = "", // Make this optional with default empty string
     projectViewModel: ProjectViewModel = hiltViewModel(),
@@ -300,7 +302,7 @@ fun ProjectSelectionScreen(
                     if (effectiveUserId.isNotEmpty()) {
                         projectViewModel.loadProjects(effectiveUserId)
                     } else {
-                    projectViewModel.loadProjects() 
+                        projectViewModel.loadProjects() 
                     }
                     notificationViewModel.forceLoadNotifications(effectiveUserId)
                     println("🔄 Refresh completed - projects and notifications updated")
@@ -500,6 +502,7 @@ fun ProjectSelectionScreen(
                             ProjectCard(
                                 project = project,
                                 onProjectClick = { onProjectSelected(project.id) },
+                                onChatClick = { onNavigateToChat(project.id, project.name) },
                                 projectNotifications = notifications.filter { it.projectId == project.id }
                             )
                         }
@@ -514,6 +517,7 @@ fun ProjectSelectionScreen(
 fun ProjectCard(
     project: Project,
     onProjectClick: () -> Unit,
+    onChatClick: () -> Unit = {},
     projectNotifications: List<com.deeksha.avr.model.Notification> = emptyList()
 ) {
     // Calculate project-specific notification counts
@@ -684,6 +688,20 @@ fun ProjectCard(
                         }
                     }
                 }
+            }
+            
+            // Chat button for this project
+            Spacer(modifier = Modifier.width(8.dp))
+            IconButton(
+                onClick = onChatClick,
+                modifier = Modifier.size(40.dp)
+            ) {
+                Icon(
+                    Icons.Default.Chat,
+                    contentDescription = "Chat with ${project.name} team",
+                    tint = Color(0xFF4285F4),
+                    modifier = Modifier.size(24.dp)
+                )
             }
         }
     }
