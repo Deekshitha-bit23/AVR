@@ -541,7 +541,8 @@ fun ChatScreen(
                                         senderId = currentUser.phone,
                                         senderName = currentUser.name,
                                         senderRole = currentUser.role.name,
-                                        message = messageText
+                                        message = messageText,
+                                        context = context
                                     )
                                     messageText = ""
                                 }

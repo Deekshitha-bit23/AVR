@@ -79,6 +79,92 @@ class NotificationRepository @Inject constructor(
         }
     }
 
+    // Get all notifications for a specific user (both read and unread) - for approver notification screen
+    suspend fun getAllNotificationsForUser(
+        userId: String,
+        limit: Int = 50
+    ): List<Notification> {
+        return try {
+            Log.d("NotificationRepository", "🔄 Getting ALL notifications for user: $userId")
+            
+            val result = notificationsCollection
+                .whereEqualTo("recipientId", userId)
+                .orderBy("createdAt", Query.Direction.DESCENDING)
+                .limit(limit.toLong())
+                .get()
+                .await()
+
+            val notifications = result.documents
+                .mapNotNull { doc ->
+                    doc.toObject(Notification::class.java)
+                }
+            
+            Log.d("NotificationRepository", "📋 Found ${notifications.size} total notifications for user: $userId")
+            notifications.forEach { notification ->
+                Log.d("NotificationRepository", "📋 Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName} - Read: ${notification.isRead}")
+            }
+            
+            notifications
+        } catch (e: Exception) {
+            Log.e("NotificationRepository", "❌ Error getting all notifications: ${e.message}")
+            emptyList()
+        }
+    }
+
+    // Get all notifications for a specific user with real-time updates (both read and unread) - for approver notification screen
+    fun getAllNotificationsForUserRealtime(
+        userId: String,
+        limit: Int = 50
+    ): Flow<List<Notification>> {
+        return callbackFlow {
+            try {
+                Log.d("NotificationRepository", "🔄 Setting up real-time ALL notifications for user: $userId")
+                Log.d("NotificationRepository", "🔍 Querying ALL notifications with recipientId: $userId")
+
+                val query = notificationsCollection
+                    .whereEqualTo("recipientId", userId)
+                    .orderBy("createdAt", Query.Direction.DESCENDING)
+                    .limit(limit.toLong())
+
+                // Listen for real-time updates
+                val listener = query.addSnapshotListener { snapshot, error ->
+                    if (error != null) {
+                        Log.e("NotificationRepository", "❌ Error in real-time listener: ${error.message}")
+                        return@addSnapshotListener
+                    }
+
+                    val notifications = snapshot?.documents
+                        ?.mapNotNull { doc ->
+                            try {
+                                doc.toObject(Notification::class.java)
+                            } catch (e: Exception) {
+                                Log.e("NotificationRepository", "❌ Error parsing notification document: ${e.message}")
+                                null
+                            }
+                        } ?: emptyList()
+
+                    Log.d("NotificationRepository", "📡 Real-time update: ${notifications.size} total notifications for user: $userId")
+                    if (notifications.isEmpty()) {
+                        Log.d("NotificationRepository", "⚠️ No notifications found for user: $userId")
+                    } else {
+                        notifications.forEach { notification ->
+                            Log.d("NotificationRepository", "📋 Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName} - Read: ${notification.isRead}")
+                        }
+                    }
+
+                    trySend(notifications)
+                }
+
+                awaitClose {
+                    listener.remove()
+                }
+            } catch (e: Exception) {
+                Log.e("NotificationRepository", "❌ Error setting up real-time listener: ${e.message}")
+                close(e)
+            }
+        }
+    }
+
     // Get notifications for a specific user with real-time updates
     fun getNotificationsForUserRealtime(
         userId: String,

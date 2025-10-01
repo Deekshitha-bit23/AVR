@@ -51,7 +51,7 @@ fun ApproverNotificationScreen(
     LaunchedEffect(Unit) {
         val currentUserId = authState.user?.phone
         if (currentUserId != null) {
-            notificationViewModel.loadNotifications(currentUserId)
+            notificationViewModel.loadAllNotifications(currentUserId)
         }
     }
     
@@ -100,7 +100,7 @@ fun ApproverNotificationScreen(
                     onClick = {
                         val currentUserId = authState.user?.phone
                         if (currentUserId != null) {
-                            notificationViewModel.loadNotifications(currentUserId)
+                            notificationViewModel.loadAllNotifications(currentUserId)
                         }
                     }
                 ) {

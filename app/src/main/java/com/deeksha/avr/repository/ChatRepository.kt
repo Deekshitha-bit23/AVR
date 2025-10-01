@@ -10,6 +10,7 @@ import com.deeksha.avr.model.Project
 import com.deeksha.avr.model.User
 import com.deeksha.avr.model.UserRole
 import com.deeksha.avr.repository.NotificationRepository
+import com.deeksha.avr.service.MessageNotificationService
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -25,7 +26,8 @@ import javax.inject.Singleton
 @Singleton
 class ChatRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val notificationRepository: NotificationRepository
+    private val notificationRepository: NotificationRepository,
+    private val messageNotificationService: MessageNotificationService
 ) {
     private val usersCollection = firestore.collection("users")
     private val projectsCollection = firestore.collection("projects")
@@ -253,7 +255,8 @@ class ChatRepository @Inject constructor(
         senderRole: String, 
         message: String,
         messageType: String = "Text",
-        mediaUrl: String? = null
+        mediaUrl: String? = null,
+        context: android.content.Context? = null
     ): Boolean {
         return try {
             val messagesCollection = getMessagesCollection(projectId, chatId)
@@ -341,6 +344,27 @@ class ChatRepository @Inject constructor(
                     } catch (e: Exception) {
                         Log.e("ChatRepository", "Error creating notification for $receiverId: ${e.message}")
                     }
+                }
+                
+                // Send FCM push notifications if context is available
+                if (context != null) {
+                    try {
+                        Log.d("ChatRepository", "Sending FCM notifications to ${otherMembers.size} recipients")
+                        messageNotificationService.sendMessageNotification(
+                            context = context,
+                            projectId = projectId,
+                            chatId = chatId,
+                            senderId = senderId,
+                            senderName = senderName,
+                            message = message,
+                            recipientIds = otherMembers
+                        )
+                        Log.d("ChatRepository", "FCM notifications sent successfully")
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "Error sending FCM notifications: ${e.message}")
+                    }
+                } else {
+                    Log.w("ChatRepository", "Context not provided, skipping FCM notifications")
                 }
             }
             

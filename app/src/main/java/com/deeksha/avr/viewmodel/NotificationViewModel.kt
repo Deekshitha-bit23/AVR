@@ -78,6 +78,50 @@ class NotificationViewModel @Inject constructor(
         }
     }
 
+    // Load all notifications (both read and unread) - for approver notification screen
+    fun loadAllNotifications(userId: String) {
+        // Cancel any existing listener
+        notificationListener?.cancel()
+        
+        currentUserId = userId
+        viewModelScope.launch {
+            _isLoading.value = true
+            _error.value = null
+            
+            try {
+                Log.d("NotificationViewModel", "🔄 Loading ALL notifications for user: $userId")
+                
+                // Set up real-time listener for all notifications
+                notificationListener = viewModelScope.launch {
+                    notificationRepository.getAllNotificationsForUserRealtime(userId)
+                        .collect { notifications ->
+                            Log.d("NotificationViewModel", "📡 Real-time ALL notification update: ${notifications.size} notifications")
+                            
+                            // Log each notification for debugging
+                            notifications.forEach { notification ->
+                                Log.d("NotificationViewModel", "📋 Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName} - Read: ${notification.isRead}")
+                            }
+                            
+                            _notifications.value = notifications
+                            
+                            // Update badge immediately after loading notifications
+                            updateNotificationBadge(userId)
+                            
+                            Log.d("NotificationViewModel", "✅ Updated ${notifications.size} ALL notifications in real-time")
+                        }
+                }
+                
+                Log.d("NotificationViewModel", "✅ Set up real-time ALL notification listener")
+                
+            } catch (e: Exception) {
+                Log.e("NotificationViewModel", "❌ Error loading all notifications: ${e.message}")
+                _error.value = "Failed to load notifications: ${e.message}"
+            } finally {
+                _isLoading.value = false
+            }
+        }
+    }
+
     fun loadProjectNotifications(userId: String, projectId: String) {
         viewModelScope.launch {
             _isLoading.value = true

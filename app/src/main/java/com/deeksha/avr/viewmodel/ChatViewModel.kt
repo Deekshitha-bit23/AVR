@@ -90,9 +90,9 @@ class ChatViewModel @Inject constructor(
     }
 
     // Send a message
-    fun sendMessage(projectId: String, chatId: String, senderId: String, senderName: String, senderRole: String, message: String) {
+    fun sendMessage(projectId: String, chatId: String, senderId: String, senderName: String, senderRole: String, message: String, context: android.content.Context? = null) {
         viewModelScope.launch {
-            chatRepository.sendMessage(projectId, chatId, senderId, senderName, senderRole, message)
+            chatRepository.sendMessage(projectId, chatId, senderId, senderName, senderRole, message, context = context)
         }
     }
 
