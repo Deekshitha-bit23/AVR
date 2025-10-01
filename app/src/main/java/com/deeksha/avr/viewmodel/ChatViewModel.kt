@@ -97,20 +97,20 @@ class ChatViewModel @Inject constructor(
     }
 
     // Send an image message
-    fun sendImageMessage(projectId: String, chatId: String, senderId: String, senderName: String, senderRole: String, imageUri: android.net.Uri) {
-        viewModelScope.launch {
-            try {
-                android.util.Log.d("ChatViewModel", "Starting to send image message")
-                val success = chatRepository.sendImageMessage(projectId, chatId, senderId, senderName, senderRole, imageUri)
-                android.util.Log.d("ChatViewModel", "Image message send result: $success")
-                if (!success) {
-                    android.util.Log.e("ChatViewModel", "Failed to send image message")
-                    _chatState.value = _chatState.value.copy(error = "Failed to send image message")
-                }
-            } catch (e: Exception) {
-                android.util.Log.e("ChatViewModel", "Error sending image message: ${e.message}", e)
-                _chatState.value = _chatState.value.copy(error = "Error sending image message: ${e.message}")
+    suspend fun sendImageMessage(projectId: String, chatId: String, senderId: String, senderName: String, senderRole: String, imageUri: android.net.Uri): Boolean {
+        return try {
+            android.util.Log.d("ChatViewModel", "Starting to send image message")
+            val success = chatRepository.sendImageMessage(projectId, chatId, senderId, senderName, senderRole, imageUri)
+            android.util.Log.d("ChatViewModel", "Image message send result: $success")
+            if (!success) {
+                android.util.Log.e("ChatViewModel", "Failed to send image message")
+                _chatState.value = _chatState.value.copy(error = "Failed to send image message")
             }
+            success
+        } catch (e: Exception) {
+            android.util.Log.e("ChatViewModel", "Error sending image message: ${e.message}", e)
+            _chatState.value = _chatState.value.copy(error = "Error sending image message: ${e.message}")
+            false
         }
     }
 

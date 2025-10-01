@@ -336,38 +336,87 @@ fun ApproverProjectDashboardScreen(
                     }
                 }
                 else -> {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxSize()
-                            .verticalScroll(rememberScrollState())
-                            .padding(16.dp)
-                    ) {
-                        // Project Overview Section
-                        ProjectOverviewSection(
-                            projectBudgetSummary = projectBudgetSummary,
-                            temporaryApproverUser = temporaryApproverUser,
-                            isLoadingTemporaryApprover = isLoadingTemporaryApprover
-                        )
+                    Box(modifier = Modifier.fillMaxSize()) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .verticalScroll(rememberScrollState())
+                                .padding(16.dp)
+                        ) {
+                            // Project Overview Section
+                            ProjectOverviewSection(
+                                projectBudgetSummary = projectBudgetSummary,
+                                temporaryApproverUser = temporaryApproverUser,
+                                isLoadingTemporaryApprover = isLoadingTemporaryApprover
+                            )
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Department Budgets Section
+                            DepartmentBudgetsSection(
+                                departmentBreakdown = projectBudgetSummary.departmentBreakdown
+                            )
+                            
+                            Spacer(modifier = Modifier.height(24.dp))
+                            
+                            // Department Distribution Section
+                            DepartmentDistributionSection(
+                                departmentBreakdown = projectBudgetSummary.departmentBreakdown,
+                                totalBudget = projectBudgetSummary.totalBudget,
+                                onNavigateToReports = { onNavigateToReports(projectId) },
+                                scope = scope,
+                                drawerState = drawerState
+                            )
+                            
+                            Spacer(modifier = Modifier.height(32.dp))
+                        }
                         
-                        Spacer(modifier = Modifier.height(24.dp))
+                        // Floating Action Buttons - Left and Right corners
+                        // Left FAB - Open Navigation Drawer
+                        FloatingActionButton(
+                            onClick = { 
+                                scope.launch { drawerState.open() }
+                            },
+                            modifier = Modifier
+                                .align(Alignment.BottomStart)
+                                .padding(start = 16.dp, bottom = 16.dp)
+                                .size(56.dp),
+                            containerColor = Color(0xFF4285F4),
+                            contentColor = Color.White,
+                            shape = RoundedCornerShape(28.dp),
+                            elevation = FloatingActionButtonDefaults.elevation(
+                                defaultElevation = 8.dp,
+                                pressedElevation = 12.dp
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.KeyboardArrowUp,
+                                contentDescription = "Open Menu",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                         
-                        // Department Budgets Section
-                        DepartmentBudgetsSection(
-                            departmentBreakdown = projectBudgetSummary.departmentBreakdown
-                        )
-                        
-                        Spacer(modifier = Modifier.height(24.dp))
-                        
-                        // Department Distribution Section
-                        DepartmentDistributionSection(
-                            departmentBreakdown = projectBudgetSummary.departmentBreakdown,
-                            totalBudget = projectBudgetSummary.totalBudget,
-                            onNavigateToReports = { onNavigateToReports(projectId) },
-                            scope = scope,
-                            drawerState = drawerState
-                        )
-                        
-                        Spacer(modifier = Modifier.height(32.dp))
+                        // Right FAB - Project Report
+                        FloatingActionButton(
+                            onClick = { onNavigateToReports(projectId) },
+                            modifier = Modifier
+                                .align(Alignment.BottomEnd)
+                                .padding(end = 16.dp, bottom = 16.dp)
+                                .size(56.dp),
+                            containerColor = Color(0xFF4285F4),
+                            contentColor = Color.White,
+                            shape = RoundedCornerShape(28.dp),
+                            elevation = FloatingActionButtonDefaults.elevation(
+                                defaultElevation = 8.dp,
+                                pressedElevation = 12.dp
+                            )
+                        ) {
+                            Icon(
+                                Icons.Default.Description,
+                                contentDescription = "Project Report",
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -1242,11 +1291,11 @@ private fun DepartmentDistributionSection(
                     }
                 }
                 
-                // Legend with extra bottom padding to avoid FAB overlap
+                // Legend
                 Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 80.dp),
+                        .padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 16.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp)
                 ) {
                     val departmentsWithSpending = departmentBreakdown.filter { it.spent > 0 }
@@ -1260,45 +1309,6 @@ private fun DepartmentDistributionSection(
                         )
                     }
                 }
-            }
-        }
-        
-        // Floating Action Buttons positioned at bottom left and right of the card
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .align(Alignment.BottomCenter)
-                .padding(horizontal = 24.dp, vertical = 16.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            // Left FAB - Open Navigation Drawer
-            FloatingActionButton(
-                onClick = { 
-                    scope.launch { drawerState.open() }
-                },
-                modifier = Modifier.size(56.dp),
-                containerColor = Color(0xFF4285F4),
-                contentColor = Color.White
-            ) {
-                Icon(
-                    Icons.Default.KeyboardArrowUp,
-                    contentDescription = "Open Menu",
-                    modifier = Modifier.size(24.dp)
-                )
-            }
-            
-            // Right FAB - Project Report
-            FloatingActionButton(
-                onClick = onNavigateToReports,
-                modifier = Modifier.size(56.dp),
-                containerColor = Color(0xFF4285F4),
-                contentColor = Color.White
-            ) {
-                Icon(
-                    Icons.Default.Description,
-                    contentDescription = "Project Report",
-                    modifier = Modifier.size(24.dp)
-                )
             }
         }
     }

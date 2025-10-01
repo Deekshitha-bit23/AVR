@@ -11,6 +11,7 @@ import com.deeksha.avr.model.User
 import com.deeksha.avr.model.UserRole
 import com.deeksha.avr.repository.NotificationRepository
 import com.google.firebase.Timestamp
+import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.Query
 import com.google.firebase.storage.FirebaseStorage
@@ -360,15 +361,63 @@ class ChatRepository @Inject constructor(
         imageUri: android.net.Uri
     ): Boolean {
         return try {
+            Log.d("ChatRepository", "Starting image upload for project: $projectId, chat: $chatId")
+            Log.d("ChatRepository", "Image URI: $imageUri")
+            Log.d("ChatRepository", "Image URI scheme: ${imageUri.scheme}")
+            Log.d("ChatRepository", "Image URI path: ${imageUri.path}")
+            Log.d("ChatRepository", "Sender: $senderName ($senderId)")
+            
+            // Check if URI is valid
+            if (imageUri.toString().isEmpty()) {
+                Log.e("ChatRepository", "Image URI is empty")
+                return false
+            }
+            
+            // Test if the URI is accessible
+            try {
+                val context = FirebaseAuth.getInstance().app?.applicationContext
+                if (context != null) {
+                    val inputStream = context.contentResolver.openInputStream(imageUri)
+                    if (inputStream == null) {
+                        Log.e("ChatRepository", "Cannot access image URI")
+                        return false
+                    }
+                    inputStream.close()
+                    Log.d("ChatRepository", "Image URI is accessible")
+                }
+            } catch (e: Exception) {
+                Log.e("ChatRepository", "Error accessing image URI: ${e.message}", e)
+                return false
+            }
+            
             // Upload image to Firebase Storage first
             val storageRef = FirebaseStorage.getInstance().reference
             val imageRef = storageRef.child("chat_images/${projectId}/${chatId}/${System.currentTimeMillis()}.jpg")
             
-            val uploadTask = imageRef.putFile(imageUri).await()
+            Log.d("ChatRepository", "Uploading image to: chat_images/${projectId}/${chatId}/")
+            
+            // Upload the file
+            val uploadTask = imageRef.putFile(imageUri)
+            uploadTask.addOnProgressListener { taskSnapshot ->
+                val progress = (100.0 * taskSnapshot.bytesTransferred / taskSnapshot.totalByteCount)
+                Log.d("ChatRepository", "Upload progress: ${progress.toInt()}%")
+            }
+            
+            // Wait for upload to complete
+            val uploadResult = uploadTask.await()
+            Log.d("ChatRepository", "Upload completed successfully")
+            
+            // Get download URL
             val downloadUrl = imageRef.downloadUrl.await()
+            Log.d("ChatRepository", "Download URL obtained: $downloadUrl")
+            
+            if (downloadUrl.toString().isEmpty()) {
+                Log.e("ChatRepository", "Download URL is empty")
+                return false
+            }
             
             // Send message with image URL
-            sendMessage(
+            val success = sendMessage(
                 projectId = projectId,
                 chatId = chatId,
                 senderId = senderId,
@@ -378,8 +427,13 @@ class ChatRepository @Inject constructor(
                 messageType = "Media",
                 mediaUrl = downloadUrl.toString()
             )
+            
+            Log.d("ChatRepository", "Message sent with image URL: $success")
+            success
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Error sending image message: ${e.message}")
+            Log.e("ChatRepository", "Error sending image message: ${e.message}", e)
+            Log.e("ChatRepository", "Exception type: ${e.javaClass.simpleName}")
+            Log.e("ChatRepository", "Stack trace: ${e.stackTrace.joinToString("\n")}")
             false
         }
     }

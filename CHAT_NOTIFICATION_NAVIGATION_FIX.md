@@ -163,3 +163,5 @@ The chat notification navigation is now fixed! When users click on chat message 
 3. **Test all user roles** - Verify the fix works for all user types
 
 **The chat notification navigation issue is now resolved! 🎉**
+
+

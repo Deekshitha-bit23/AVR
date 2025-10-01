@@ -14,6 +14,7 @@ import androidx.compose.material.icons.filled.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
+import kotlinx.coroutines.launch
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
@@ -51,6 +52,8 @@ import androidx.core.app.NotificationCompat
 import com.deeksha.avr.R
 import com.deeksha.avr.MainActivity
 import com.github.dhaval2404.imagepicker.ImagePicker
+import com.deeksha.avr.utils.ImageUriHelper
+import com.deeksha.avr.utils.FileProviderTest
 
 // Simple notification function
 fun showMessageNotification(context: Context, senderName: String, message: String) {
@@ -125,6 +128,21 @@ fun ChatScreen(
     var showImagePicker by remember { mutableStateOf(false) }
     var selectedImageUri by remember { mutableStateOf<Uri?>(null) }
     var cameraImageUri by remember { mutableStateOf<Uri?>(null) }
+    var isUploadingImage by remember { mutableStateOf(false) }
+    var uploadError by remember { mutableStateOf<String?>(null) }
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Test FileProvider configuration on first load
+    LaunchedEffect(Unit) {
+        android.util.Log.d("ChatScreen", "=== FileProvider Configuration Test ===")
+        val cacheResult = FileProviderTest.testFileProvider(context)
+        val externalResult = FileProviderTest.testExternalFiles(context)
+        
+        android.util.Log.d("ChatScreen", "FileProvider Test Results:")
+        android.util.Log.d("ChatScreen", cacheResult)
+        android.util.Log.d("ChatScreen", externalResult)
+        android.util.Log.d("ChatScreen", "=== End FileProvider Test ===")
+    }
     
     // Debug selectedImageUri changes
     LaunchedEffect(selectedImageUri) {
@@ -145,6 +163,24 @@ fun ChatScreen(
             // Store the selected image URI for preview
             selectedImageUri = imageUri
             android.util.Log.d("ChatScreen", "Image URI stored: $imageUri")
+            
+            // Clear any previous errors
+            uploadError = null
+            
+            // Test if the URI is accessible
+            try {
+                val inputStream = context.contentResolver.openInputStream(imageUri)
+                if (inputStream != null) {
+                    android.util.Log.d("ChatScreen", "Image URI is accessible")
+                    inputStream.close()
+                } else {
+                    android.util.Log.e("ChatScreen", "Image URI is not accessible")
+                    uploadError = "Selected image is not accessible"
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChatScreen", "Error accessing selected image: ${e.message}", e)
+                uploadError = "Error accessing selected image: ${e.message}"
+            }
         }
     }
     
@@ -153,26 +189,74 @@ fun ChatScreen(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
         android.util.Log.d("ChatScreen", "Camera result: $success")
+        android.util.Log.d("ChatScreen", "Camera URI: $cameraImageUri")
         if (success && cameraImageUri != null) {
             selectedImageUri = cameraImageUri
             android.util.Log.d("ChatScreen", "Camera image captured and set as selected: $cameraImageUri")
+            
+            // Verify the file exists and is accessible
+            try {
+                val file = File(cameraImageUri!!.path ?: "")
+                android.util.Log.d("ChatScreen", "Camera file exists: ${file.exists()}")
+                android.util.Log.d("ChatScreen", "Camera file size: ${file.length()} bytes")
+                android.util.Log.d("ChatScreen", "Camera file can read: ${file.canRead()}")
+                android.util.Log.d("ChatScreen", "Camera file absolute path: ${file.absolutePath}")
+                
+                // Test if the URI is accessible for reading (don't recreate FileProvider URI)
+                if (ImageUriHelper.isUriAccessible(context, cameraImageUri!!)) {
+                    android.util.Log.d("ChatScreen", "Camera image URI is accessible for use")
+                    // Clear any previous errors since the camera worked
+                    uploadError = null
+                } else {
+                    android.util.Log.e("ChatScreen", "Camera image URI is not accessible")
+                    uploadError = "Camera image is not accessible"
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ChatScreen", "Error checking camera file: ${e.message}", e)
+                uploadError = "Error accessing camera file: ${e.message}"
+            }
+        } else {
+            android.util.Log.e("ChatScreen", "Camera capture failed or URI is null")
+            uploadError = "Camera capture failed"
         }
     }
     
     // Function to launch camera with permission check
     fun launchCamera() {
         try {
-            val tempFile = File.createTempFile("camera_image", ".jpg", context.cacheDir)
-            val photoUri = FileProvider.getUriForFile(
-                context,
-                "${context.packageName}.fileprovider",
-                tempFile
-            )
-            cameraImageUri = photoUri
-            android.util.Log.d("ChatScreen", "Launching camera with URI: $photoUri")
-            cameraLauncher.launch(photoUri)
+            // Create a unique filename with timestamp (no spaces or special characters)
+            val timestamp = System.currentTimeMillis()
+            val fileName = "camera_image_${timestamp}.jpg"
+            
+            android.util.Log.d("ChatScreen", "Creating camera image URI for file: $fileName")
+            
+            // Use the helper to create the URI
+            val photoUri = ImageUriHelper.createCameraImageUri(context, fileName)
+            
+            if (photoUri != null) {
+                android.util.Log.d("ChatScreen", "Camera image URI created: $photoUri")
+                android.util.Log.d("ChatScreen", "URI scheme: ${photoUri.scheme}")
+                android.util.Log.d("ChatScreen", "URI path: ${photoUri.path}")
+                
+                // Test if the URI is accessible
+                if (ImageUriHelper.isUriAccessible(context, photoUri)) {
+                    android.util.Log.d("ChatScreen", "Camera image URI is accessible")
+                    cameraImageUri = photoUri
+                    cameraLauncher.launch(photoUri)
+                } else {
+                    android.util.Log.e("ChatScreen", "Camera image URI is not accessible")
+                    uploadError = "Cannot access camera image file"
+                }
+            } else {
+                android.util.Log.e("ChatScreen", "Failed to create camera image URI")
+                uploadError = "Failed to create camera image file"
+            }
+            
         } catch (e: Exception) {
             android.util.Log.e("ChatScreen", "Error creating camera file: ${e.message}", e)
+            android.util.Log.e("ChatScreen", "Exception type: ${e.javaClass.simpleName}")
+            android.util.Log.e("ChatScreen", "Stack trace: ${e.stackTrace.joinToString("\n")}")
+            uploadError = "Error setting up camera: ${e.message}"
         }
     }
     
@@ -329,27 +413,47 @@ fun ChatScreen(
                                 contentScale = ContentScale.Crop
                             )
                             
-                            // Clear image button
-                            IconButton(
-                                onClick = { 
-                                    selectedImageUri = null
-                                    cameraImageUri = null
-                                },
-                                modifier = Modifier
-                                    .align(Alignment.TopEnd)
-                                    .size(20.dp)
-                                    .background(
-                                        Color.Black.copy(alpha = 0.7f),
-                                        CircleShape
+                            // Upload progress indicator
+                            if (isUploadingImage) {
+                                Box(
+                                    modifier = Modifier
+                                        .fillMaxSize()
+                                        .background(Color.Black.copy(alpha = 0.5f))
+                                        .clip(RoundedCornerShape(8.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    CircularProgressIndicator(
+                                        color = Color.White,
+                                        modifier = Modifier.size(20.dp),
+                                        strokeWidth = 2.dp
                                     )
-                                    .padding(2.dp)
-                            ) {
-                                Icon(
-                                    Icons.Default.Close,
-                                    contentDescription = "Remove image",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(12.dp)
-                                )
+                                }
+                            }
+                            
+                            // Clear image button (only show when not uploading)
+                            if (!isUploadingImage) {
+                                IconButton(
+                                    onClick = { 
+                                        selectedImageUri = null
+                                        cameraImageUri = null
+                                        uploadError = null
+                                    },
+                                    modifier = Modifier
+                                        .align(Alignment.TopEnd)
+                                        .size(20.dp)
+                                        .background(
+                                            Color.Black.copy(alpha = 0.7f),
+                                            CircleShape
+                                        )
+                                        .padding(2.dp)
+                                ) {
+                                    Icon(
+                                        Icons.Default.Close,
+                                        contentDescription = "Remove image",
+                                        tint = Color.White,
+                                        modifier = Modifier.size(12.dp)
+                                    )
+                                }
                             }
                         }
                     }
@@ -372,25 +476,61 @@ fun ChatScreen(
                     // Send Button
                     IconButton(
                         onClick = {
-                            if (currentUser != null) {
+                            if (currentUser != null && !isUploadingImage) {
                                 if (selectedImageUri != null) {
                                     // Send image message
                                     android.util.Log.d("ChatScreen", "Sending image message with URI: $selectedImageUri")
-                                    try {
-                                        chatViewModel.sendImageMessage(
-                                            projectId = projectId,
-                                            chatId = chatId,
-                                            senderId = currentUser.phone,
-                                            senderName = currentUser.name,
-                                            senderRole = currentUser.role.name,
-                                            imageUri = selectedImageUri!!
-                                        )
-                                        // Clear the image after sending
-                                        selectedImageUri = null
-                                        cameraImageUri = null
-                                        android.util.Log.d("ChatScreen", "Image message sent successfully")
-                                    } catch (e: Exception) {
-                                        android.util.Log.e("ChatScreen", "Error sending image message: ${e.message}", e)
+                                    isUploadingImage = true
+                                    uploadError = null
+                                    
+                                    // Use coroutine scope to handle async operation
+                                    coroutineScope.launch {
+                                        try {
+                                            android.util.Log.d("ChatScreen", "Starting image upload process...")
+                                            android.util.Log.d("ChatScreen", "Image URI: $selectedImageUri")
+                                            android.util.Log.d("ChatScreen", "Image URI scheme: ${selectedImageUri?.scheme}")
+                                            android.util.Log.d("ChatScreen", "Image URI path: ${selectedImageUri?.path}")
+                                            android.util.Log.d("ChatScreen", "Project ID: $projectId, Chat ID: $chatId")
+                                            android.util.Log.d("ChatScreen", "Sender: ${currentUser.name} (${currentUser.phone})")
+                                            
+                                            // Test if the URI is accessible before sending
+                                            if (!ImageUriHelper.isUriAccessible(context, selectedImageUri!!)) {
+                                                android.util.Log.e("ChatScreen", "Image URI is not accessible for upload")
+                                                uploadError = "Selected image is not accessible"
+                                                return@launch
+                                            } else {
+                                                android.util.Log.d("ChatScreen", "Image URI is accessible for upload")
+                                            }
+                                            
+                                            val success = chatViewModel.sendImageMessage(
+                                                projectId = projectId,
+                                                chatId = chatId,
+                                                senderId = currentUser.phone,
+                                                senderName = currentUser.name,
+                                                senderRole = currentUser.role.name,
+                                                imageUri = selectedImageUri!!
+                                            )
+                                            
+                                            android.util.Log.d("ChatScreen", "Image upload result: $success")
+                                            
+                                            if (success) {
+                                                // Clear the image after successful sending
+                                                selectedImageUri = null
+                                                cameraImageUri = null
+                                                uploadError = null
+                                                android.util.Log.d("ChatScreen", "Image message sent successfully")
+                                            } else {
+                                                uploadError = "Failed to send image message"
+                                                android.util.Log.e("ChatScreen", "Failed to send image message")
+                                            }
+                                        } catch (e: Exception) {
+                                            uploadError = "Error sending image: ${e.message}"
+                                            android.util.Log.e("ChatScreen", "Error sending image message: ${e.message}", e)
+                                            android.util.Log.e("ChatScreen", "Exception type: ${e.javaClass.simpleName}")
+                                            android.util.Log.e("ChatScreen", "Stack trace: ${e.stackTrace.joinToString("\n")}")
+                                        } finally {
+                                            isUploadingImage = false
+                                        }
                                     }
                                 } else if (messageText.isNotBlank()) {
                                     // Send text message
@@ -411,18 +551,71 @@ fun ChatScreen(
                             .size(48.dp)
                             .clip(CircleShape)
                             .background(
-                                if (messageText.isNotBlank() || selectedImageUri != null) 
+                                if (isUploadingImage) 
+                                    Color.Gray
+                                else if (messageText.isNotBlank() || selectedImageUri != null) 
                                     Color(0xFF4285F4) 
                                 else 
                                     Color.LightGray
                             )
                     ) {
-                        Icon(
-                            Icons.AutoMirrored.Filled.Send,
-                            contentDescription = "Send",
-                            tint = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
+                        if (isUploadingImage) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp),
+                                strokeWidth = 2.dp
+                            )
+                        } else {
+                            Icon(
+                                Icons.AutoMirrored.Filled.Send,
+                                contentDescription = "Send",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        }
+                    }
+                }
+                
+                // Error message display
+                uploadError?.let { error ->
+                    Card(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 8.dp, vertical = 4.dp),
+                        colors = CardDefaults.cardColors(containerColor = Color.Red.copy(alpha = 0.1f)),
+                        shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Error,
+                                contentDescription = "Error",
+                                tint = Color.Red,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = error,
+                                fontSize = 12.sp,
+                                color = Color.Red
+                            )
+                            Spacer(modifier = Modifier.weight(1f))
+                            IconButton(
+                                onClick = { uploadError = null },
+                                modifier = Modifier.size(24.dp)
+                            ) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Dismiss",
+                                    tint = Color.Red,
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -566,16 +759,33 @@ fun MessageBubble(
                 }
 
                 if (message.messageType == "Media" && message.mediaUrl != null) {
-                    // Display image
-                    Image(
-                        painter = rememberAsyncImagePainter(message.mediaUrl),
-                        contentDescription = "Image",
+                    // Display image with better sizing and loading state
+                    Box(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(200.dp)
-                            .clip(RoundedCornerShape(8.dp)),
-                        contentScale = ContentScale.Crop
-                    )
+                            .heightIn(min = 150.dp, max = 300.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(Color.LightGray.copy(alpha = 0.1f))
+                    ) {
+                        val painter = rememberAsyncImagePainter(
+                            model = message.mediaUrl,
+                            onLoading = { state ->
+                                // Loading state handled by AsyncImagePainter
+                            },
+                            onError = { state ->
+                                // Error state handled by AsyncImagePainter
+                            }
+                        )
+                        
+                        Image(
+                            painter = painter,
+                            contentDescription = "Image",
+                            modifier = Modifier
+                                .fillMaxSize()
+                                .clip(RoundedCornerShape(8.dp)),
+                            contentScale = ContentScale.Crop
+                        )
+                    }
                 } else {
                     Text(
                         text = message.message,

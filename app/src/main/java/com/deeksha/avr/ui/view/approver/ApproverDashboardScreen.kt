@@ -21,14 +21,10 @@ import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.viewmodel.ApprovalViewModel
 import com.deeksha.avr.utils.FormatUtils
-import java.text.NumberFormat
-import java.util.*
 import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.model.User
+import com.deeksha.avr.model.Expense
 import com.deeksha.avr.repository.AuthRepository
-import kotlinx.coroutines.launch
-import dagger.hilt.android.lifecycle.HiltViewModel
-import javax.inject.Inject
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -339,7 +335,7 @@ private fun SummaryCard(
 }
 
 @Composable
-private fun RecentSubmissionItem(expense: com.deeksha.avr.model.Expense) {
+private fun RecentSubmissionItem(expense: Expense) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),

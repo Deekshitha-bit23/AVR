@@ -120,3 +120,5 @@ When you test now:
 4. **Verify sender** - Should not see any notification
 
 The chat notification system is now properly integrated with the app's notification tab! 🎉
+
+
