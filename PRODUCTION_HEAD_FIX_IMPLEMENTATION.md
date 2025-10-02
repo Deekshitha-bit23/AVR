@@ -97,3 +97,4 @@ The Production Head should now appear in the chat list for both End User and App
 The Production Head will now be properly detected and displayed in the chat list, regardless of how the role is stored in Firestore (with spaces, underscores, or different cases). The system is now more robust and handles various data format variations.
 
 
+
