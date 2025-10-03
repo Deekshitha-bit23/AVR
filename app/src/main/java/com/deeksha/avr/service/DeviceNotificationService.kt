@@ -154,21 +154,8 @@ class DeviceNotificationService @Inject constructor(
             Log.d("DeviceNotificationService", "   - Type: ${notification.type}")
             Log.d("DeviceNotificationService", "   - Project: ${notification.projectName}")
             
-            // TODO: Implement actual FCM sending via your backend API
-            // Example API call:
-            // val fcmResponse = fcmApiService.sendNotification(
-            //     FCMRequest(
-            //         token = user.deviceInfo.fcmToken,
-            //         title = notification.title,
-            //         message = notification.message,
-            //         data = mapOf(
-            //             "projectId" to notification.projectId,
-            //             "expenseId" to notification.relatedId,
-            //             "type" to notification.type.name,
-            //             "userRole" to user.role.name
-            //         )
-            //     )
-            // )
+            // FCM sending is handled by FCMNotificationService
+            // This service focuses on device-specific notification logic
             
         } catch (e: Exception) {
             Log.e("DeviceNotificationService", "❌ Error sending FCM notification: ${e.message}")

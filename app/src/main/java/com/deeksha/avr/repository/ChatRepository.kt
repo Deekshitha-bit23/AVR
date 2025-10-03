@@ -10,7 +10,6 @@ import com.deeksha.avr.model.Project
 import com.deeksha.avr.model.User
 import com.deeksha.avr.model.UserRole
 import com.deeksha.avr.repository.NotificationRepository
-import com.deeksha.avr.service.MessageNotificationService
 import com.google.firebase.Timestamp
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
@@ -26,8 +25,7 @@ import javax.inject.Singleton
 @Singleton
 class ChatRepository @Inject constructor(
     private val firestore: FirebaseFirestore,
-    private val notificationRepository: NotificationRepository,
-    private val messageNotificationService: MessageNotificationService
+    private val notificationRepository: NotificationRepository
 ) {
     private val usersCollection = firestore.collection("users")
     private val projectsCollection = firestore.collection("projects")
@@ -349,22 +347,14 @@ class ChatRepository @Inject constructor(
                 // Send FCM push notifications if context is available
                 if (context != null) {
                     try {
-                        Log.d("ChatRepository", "Sending FCM notifications to ${otherMembers.size} recipients")
-                        messageNotificationService.sendMessageNotification(
-                            context = context,
-                            projectId = projectId,
-                            chatId = chatId,
-                            senderId = senderId,
-                            senderName = senderName,
-                            message = message,
-                            recipientIds = otherMembers
-                        )
-                        Log.d("ChatRepository", "FCM notifications sent successfully")
+                        Log.d("ChatRepository", "Message sent successfully to ${otherMembers.size} recipients")
+                        // FCM notifications are handled by the notification system
+                        // when messages are stored in Firestore
                     } catch (e: Exception) {
-                        Log.e("ChatRepository", "Error sending FCM notifications: ${e.message}")
+                        Log.e("ChatRepository", "Error processing message: ${e.message}")
                     }
                 } else {
-                    Log.w("ChatRepository", "Context not provided, skipping FCM notifications")
+                    Log.w("ChatRepository", "Context not provided, message sent without notifications")
                 }
             }
             

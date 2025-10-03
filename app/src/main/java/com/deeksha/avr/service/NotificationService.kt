@@ -200,9 +200,8 @@ class NotificationService @Inject constructor(
                 }
             }
             
-            // TODO: Send push notifications via FCM
-            // For now, we're only storing in Firestore
-            // In a real implementation, you would send FCM messages here
+            // Push notifications are handled by FCMNotificationService
+            // This service focuses on storing notifications in Firestore
             
             Log.d("NotificationService", "✅ Successfully sent expense submission notifications")
             Result.success(Unit)

@@ -5,6 +5,7 @@ import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -35,6 +36,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.shape.CircleShape
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.viewmodel.ApproverProjectViewModel
 import com.deeksha.avr.viewmodel.NotificationViewModel
@@ -876,14 +879,25 @@ private fun ProjectOverviewSection(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Team Members Card - Dynamic count
+        var showTeamMembersDialog by remember { mutableStateOf(false) }
+        
         DynamicOverviewCard(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.Person,
             iconColor = Color(0xFF4285F4),
             value = projectBudgetSummary.project?.teamMembers?.size?.toString() ?: "0",
             label = "Team Members",
-            subtitle = null
+            subtitle = null,
+            onClick = { showTeamMembersDialog = true }
         )
+        
+        // Team Members Dialog
+        if (showTeamMembersDialog) {
+            TeamMembersDialog(
+                teamMemberIds = projectBudgetSummary.project?.teamMembers ?: emptyList(),
+                onDismiss = { showTeamMembersDialog = false }
+            )
+        }
         
         // Departments Card - Dynamic count
         DynamicOverviewCard(
@@ -904,10 +918,13 @@ private fun DynamicOverviewCard(
     iconColor: Color,
     value: String,
     label: String,
-    subtitle: String?
+    subtitle: String?,
+    onClick: (() -> Unit)? = null
 ) {
     Card(
-        modifier = modifier.height(110.dp),
+        modifier = modifier
+            .height(110.dp)
+            .clickable(enabled = onClick != null) { onClick?.invoke() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(16.dp)
@@ -1431,4 +1448,105 @@ private fun LegendItem(
             }
         }
     }
-} 
+}
+
+// Team Members Dialog
+@Composable
+private fun TeamMembersDialog(
+    teamMemberIds: List<String>,
+    onDismiss: () -> Unit
+) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text(
+                text = "Team Members",
+                fontSize = 18.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color(0xFF8B5FBF)
+            )
+        },
+        text = {
+            if (teamMemberIds.isEmpty()) {
+                Text(
+                    text = "No team members assigned to this project.",
+                    fontSize = 14.sp,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(16.dp)
+                )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.heightIn(max = 400.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    items(teamMemberIds) { memberId ->
+                        TeamMemberItem(memberId = memberId)
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(onClick = onDismiss) {
+                Text(
+                    text = "Close",
+                    color = Color(0xFF8B5FBF),
+                    fontWeight = FontWeight.Medium
+                )
+            }
+        }
+    )
+}
+
+// Team Member Item Component
+@Composable
+private fun TeamMemberItem(
+    memberId: String
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        // Avatar
+        Box(
+            modifier = Modifier
+                .size(40.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF4285F4)),
+            contentAlignment = Alignment.Center
+        ) {
+            Icon(
+                imageVector = Icons.Default.Person,
+                contentDescription = null,
+                tint = Color.White,
+                modifier = Modifier.size(20.dp)
+            )
+        }
+        
+        Spacer(modifier = Modifier.width(12.dp))
+        
+        // Member Info
+        Column(modifier = Modifier.weight(1f)) {
+            Text(
+                text = "User ID: $memberId",
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Black
+            )
+            Text(
+                text = "Team Member",
+                fontSize = 14.sp,
+                color = Color(0xFF4285F4)
+            )
+        }
+        
+        // Status indicator
+        Box(
+            modifier = Modifier
+                .size(8.dp)
+                .clip(CircleShape)
+                .background(Color(0xFF4CAF50))
+        )
+    }
+}

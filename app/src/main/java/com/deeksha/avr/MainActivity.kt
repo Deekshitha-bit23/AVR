@@ -6,7 +6,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.navigation.compose.rememberNavController
 import com.deeksha.avr.navigation.AppNavHost
-import com.deeksha.avr.service.FCMService
+import com.deeksha.avr.service.AVRFirebaseMessagingService
 import com.deeksha.avr.ui.theme.AvrTheme
 import dagger.hilt.android.AndroidEntryPoint
 
@@ -16,7 +16,7 @@ class MainActivity : ComponentActivity() {
         super.onCreate(savedInstanceState)
         
         // Initialize notification channel
-        FCMService.createNotificationChannel(this)
+        AVRFirebaseMessagingService.createNotificationChannel(this)
         
         // Handle notification navigation
         handleNotificationNavigation()
@@ -38,8 +38,7 @@ class MainActivity : ComponentActivity() {
             val notificationType = intent.getStringExtra("notificationType")
             
             if (projectId != null) {
-                // TODO: Navigate to appropriate screen based on notification type
-                // This will be handled by the navigation system
+                // Navigation is handled by the navigation system
                 android.util.Log.d("MainActivity", "📱 Notification navigation: projectId=$projectId, expenseId=$expenseId, type=$notificationType")
             }
         }

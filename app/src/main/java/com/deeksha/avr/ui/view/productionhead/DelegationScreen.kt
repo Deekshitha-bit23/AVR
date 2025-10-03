@@ -108,7 +108,7 @@ fun DelegationScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: Add settings */ }) {
+                    IconButton(onClick = { /* Settings functionality can be added here */ }) {
                         Icon(
                             Icons.Default.MoreVert,
                             contentDescription = "Settings",

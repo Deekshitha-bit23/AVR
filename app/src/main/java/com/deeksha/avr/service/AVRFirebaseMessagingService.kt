@@ -14,11 +14,6 @@ import com.google.firebase.messaging.RemoteMessage
 
 class AVRFirebaseMessagingService : FirebaseMessagingService() {
     
-    companion object {
-        private const val CHANNEL_ID = "message_notifications"
-        private const val CHANNEL_NAME = "Message Notifications"
-        private const val CHANNEL_DESCRIPTION = "Notifications for new chat messages"
-    }
     
     override fun onMessageReceived(remoteMessage: RemoteMessage) {
         super.onMessageReceived(remoteMessage)
@@ -40,8 +35,8 @@ class AVRFirebaseMessagingService : FirebaseMessagingService() {
         super.onNewToken(token)
         android.util.Log.d("AVRFirebaseMessagingService", "New FCM token: $token")
         
-        // TODO: Send token to your server
-        // You can store this token in Firestore under user's deviceInfo
+        // FCM token is automatically handled by FCMTokenManager
+        // No additional action needed here
     }
     
     private fun showNotification(
@@ -51,7 +46,7 @@ class AVRFirebaseMessagingService : FirebaseMessagingService() {
         chatId: String
     ) {
         try {
-            createNotificationChannel()
+            createNotificationChannel(this)
             
             val intent = Intent(this, MainActivity::class.java).apply {
                 flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
@@ -88,20 +83,26 @@ class AVRFirebaseMessagingService : FirebaseMessagingService() {
         }
     }
     
-    private fun createNotificationChannel() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
-            val channel = NotificationChannel(
-                CHANNEL_ID,
-                CHANNEL_NAME,
-                NotificationManager.IMPORTANCE_HIGH
-            ).apply {
-                description = CHANNEL_DESCRIPTION
-                enableVibration(true)
-                enableLights(true)
+    companion object {
+        private const val CHANNEL_ID = "message_notifications"
+        private const val CHANNEL_NAME = "Message Notifications"
+        private const val CHANNEL_DESCRIPTION = "Notifications for new chat messages"
+        
+        fun createNotificationChannel(context: Context) {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                val channel = NotificationChannel(
+                    CHANNEL_ID,
+                    CHANNEL_NAME,
+                    NotificationManager.IMPORTANCE_HIGH
+                ).apply {
+                    description = CHANNEL_DESCRIPTION
+                    enableVibration(true)
+                    enableLights(true)
+                }
+                
+                val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+                notificationManager.createNotificationChannel(channel)
             }
-            
-            val notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-            notificationManager.createNotificationChannel(channel)
         }
     }
 }

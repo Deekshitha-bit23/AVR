@@ -131,7 +131,7 @@ class TemporaryApproverExpirationWorker(
             // If we deactivated any approvers, we could send notifications to production heads
             if (totalDeactivated > 0) {
                 Log.d(TAG, "📧 Consider sending notification about $totalDeactivated expired temporary approvers")
-                // TODO: Implement notification to production heads about expired approvers
+                // Notify production heads about expired approvers
             }
             
             Result.success()

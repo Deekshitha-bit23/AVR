@@ -46,14 +46,11 @@ import android.content.pm.PackageManager
 import androidx.core.content.ContextCompat
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.clickable
-import androidx.compose.ui.res.painterResource
 import coil.compose.rememberAsyncImagePainter
 import androidx.core.app.NotificationCompat
 import com.deeksha.avr.R
 import com.deeksha.avr.MainActivity
-import com.github.dhaval2404.imagepicker.ImagePicker
 import com.deeksha.avr.utils.ImageUriHelper
-import com.deeksha.avr.utils.FileProviderTest
 
 // Simple notification function
 fun showMessageNotification(context: Context, senderName: String, message: String) {
@@ -132,17 +129,6 @@ fun ChatScreen(
     var uploadError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
     
-    // Test FileProvider configuration on first load
-    LaunchedEffect(Unit) {
-        android.util.Log.d("ChatScreen", "=== FileProvider Configuration Test ===")
-        val cacheResult = FileProviderTest.testFileProvider(context)
-        val externalResult = FileProviderTest.testExternalFiles(context)
-        
-        android.util.Log.d("ChatScreen", "FileProvider Test Results:")
-        android.util.Log.d("ChatScreen", cacheResult)
-        android.util.Log.d("ChatScreen", externalResult)
-        android.util.Log.d("ChatScreen", "=== End FileProvider Test ===")
-    }
     
     // Debug selectedImageUri changes
     LaunchedEffect(selectedImageUri) {
@@ -334,13 +320,7 @@ fun ChatScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* TODO: Voice call */ }) {
-                        Icon(
-                            Icons.Default.Phone,
-                            contentDescription = "Call",
-                            tint = Color.White
-                        )
-                    }
+                    // Voice call functionality can be added here in the future
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
                     containerColor = Color(0xFF4285F4)
