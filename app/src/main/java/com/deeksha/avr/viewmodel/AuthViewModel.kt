@@ -593,6 +593,11 @@ class AuthViewModel @Inject constructor(
         _isAccessRestricted.value = false
         _restrictedPhoneNumber.value = null
     }
+    
+    // Get user by phone number
+    suspend fun getUserByPhoneNumber(phoneNumber: String): User? {
+        return authRepository.getUserByPhoneNumber(phoneNumber)
+    }
 
     // Development skip - for testing purposes only (phone number based)
     fun skipOTPForDevelopment(phoneNumber: String, onNavigationCallback: (UserRole) -> Unit) {

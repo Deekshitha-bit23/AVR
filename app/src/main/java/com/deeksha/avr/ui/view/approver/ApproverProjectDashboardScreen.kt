@@ -42,12 +42,14 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.viewmodel.ApproverProjectViewModel
 import com.deeksha.avr.viewmodel.NotificationViewModel
 import com.deeksha.avr.viewmodel.AuthViewModel
+import com.deeksha.avr.viewmodel.TemporaryApproverViewModel
 import com.deeksha.avr.ui.common.NotificationBadgeComponent
 import com.deeksha.avr.utils.FormatUtils
 import com.deeksha.avr.model.CategoryBudget
 import com.deeksha.avr.model.DepartmentBudgetBreakdown
 import com.deeksha.avr.model.ProjectBudgetSummary
 import com.deeksha.avr.model.User
+import com.deeksha.avr.model.TemporaryApprover
 import com.deeksha.avr.repository.AuthRepository
 import kotlinx.coroutines.launch
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -79,6 +81,7 @@ fun ApproverProjectDashboardScreen(
     approverProjectViewModel: ApproverProjectViewModel = hiltViewModel(),
     notificationViewModel: NotificationViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
+    temporaryApproverViewModel: TemporaryApproverViewModel = hiltViewModel(),
 ) {
     val projectBudgetSummary by approverProjectViewModel.projectBudgetSummary.collectAsState()
     val isLoading by approverProjectViewModel.isLoading.collectAsState()
@@ -88,6 +91,10 @@ fun ApproverProjectDashboardScreen(
     // State for temporary approver user data
     var temporaryApproverUser by remember { mutableStateOf<User?>(null) }
     var isLoadingTemporaryApprover by remember { mutableStateOf(false) }
+    
+    // State for temporary approver data
+    val temporaryApprovers by temporaryApproverViewModel.temporaryApprovers.collectAsState()
+    val currentTemporaryApprover = temporaryApprovers.firstOrNull()
     
     // Create AuthRepository instance
     val authRepository = remember { AuthRepository(com.google.firebase.firestore.FirebaseFirestore.getInstance()) }
@@ -116,19 +123,19 @@ fun ApproverProjectDashboardScreen(
     // Load project data when screen starts
     LaunchedEffect(projectId) {
         approverProjectViewModel.loadProjectBudgetSummary(projectId)
+        temporaryApproverViewModel.loadTemporaryApprovers(projectId)
         // Initialize notifications for this user
         authState.user?.uid?.let { userId ->
             notificationViewModel.loadNotifications(userId)
         }
     }
     
-    // Load temporary approver user data when project data is loaded
-    LaunchedEffect(projectBudgetSummary.project?.temporaryApproverPhone) {
-        val tempApproverPhone = projectBudgetSummary.project?.temporaryApproverPhone
-        if (!tempApproverPhone.isNullOrEmpty()) {
+    // Load temporary approver user data when temporary approver data is loaded
+    LaunchedEffect(currentTemporaryApprover) {
+        if (currentTemporaryApprover != null) {
             isLoadingTemporaryApprover = true
             try {
-                val user = authRepository.getUserByPhoneNumber(tempApproverPhone)
+                val user = authRepository.getUserByPhoneNumber(currentTemporaryApprover.approverPhone)
                 temporaryApproverUser = user
             } catch (e: Exception) {
                 Log.e("ApproverProjectDashboard", "Error loading temporary approver user: ${e.message}")
@@ -350,7 +357,8 @@ fun ApproverProjectDashboardScreen(
                             ProjectOverviewSection(
                                 projectBudgetSummary = projectBudgetSummary,
                                 temporaryApproverUser = temporaryApproverUser,
-                                isLoadingTemporaryApprover = isLoadingTemporaryApprover
+                                isLoadingTemporaryApprover = isLoadingTemporaryApprover,
+                                currentTemporaryApprover = currentTemporaryApprover
                             )
                             
                             Spacer(modifier = Modifier.height(24.dp))
@@ -495,13 +503,16 @@ private fun ApproverNavigationDrawer(
                 onClick = onNavigateToAddExpense
             )
             
-            ColorfulDrawerMenuItem(
-                icon = Icons.Default.CheckCircle,
-                iconColor = Color.White,
-                backgroundColor = Color(0xFF9C27B0),
-                title = "Analytics",
-                onClick = onNavigateToAnalytics
-            )
+            // Analytics - Only show for Production Head users
+            if (userRole == "PRODUCTION_HEAD") {
+                ColorfulDrawerMenuItem(
+                    icon = Icons.Default.CheckCircle,
+                    iconColor = Color.White,
+                    backgroundColor = Color(0xFF9C27B0),
+                    title = "Analytics",
+                    onClick = onNavigateToAnalytics
+                )
+            }
             
             ColorfulDrawerMenuItem(
                 icon = Icons.Default.Person,
@@ -819,7 +830,8 @@ private fun getAttractiveDepartmentColor(departmentName: String): Color {
 private fun ProjectOverviewSection(
     projectBudgetSummary: ProjectBudgetSummary,
     temporaryApproverUser: User?,
-    isLoadingTemporaryApprover: Boolean
+    isLoadingTemporaryApprover: Boolean,
+    currentTemporaryApprover: TemporaryApprover?
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -860,7 +872,11 @@ private fun ProjectOverviewSection(
             iconColor = Color(0xFFFF9800),
             value = temporaryApproverUser?.name ?: "N/A",
             label = "Temp Approver",
-            subtitle = if (temporaryApproverUser != null) "Until: 31/10/25" else null
+            subtitle = if (currentTemporaryApprover?.expiringDate != null) {
+                "Until: ${FormatUtils.formatDate(currentTemporaryApprover.expiringDate)}"
+            } else if (temporaryApproverUser != null) {
+                "Ongoing"
+            } else null
         )
         
         // Total Budget Card  
@@ -1466,6 +1482,30 @@ private fun TeamMembersDialog(
     teamMemberIds: List<String>,
     onDismiss: () -> Unit
 ) {
+    val authViewModel: AuthViewModel = hiltViewModel()
+    var teamMembers by remember { mutableStateOf<List<User>>(emptyList()) }
+    var isLoading by remember { mutableStateOf(true) }
+    
+    LaunchedEffect(teamMemberIds) {
+        isLoading = true
+        val members = mutableListOf<User>()
+        
+        teamMemberIds.forEach { phoneNumber ->
+            try {
+                val user = authViewModel.getUserByPhoneNumber(phoneNumber)
+                if (user != null) {
+                    members.add(user)
+                }
+            } catch (e: Exception) {
+                // If user not found, create a placeholder with phone number
+                members.add(User(uid = phoneNumber, name = "Unknown User", phone = phoneNumber))
+            }
+        }
+        
+        teamMembers = members
+        isLoading = false
+    }
+    
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
@@ -1484,13 +1524,25 @@ private fun TeamMembersDialog(
                     color = Color.Gray,
                     modifier = Modifier.padding(16.dp)
                 )
+            } else if (isLoading) {
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    CircularProgressIndicator(
+                        color = Color(0xFF8B5FBF),
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
             } else {
                 LazyColumn(
                     modifier = Modifier.heightIn(max = 400.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    items(teamMemberIds) { memberId ->
-                        TeamMemberItem(memberId = memberId)
+                    items(teamMembers) { member ->
+                        TeamMemberItem(user = member)
                     }
                 }
             }
@@ -1510,7 +1562,7 @@ private fun TeamMembersDialog(
 // Team Member Item Component
 @Composable
 private fun TeamMemberItem(
-    memberId: String
+    user: User
 ) {
     Row(
         modifier = Modifier
@@ -1539,13 +1591,13 @@ private fun TeamMemberItem(
         // Member Info
         Column(modifier = Modifier.weight(1f)) {
             Text(
-                text = "User ID: $memberId",
+                text = user.name.ifEmpty { "Unknown User" },
                 fontSize = 16.sp,
                 fontWeight = FontWeight.Medium,
                 color = Color.Black
             )
             Text(
-                text = "Team Member",
+                text = user.role.name.replace("_", " ").lowercase().replaceFirstChar { it.uppercase() },
                 fontSize = 14.sp,
                 color = Color(0xFF4285F4)
             )
@@ -1556,7 +1608,7 @@ private fun TeamMemberItem(
             modifier = Modifier
                 .size(8.dp)
                 .clip(CircleShape)
-                .background(Color(0xFF4CAF50))
+                .background(if (user.isActive) Color(0xFF4CAF50) else Color(0xFF9E9E9E))
         )
     }
 }

@@ -22,6 +22,7 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.viewmodel.ReportsViewModel
+import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.utils.FormatUtils
 import java.text.SimpleDateFormat
 import java.util.*
@@ -37,6 +38,8 @@ fun AnalyticsScreen(
     onNavigateBack: () -> Unit,
     reportsViewModel: ReportsViewModel = hiltViewModel()
 ) {
+    val authViewModel: AuthViewModel = hiltViewModel()
+    val authState by authViewModel.authState.collectAsState()
     val reportData by reportsViewModel.reportData.collectAsState()
     val isLoading by reportsViewModel.isLoading.collectAsState()
     val error by reportsViewModel.error.collectAsState()
@@ -44,9 +47,14 @@ fun AnalyticsScreen(
     var selectedTab by remember { mutableStateOf(0) }
     val tabs = listOf("Forecast", "Variance", "Trends")
     
+    // Check if user has access to Analytics (only Production Head)
+    val hasAccess = authState.user?.role?.name == "PRODUCTION_HEAD"
+    
     // Load reports when screen starts
     LaunchedEffect(projectId) {
-        reportsViewModel.loadReportsForProject(projectId)
+        if (hasAccess) {
+            reportsViewModel.loadReportsForProject(projectId)
+        }
     }
     
     Column(
@@ -79,6 +87,47 @@ fun AnalyticsScreen(
         )
         
         when {
+            !hasAccess -> {
+                Box(
+                    modifier = Modifier.fillMaxSize(),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        modifier = Modifier.padding(16.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Lock,
+                            contentDescription = "Access Denied",
+                            tint = Color(0xFFF44336),
+                            modifier = Modifier.size(64.dp)
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Access Denied",
+                            fontSize = 24.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFF44336)
+                        )
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(
+                            text = "Analytics is only available to Production Head users.",
+                            fontSize = 16.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = onNavigateBack,
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF8B5FBF)
+                            )
+                        ) {
+                            Text("Go Back")
+                        }
+                    }
+                }
+            }
             isLoading -> {
                 Box(
                     modifier = Modifier.fillMaxSize(),
