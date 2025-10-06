@@ -357,7 +357,9 @@ fun ApproverProjectDashboardScreen(
                             
                             // Department Budgets Section
                             DepartmentBudgetsSection(
-                                departmentBreakdown = projectBudgetSummary.departmentBreakdown
+                                departmentBreakdown = projectBudgetSummary.departmentBreakdown,
+                                onNavigateToDepartmentDetail = onNavigateToDepartmentDetail,
+                                projectId = projectId
                             )
                             
                             Spacer(modifier = Modifier.height(24.dp))
@@ -1058,7 +1060,9 @@ private fun OverviewCard(
 
 @Composable
 private fun DepartmentBudgetsSection(
-    departmentBreakdown: List<DepartmentBudgetBreakdown>
+    departmentBreakdown: List<DepartmentBudgetBreakdown>,
+    onNavigateToDepartmentDetail: (String, String) -> Unit,
+    projectId: String
 ) {
     Row(
         modifier = Modifier.fillMaxWidth(),
@@ -1095,7 +1099,10 @@ private fun DepartmentBudgetsSection(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
             items(departmentsWithSpending) { department ->
-                DepartmentBudgetCard(department = department)
+                DepartmentBudgetCard(
+                    department = department,
+                    onClick = { onNavigateToDepartmentDetail(projectId, department.department) }
+                )
             }
         }
     } else {
@@ -1125,10 +1132,13 @@ private fun DepartmentBudgetsSection(
 @Composable
 private fun DepartmentBudgetCard(
     department: DepartmentBudgetBreakdown,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    onClick: () -> Unit = {}
 ) {
     Card(
-        modifier = modifier.width(170.dp),
+        modifier = modifier
+            .width(170.dp)
+            .clickable { onClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(12.dp)

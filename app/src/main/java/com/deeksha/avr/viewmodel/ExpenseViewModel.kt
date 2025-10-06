@@ -21,13 +21,15 @@ import com.deeksha.avr.model.ExpenseFormData
 import com.deeksha.avr.model.StatusCounts
 import com.deeksha.avr.model.ExpenseSummary
 import com.deeksha.avr.service.NotificationService
+import com.deeksha.avr.service.BudgetValidationService
 
 @HiltViewModel
 class ExpenseViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val projectRepository: ProjectRepository,
     private val notificationRepository: NotificationRepository,
-    private val notificationService: NotificationService
+    private val notificationService: NotificationService,
+    private val budgetValidationService: BudgetValidationService
 ) : ViewModel() {
 
     private val _expenses = MutableStateFlow<List<Expense>>(emptyList())
@@ -67,6 +69,13 @@ class ExpenseViewModel @Inject constructor(
 
     private val _successMessage = MutableStateFlow<String?>(null)
     val successMessage: StateFlow<String?> = _successMessage.asStateFlow()
+
+    // Budget validation state
+    private val _budgetValidationResult = MutableStateFlow<BudgetValidationService.BudgetValidationResult?>(null)
+    val budgetValidationResult: StateFlow<BudgetValidationService.BudgetValidationResult?> = _budgetValidationResult.asStateFlow()
+
+    private val _budgetWarning = MutableStateFlow<String?>(null)
+    val budgetWarning: StateFlow<String?> = _budgetWarning.asStateFlow()
 
     // Get categories dynamically from selected project only
     val categories: List<String>
@@ -178,6 +187,10 @@ class ExpenseViewModel @Inject constructor(
             "attachmentUri" -> currentData.copy(attachmentUri = value)
             else -> currentData
         }
+        
+        // Clear budget validation when form changes
+        _budgetValidationResult.value = null
+        _budgetWarning.value = null
     }
 
     fun submitExpense(
@@ -189,11 +202,12 @@ class ExpenseViewModel @Inject constructor(
         viewModelScope.launch {
             _isSubmitting.value = true
             _error.value = null
+            _budgetWarning.value = null
             
             try {
                 val formData = _formData.value
                 
-                // Validation
+                // Basic validation
                 if (formData.date.isEmpty()) {
                     _error.value = "Please select a date"
                     _isSubmitting.value = false
@@ -234,6 +248,26 @@ class ExpenseViewModel @Inject constructor(
                 
                 val amount = formData.amount.toDouble()
                 
+                // Budget validation
+                Log.d("ExpenseViewModel", "🔍 Validating budget for department: ${formData.department}, amount: $amount")
+                val budgetValidation = budgetValidationService.validateExpenseAgainstBudget(
+                    projectId = projectId,
+                    department = formData.department,
+                    newExpenseAmount = amount
+                )
+                
+                _budgetValidationResult.value = budgetValidation
+                
+                if (!budgetValidation.isValid) {
+                    _budgetWarning.value = budgetValidation.warningMessage
+                    _error.value = budgetValidation.warningMessage
+                    _isSubmitting.value = false
+                    Log.w("ExpenseViewModel", "⚠️ Budget validation failed: ${budgetValidation.warningMessage}")
+                    return@launch
+                }
+                
+                Log.d("ExpenseViewModel", "✅ Budget validation passed - proceeding with expense submission")
+                
                 // Create expense object
                 val expense = Expense(
                     projectId = projectId,
@@ -261,6 +295,8 @@ class ExpenseViewModel @Inject constructor(
                     // Clear form and error
                     _formData.value = ExpenseFormData()
                     _error.value = null
+                    _budgetWarning.value = null
+                    _budgetValidationResult.value = null
                     _successMessage.value = "Expense submitted successfully! ✅"
                     _isSubmitting.value = false
                     
@@ -292,6 +328,52 @@ class ExpenseViewModel @Inject constructor(
         _formData.value = ExpenseFormData()
         _error.value = null
         _successMessage.value = null
+        _budgetWarning.value = null
+        _budgetValidationResult.value = null
+    }
+    
+    // Budget validation methods
+    fun validateBudget(projectId: String, department: String, amount: Double) {
+        viewModelScope.launch {
+            try {
+                Log.d("ExpenseViewModel", "🔍 Validating budget for department: $department, amount: $amount")
+                val validationResult = budgetValidationService.validateExpenseAgainstBudget(
+                    projectId = projectId,
+                    department = department,
+                    newExpenseAmount = amount
+                )
+                
+                _budgetValidationResult.value = validationResult
+                
+                if (!validationResult.isValid) {
+                    _budgetWarning.value = validationResult.warningMessage
+                    Log.w("ExpenseViewModel", "⚠️ Budget validation failed: ${validationResult.warningMessage}")
+                } else {
+                    _budgetWarning.value = null
+                    Log.d("ExpenseViewModel", "✅ Budget validation passed")
+                }
+            } catch (e: Exception) {
+                Log.e("ExpenseViewModel", "❌ Error validating budget: ${e.message}")
+                _budgetWarning.value = "Error validating budget: ${e.message}"
+            }
+        }
+    }
+    
+    fun clearBudgetWarning() {
+        _budgetWarning.value = null
+        _budgetValidationResult.value = null
+    }
+    
+    fun getBudgetSummary(projectId: String) {
+        viewModelScope.launch {
+            try {
+                val budgetSummary = budgetValidationService.getProjectBudgetSummary(projectId)
+                Log.d("ExpenseViewModel", "📊 Budget summary loaded: ${budgetSummary.keys}")
+                // You can emit this to a StateFlow if needed for UI display
+            } catch (e: Exception) {
+                Log.e("ExpenseViewModel", "❌ Error getting budget summary: ${e.message}")
+            }
+        }
     }
     
     // Method to update user names for existing expenses

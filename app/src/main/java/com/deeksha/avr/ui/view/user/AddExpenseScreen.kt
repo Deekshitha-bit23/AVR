@@ -43,6 +43,8 @@ import com.deeksha.avr.viewmodel.NotificationViewModel
 import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.ui.common.NotificationBadgeComponent
 import com.deeksha.avr.ui.common.NotificationPulseIndicator
+import com.deeksha.avr.ui.components.BudgetWarningComponent
+import com.deeksha.avr.ui.components.BudgetExceededDialog
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -64,6 +66,8 @@ fun AddExpenseScreen(
     val error by expenseViewModel.error.collectAsState()
     val isSubmitting by expenseViewModel.isSubmitting.collectAsState()
     val successMessage by expenseViewModel.successMessage.collectAsState()
+    val budgetValidationResult by expenseViewModel.budgetValidationResult.collectAsState()
+    val budgetWarning by expenseViewModel.budgetWarning.collectAsState()
     
     // Notification states
     val authState by authViewModel.authState.collectAsState()
@@ -87,12 +91,23 @@ fun AddExpenseScreen(
     var selectedAttachmentName by remember { mutableStateOf<String?>(null) }
     var showDepartmentDropdown by remember { mutableStateOf(false) }
     var showCategoryDropdown by remember { mutableStateOf(false) }
+    var showBudgetExceededDialog by remember { mutableStateOf(false) }
     
     val context = LocalContext.current
     
     // Set the selected project in the view model so departments can be loaded
     LaunchedEffect(project) {
         expenseViewModel.setSelectedProject(project)
+    }
+    
+    // Real-time budget validation when amount or department changes
+    LaunchedEffect(formData.amount, formData.department) {
+        if (formData.amount.isNotEmpty() && formData.department.isNotEmpty()) {
+            val amount = formData.amount.toDoubleOrNull()
+            if (amount != null && amount > 0) {
+                expenseViewModel.validateBudget(project.id, formData.department, amount)
+            }
+        }
     }
     
     // Load notifications when screen opens
@@ -280,6 +295,15 @@ fun AddExpenseScreen(
                 }
             }
             
+            // Budget Warning Component
+            item {
+                BudgetWarningComponent(
+                    budgetValidationResult = budgetValidationResult,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+            
+            
             // Date Field
             item {
                 OutlinedTextField(
@@ -303,22 +327,43 @@ fun AddExpenseScreen(
             
             // Amount Field
             item {
+                val budgetInfo = if (formData.department.isNotEmpty() && budgetValidationResult != null) {
+                    val result = budgetValidationResult!!
+                    "Budget: ₹${String.format("%.0f", result.departmentBudget)} | Spent: ₹${String.format("%.0f", result.currentSpent)} | Remaining: ₹${String.format("%.0f", result.remainingBudget)}"
+                } else {
+                    "Select department to see budget info"
+                }
+                
                 OutlinedTextField(
                     value = formData.amount,
                     onValueChange = { expenseViewModel.updateFormField("amount", it) },
                     label = { Text("Amount") },
                     placeholder = { Text("Enter amount") },
+                    supportingText = { 
+                        Text(
+                            text = budgetInfo,
+                            fontSize = 11.sp,
+                            color = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF666666)
+                        )
+                    },
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
                     modifier = Modifier.fillMaxWidth(),
                     colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF4285F4),
-                        unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
+                        focusedBorderColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF4285F4),
+                        unfocusedBorderColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color.Gray.copy(alpha = 0.5f)
                     )
                 )
             }
             
             // Department Dropdown
             item {
+                val departmentBudgetInfo = if (formData.department.isNotEmpty() && budgetValidationResult != null) {
+                    val result = budgetValidationResult!!
+                    val progress = if (result.departmentBudget > 0) (result.currentSpent / result.departmentBudget * 100) else 0.0
+                    "${String.format("%.0f", progress)}% used (₹${String.format("%.0f", result.remainingBudget)} remaining)"
+                } else {
+                    "Select department to see budget status"
+                }
                 
                 ExposedDropdownMenuBox(
                     expanded = showDepartmentDropdown,
@@ -330,6 +375,13 @@ fun AddExpenseScreen(
                         readOnly = true,
                         label = { Text("Department") },
                         placeholder = { Text("Select department") },
+                        supportingText = {
+                            Text(
+                                text = departmentBudgetInfo,
+                                fontSize = 11.sp,
+                                color = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF666666)
+                            )
+                        },
                         trailingIcon = {
                             Icon(Icons.Default.ArrowDropDown, contentDescription = null)
                         },
@@ -337,8 +389,8 @@ fun AddExpenseScreen(
                             .fillMaxWidth()
                             .menuAnchor(),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4285F4),
-                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
+                            focusedBorderColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF4285F4),
+                            unfocusedBorderColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color.Gray.copy(alpha = 0.5f)
                         )
                     )
                     
@@ -560,19 +612,24 @@ fun AddExpenseScreen(
                     // Submit Button
                     Button(
                         onClick = {
-                            expenseViewModel.submitExpense(
-                                projectId = project.id,
-                                userId = userId,
-                                userName = userName,
-                                onSuccess = onExpenseAdded
-                            )
+                            // Check if budget validation failed
+                            if (budgetValidationResult?.isValid == false) {
+                                showBudgetExceededDialog = true
+                            } else {
+                                expenseViewModel.submitExpense(
+                                    projectId = project.id,
+                                    userId = userId,
+                                    userName = userName,
+                                    onSuccess = onExpenseAdded
+                                )
+                            }
                         },
-                        enabled = !isSubmitting,
+                        enabled = !isSubmitting && formData.amount.isNotEmpty() && formData.department.isNotEmpty() && formData.category.isNotEmpty(),
                         modifier = Modifier
                             .weight(1f)
                             .height(56.dp),
                         colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4285F4)
+                            containerColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF4285F4)
                         ),
                         shape = RoundedCornerShape(28.dp)
                     ) {
@@ -583,7 +640,10 @@ fun AddExpenseScreen(
                             )
                         } else {
                             Text(
-                                text = "Submit for Approval",
+                                text = when {
+                                    budgetValidationResult?.isValid == false -> "Budget Exceeded"
+                                    else -> "Submit for Approval"
+                                },
                                 fontSize = 18.sp,
                                 fontWeight = FontWeight.Bold
                             )
@@ -657,6 +717,27 @@ fun AddExpenseScreen(
                 documentPickerLauncher.launch("application/pdf")
             },
             onDismiss = { showAttachmentDialog = false }
+        )
+    }
+    
+    // Budget Exceeded Dialog
+    if (showBudgetExceededDialog && budgetValidationResult != null) {
+        val result = budgetValidationResult!!
+        BudgetExceededDialog(
+            budgetValidationResult = result,
+            onDismiss = { 
+                showBudgetExceededDialog = false
+                expenseViewModel.clearBudgetWarning()
+            },
+            onProceed = {
+                showBudgetExceededDialog = false
+                expenseViewModel.submitExpense(
+                    projectId = project.id,
+                    userId = userId,
+                    userName = userName,
+                    onSuccess = onExpenseAdded
+                )
+            }
         )
     }
 }

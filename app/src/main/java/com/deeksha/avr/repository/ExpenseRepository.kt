@@ -1362,4 +1362,107 @@ class ExpenseRepository @Inject constructor(
         }
         awaitClose { listeners.forEach { it.remove() } }
     }
+    
+    // Budget validation methods
+    suspend fun getDepartmentSpending(projectId: String, department: String): Double {
+        return try {
+            Log.d("ExpenseRepository", "🔄 Getting department spending for project: $projectId, department: $department")
+            
+            val snapshot = firestore.collection("projects")
+                .document(projectId)
+                .collection("expenses")
+                .whereEqualTo("department", department)
+                .whereEqualTo("status", "APPROVED")
+                .get()
+                .await()
+            
+            val totalSpent = snapshot.documents.sumOf { doc ->
+                val data = doc.data
+                (data?.get("amount") as? Number)?.toDouble() ?: 0.0
+            }
+            
+            Log.d("ExpenseRepository", "✅ Department $department spending: ₹$totalSpent")
+            totalSpent
+        } catch (e: Exception) {
+            Log.e("ExpenseRepository", "❌ Error getting department spending: ${e.message}")
+            0.0
+        }
+    }
+    
+    suspend fun getProjectExpensesByDepartment(projectId: String): Map<String, List<Expense>> {
+        return try {
+            Log.d("ExpenseRepository", "🔄 Getting project expenses by department for project: $projectId")
+            
+            val snapshot = firestore.collection("projects")
+                .document(projectId)
+                .collection("expenses")
+                .whereEqualTo("status", "APPROVED")
+                .get()
+                .await()
+            
+            val expenses = snapshot.documents.mapNotNull { doc ->
+                try {
+                    val data = doc.data ?: return@mapNotNull null
+                    Expense(
+                        id = doc.id,
+                        projectId = projectId,
+                        userId = data["userId"] as? String ?: "",
+                        userName = data["userName"] as? String ?: "",
+                        date = data["date"] as? Timestamp,
+                        amount = (data["amount"] as? Number)?.toDouble() ?: 0.0,
+                        department = data["department"] as? String ?: "",
+                        category = data["category"] as? String ?: "",
+                        description = data["description"] as? String ?: "",
+                        modeOfPayment = data["modeOfPayment"] as? String ?: "",
+                        tds = (data["tds"] as? Number)?.toDouble() ?: 0.0,
+                        gst = (data["gst"] as? Number)?.toDouble() ?: 0.0,
+                        netAmount = (data["netAmount"] as? Number)?.toDouble() ?: 0.0,
+                        attachmentUrl = data["attachmentUrl"] as? String ?: "",
+                        attachmentFileName = data["attachmentFileName"] as? String ?: "",
+                        status = ExpenseStatus.APPROVED,
+                        submittedAt = data["submittedAt"] as? Timestamp,
+                        reviewedAt = data["reviewedAt"] as? Timestamp,
+                        reviewedBy = data["reviewedBy"] as? String ?: "",
+                        reviewComments = data["reviewComments"] as? String ?: "",
+                        receiptNumber = data["receiptNumber"] as? String ?: ""
+                    )
+                } catch (e: Exception) {
+                    Log.e("ExpenseRepository", "❌ Error mapping expense: ${e.message}")
+                    null
+                }
+            }
+            
+            val expensesByDepartment = expenses.groupBy { it.department }
+            Log.d("ExpenseRepository", "✅ Grouped expenses by department: ${expensesByDepartment.keys}")
+            
+            expensesByDepartment
+        } catch (e: Exception) {
+            Log.e("ExpenseRepository", "❌ Error getting expenses by department: ${e.message}")
+            emptyMap()
+        }
+    }
+    
+    // Method to get expenses by project (used by BudgetValidationService)
+    fun getExpensesByProject(projectId: String): Flow<List<Expense>> = callbackFlow {
+        Log.d("ExpenseRepository", "🔥 Getting expenses by project: $projectId")
+        
+        val listener = firestore.collection("projects")
+            .document(projectId)
+            .collection("expenses")
+            .addSnapshotListener { snapshot, error ->
+                if (error != null) {
+                    Log.e("ExpenseRepository", "❌ Error getting expenses by project: ${error.message}")
+                    close(error)
+                    return@addSnapshotListener
+                }
+                
+                val expenses = snapshot?.documents?.mapNotNull { doc ->
+                    mapDocumentToExpense(doc, projectId)
+                } ?: emptyList()
+                
+                trySend(expenses)
+            }
+        
+        awaitClose { listener.remove() }
+    }
 } 
