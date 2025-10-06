@@ -91,27 +91,19 @@ class NotificationViewModel @Inject constructor(
             try {
                 Log.d("NotificationViewModel", "🔄 Loading ALL notifications for user: $userId")
                 
-                // Set up real-time listener for all notifications
+                // Set up real-time listener for UNREAD notifications only so read items don't come back
                 notificationListener = viewModelScope.launch {
-                    notificationRepository.getAllNotificationsForUserRealtime(userId)
+                    notificationRepository.getNotificationsForUserRealtime(userId)
                         .collect { notifications ->
-                            Log.d("NotificationViewModel", "📡 Real-time ALL notification update: ${notifications.size} notifications")
-                            
-                            // Log each notification for debugging
-                            notifications.forEach { notification ->
-                                Log.d("NotificationViewModel", "📋 Notification: ${notification.title} - Recipient: ${notification.recipientId} - Project: ${notification.projectName} - Read: ${notification.isRead}")
-                            }
-                            
+                            Log.d("NotificationViewModel", "📡 Real-time UNREAD notification update: ${notifications.size} notifications")
                             _notifications.value = notifications
-                            
                             // Update badge immediately after loading notifications
                             updateNotificationBadge(userId)
-                            
-                            Log.d("NotificationViewModel", "✅ Updated ${notifications.size} ALL notifications in real-time")
+                            Log.d("NotificationViewModel", "✅ Updated ${notifications.size} unread notifications in real-time")
                         }
                 }
                 
-                Log.d("NotificationViewModel", "✅ Set up real-time ALL notification listener")
+                Log.d("NotificationViewModel", "✅ Set up real-time UNREAD notification listener")
                 
             } catch (e: Exception) {
                 Log.e("NotificationViewModel", "❌ Error loading all notifications: ${e.message}")
@@ -151,19 +143,16 @@ class NotificationViewModel @Inject constructor(
                 
                 notificationRepository.markNotificationAsRead(notificationId)
                 
-                // Update local state
-                _notifications.value = _notifications.value.map { notification ->
-                    if (notification.id == notificationId) {
-                        notification.copy(isRead = true)
-                    } else {
-                        notification
-                    }
+                // Remove the read notification from the local list since it should disappear
+                val updatedNotifications = _notifications.value.filter { notification ->
+                    notification.id != notificationId
                 }
+                _notifications.value = updatedNotifications
                 
                 // Update badge
                 currentUserId?.let { updateNotificationBadge(it) }
                 
-                Log.d("NotificationViewModel", "✅ Marked notification as read")
+                Log.d("NotificationViewModel", "✅ Marked notification as read and removed from list")
                 
             } catch (e: Exception) {
                 Log.e("NotificationViewModel", "❌ Error marking notification as read: ${e.message}")
@@ -179,13 +168,13 @@ class NotificationViewModel @Inject constructor(
                 
                 notificationRepository.markAllNotificationsAsRead(userId)
                 
-                // Update local state
-                _notifications.value = _notifications.value.map { it.copy(isRead = true) }
+                // Clear the entire list since all notifications are now read and should disappear
+                _notifications.value = emptyList()
                 
                 // Update badge
                 updateNotificationBadge(userId)
                 
-                Log.d("NotificationViewModel", "✅ Marked all notifications as read")
+                Log.d("NotificationViewModel", "✅ Marked all notifications as read and cleared list")
                 
             } catch (e: Exception) {
                 Log.e("NotificationViewModel", "❌ Error marking all notifications as read: ${e.message}")
