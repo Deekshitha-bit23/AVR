@@ -294,6 +294,42 @@ class TemporaryApproverViewModel @Inject constructor(
     }
 
     /**
+     * Update start date of a temporary approver
+     */
+    fun updateStartDate(projectId: String, tempApproverId: String, newStartDate: Timestamp) {
+        viewModelScope.launch {
+            try {
+                _error.value = null
+                _successMessage.value = null
+                
+                Log.d(TAG, "🔄 Updating start date for temporary approver: $tempApproverId")
+                
+                val result = temporaryApproverRepository.updateStartDate(
+                    projectId, 
+                    tempApproverId, 
+                    newStartDate
+                )
+                
+                if (result.isSuccess) {
+                    _successMessage.value = "Start date updated successfully"
+                    Log.d(TAG, "✅ Start date updated successfully")
+                    
+                    // Reload the temporary approvers list
+                    loadTemporaryApprovers(projectId)
+                } else {
+                    val exception = result.exceptionOrNull()
+                    _error.value = "Failed to update start date: ${exception?.message}"
+                    Log.e(TAG, "❌ Failed to update start date", exception)
+                }
+                
+            } catch (e: Exception) {
+                _error.value = "Error updating start date: ${e.message}"
+                Log.e(TAG, "❌ Exception while updating start date", e)
+            }
+        }
+    }
+    
+    /**
      * Update expiring date of a temporary approver
      */
     fun updateExpiringDate(projectId: String, tempApproverId: String, newExpiringDate: Date) {

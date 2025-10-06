@@ -40,6 +40,7 @@ import com.deeksha.avr.ui.view.approver.ApproverNotificationScreen
 import com.deeksha.avr.ui.view.approver.CategoryDetailScreen
 import com.deeksha.avr.ui.view.approver.PendingApprovalsScreen
 import com.deeksha.avr.ui.view.approver.ReviewExpenseScreen
+import com.deeksha.avr.ui.view.approver.ApproverExpenseChatScreen
 import com.deeksha.avr.ui.view.approver.ReportsScreen as ApproverReportsScreen
 import com.deeksha.avr.ui.view.approver.AnalyticsScreen
 import com.deeksha.avr.ui.view.approver.OverallReportsScreen
@@ -52,6 +53,7 @@ import com.deeksha.avr.ui.view.common.ProjectNotificationScreen
 import com.deeksha.avr.ui.view.common.ChatListScreen
 import com.deeksha.avr.ui.view.common.ChatScreen
 import com.deeksha.avr.ui.view.user.AddExpenseScreen
+import com.deeksha.avr.ui.view.user.ExpenseChatScreen
 import com.deeksha.avr.ui.view.user.ExpenseListScreen
 import com.deeksha.avr.ui.view.user.TrackSubmissionsScreen
 import com.deeksha.avr.ui.view.user.UserDashboardScreen
@@ -578,7 +580,10 @@ fun AppNavHost(
                                 userId = userPhone!!,   // Phone number as userId
                                 userName = userName!!,
                                 onNavigateBack = { navController.popBackStack() },
-                                onExpenseAdded = { navController.popBackStack() }
+                                onExpenseAdded = { navController.popBackStack() },
+                                onNavigateToExpenseChat = { projectId ->
+                                    navController.navigate(Screen.ExpenseChat.createRoute(projectId))
+                                }
                             )
                         }
                     } else {
@@ -615,6 +620,89 @@ fun AppNavHost(
                             )
                         ) {
                             Text("Go Back")
+                        }
+                    }
+                }
+            }
+        }
+        
+        // Expense Chat Screen
+        composable(
+            route = Screen.ExpenseChat.route,
+            arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            val projectViewModel: ProjectViewModel = hiltViewModel()
+            val authViewModel: AuthViewModel = hiltViewModel()
+            val authState by authViewModel.authState.collectAsState()
+            
+            // Ensure projects are loaded
+            LaunchedEffect(Unit) {
+                projectViewModel.loadProjects()
+            }
+            
+            // Get the project from the viewmodel
+            val projects by projectViewModel.projects.collectAsState()
+            val isLoading by projectViewModel.isLoading.collectAsState()
+            val selectedProject = projects.find { it.id == projectId }
+            
+            when {
+                isLoading -> {
+                    // Show loading screen
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally
+                        ) {
+                            CircularProgressIndicator(color = Color(0xFF4285F4))
+                            Spacer(modifier = Modifier.height(16.dp))
+                            Text(
+                                text = "Loading project...",
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                }
+
+                selectedProject != null -> {
+                    ExpenseChatScreen(
+                        project = selectedProject,
+                        onNavigateBack = { navController.popBackStack() }
+                    )
+                }
+                else -> {
+                    // Project not found - show error and back button
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(16.dp),
+                        horizontalAlignment = Alignment.CenterHorizontally,
+                        verticalArrangement = Arrangement.Center
+                    ) {
+                        Text(
+                            text = "❌ Project Not Found",
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Red,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "The requested project could not be found.",
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Button(
+                            onClick = { navController.popBackStack() },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4285F4)
+                            )
+                        ) {
+                            Text("Go Back", color = Color.White)
                         }
                     }
                 }
@@ -899,6 +987,20 @@ fun AppNavHost(
         ) { backStackEntry ->
             val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
             ReviewExpenseScreen(
+                expenseId = expenseId,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToExpenseChat = { expenseId ->
+                    navController.navigate(Screen.ApproverExpenseChat.createRoute(expenseId))
+                }
+            )
+        }
+        
+        composable(
+            route = Screen.ApproverExpenseChat.route,
+            arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
+            ApproverExpenseChatScreen(
                 expenseId = expenseId,
                 onNavigateBack = { navController.popBackStack() }
             )

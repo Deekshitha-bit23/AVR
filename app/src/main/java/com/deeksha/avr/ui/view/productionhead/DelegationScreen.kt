@@ -18,11 +18,18 @@ import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.Phone
+import androidx.compose.material.icons.filled.CalendarToday
+import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -37,6 +44,8 @@ import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.repository.AuthRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import java.text.SimpleDateFormat
 import java.util.*
 
@@ -53,17 +62,22 @@ fun DelegationScreen(
     val error by temporaryApproverViewModel.error.collectAsState()
     val authState by authViewModel.authState.collectAsState()
     
-    // State for editing
-    var editingApprover by remember { mutableStateOf<TemporaryApprover?>(null) }
-    var showingDatePicker by remember { mutableStateOf(false) }
-    var selectedDateType by remember { mutableStateOf("") } // "start" or "end"
+    // State for approver selection
     var showingApproverSelection by remember { mutableStateOf(false) }
-    var selectedApprover by remember { mutableStateOf<User?>(null) }
-    
-    // State for dynamic approvers
     var availableApprovers by remember { mutableStateOf<List<User>>(emptyList()) }
     var isLoadingApprovers by remember { mutableStateOf(false) }
     var approverError by remember { mutableStateOf<String?>(null) }
+    
+    // State for date editing
+    var showingDatePicker by remember { mutableStateOf(false) }
+    var selectedDateType by remember { mutableStateOf("") } // "start" or "end"
+    var editingApprover by remember { mutableStateOf<TemporaryApprover?>(null) }
+    
+    // Coroutine scope for async operations
+    val coroutineScope = rememberCoroutineScope()
+    
+    // Get the current temporary approver (first one if exists)
+    val currentApprover = temporaryApprovers.firstOrNull()
     
     // Load data when screen opens
     LaunchedEffect(projectId) {
@@ -92,32 +106,32 @@ fun DelegationScreen(
             TopAppBar(
                 title = {
                     Text(
-                        text = "Approval Delegation Settings",
+                        text = "Delegate Management",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
                         color = Color.White
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back",
-                            tint = Color.White
+                    TextButton(onClick = onNavigateBack) {
+                        Text(
+                            text = "Cancel",
+                            color = Color.White,
+                            fontSize = 16.sp
                         )
                     }
                 },
                 actions = {
-                    IconButton(onClick = { /* Settings functionality can be added here */ }) {
-                        Icon(
-                            Icons.Default.MoreVert,
-                            contentDescription = "Settings",
-                            tint = Color.White
+                    TextButton(onClick = { /* Save functionality can be added here */ }) {
+                        Text(
+                            text = "Save",
+                            color = Color.White,
+                            fontSize = 16.sp
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF8B4513) // Dark brown color
+                    containerColor = Color(0xFF1976D2) // Blue color
                 )
             )
         },
@@ -129,36 +143,6 @@ fun DelegationScreen(
                 .padding(paddingValues)
                 .padding(16.dp)
         ) {
-            // Header Section
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = "Delegation",
-                        tint = Color(0xFF4285F4),
-                        modifier = Modifier.size(24.dp)
-                    )
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text(
-                        text = "Approval Delegation Settings",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
             if (isLoading) {
                 Box(
                     modifier = Modifier.fillMaxSize(),
@@ -167,10 +151,10 @@ fun DelegationScreen(
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF4285F4))
+                        CircularProgressIndicator(color = Color(0xFF1976D2))
                         Spacer(modifier = Modifier.height(16.dp))
                         Text(
-                            text = "Loading delegations...",
+                            text = "Loading delegate information...",
                             color = Color.Gray
                         )
                     }
@@ -198,56 +182,84 @@ fun DelegationScreen(
                     }
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    items(temporaryApprovers) { tempApprover ->
-                        TemporaryApproverCard(
-                            temporaryApprover = if (editingApprover?.id == tempApprover.id) editingApprover!! else tempApprover,
-                            isEditing = editingApprover?.id == tempApprover.id,
-                            onEdit = { 
-                                editingApprover = if (editingApprover?.id == tempApprover.id) null else tempApprover
-                            },
-                            onRemove = { 
-                                temporaryApproverViewModel.removeTemporaryApproverById(projectId, tempApprover.id)
-                            },
-                            onSaveEdit = { updatedApprover ->
-                                // Save updated delegation with the original document ID
-                                val approverToUpdate = updatedApprover.copy(id = tempApprover.id)
-                                val currentUser = authState.user
-                                val changedBy = currentUser?.name ?: "Unknown User"
-                                temporaryApproverViewModel.updateTemporaryApprover(
-                                    projectId = projectId, 
-                                    updatedApprover = approverToUpdate,
-                                    originalApprover = tempApprover,
-                                    changedBy = changedBy
-                                )
-                                editingApprover = null
-                            },
-                            onCancelEdit = {
-                                editingApprover = null
-                            },
-                            onStartDateClick = {
-                                selectedDateType = "start"
-                                showingDatePicker = true
-                            },
-                            onEndDateClick = {
-                                selectedDateType = "end"
-                                showingDatePicker = true
-                            }
-                        )
+                // Delegate Management Summary Card
+                DelegateManagementSummaryCard(
+                    currentApprover = currentApprover
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Delegate Information Card
+                DelegateInformationCard(
+                    currentApprover = currentApprover,
+                    onStartDateClick = {
+                        editingApprover = currentApprover
+                        selectedDateType = "start"
+                        showingDatePicker = true
+                    },
+                    onEndDateClick = {
+                        editingApprover = currentApprover
+                        selectedDateType = "end"
+                        showingDatePicker = true
                     }
-                    
-                    // Add new delegation card
-                    item {
-                        AddDelegationCard(
-                            onClick = { 
-                                showingApproverSelection = true
-                            }
-                        )
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Action Buttons Card
+                ActionButtonsCard(
+                    onChangeTempApprover = {
+                        showingApproverSelection = true
+                    },
+                    onRefreshDetails = {
+                        temporaryApproverViewModel.loadTemporaryApprovers(projectId)
                     }
-                }
+                )
             }
+        }
+        
+        // Approver Selection Dialog
+        if (showingApproverSelection) {
+            ApproverSelectionDialog(
+                approvers = availableApprovers,
+                isLoading = isLoadingApprovers,
+                error = approverError,
+                onApproverSelected = { approver ->
+                    coroutineScope.launch {
+                        try {
+                            // Remove existing approver first if it exists
+                            if (currentApprover != null) {
+                                temporaryApproverViewModel.removeTemporaryApproverById(
+                                    projectId = projectId, 
+                                    documentId = currentApprover.id
+                                )
+                                
+                                // Wait for deletion to complete
+                                delay(500)
+                            }
+                            
+                            // Create new delegation with selected approver
+                            temporaryApproverViewModel.createTemporaryApprover(
+                                projectId = projectId,
+                                approverId = approver.uid,
+                                approverName = approver.name,
+                                approverPhone = approver.phone,
+                                startDate = Timestamp.now(),
+                                expiringDate = null
+                            )
+                            
+                            // Refresh the data to ensure UI updates
+                            temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+                            
+                        } catch (e: Exception) {
+                            // Handle any errors
+                            println("Error replacing temp approver: ${e.message}")
+                        }
+                    }
+                    showingApproverSelection = false
+                },
+                onDismiss = { showingApproverSelection = false }
+            )
         }
         
         // Date Picker Dialog
@@ -260,54 +272,167 @@ fun DelegationScreen(
             }
             
             DatePickerDialog(
-                onDismissRequest = { showingDatePicker = false },
+                onDismissRequest = { 
+                    showingDatePicker = false
+                    editingApprover = null
+                },
                 onDateSelected = { selectedDate ->
                     val timestamp = Timestamp(selectedDate)
                     val updatedApprover = when (selectedDateType) {
-                        "start" -> currentApprover.copy(startDate = timestamp)
-                        "end" -> currentApprover.copy(expiringDate = timestamp)
+                        "start" -> currentApprover.copy(
+                            startDate = timestamp,
+                            updatedAt = Timestamp.now()
+                        )
+                        "end" -> currentApprover.copy(
+                            expiringDate = timestamp,
+                            updatedAt = Timestamp.now()
+                        )
                         else -> currentApprover
                     }
-                    editingApprover = updatedApprover
+                    
+                    // Update the temporary approver
+                    val currentUser = authState.user
+                    val changedBy = currentUser?.name ?: "Unknown User"
+                    
+                    coroutineScope.launch {
+                        try {
+                            // Use specific update methods for better reliability
+                            if (selectedDateType == "start") {
+                                temporaryApproverViewModel.updateStartDate(
+                                    projectId = projectId,
+                                    tempApproverId = currentApprover.id,
+                                    newStartDate = timestamp
+                                )
+                            } else if (selectedDateType == "end") {
+                                temporaryApproverViewModel.updateExpiringDate(
+                                    projectId = projectId,
+                                    tempApproverId = currentApprover.id,
+                                    newExpiringDate = timestamp.toDate()
+                                )
+                            }
+                            
+                            // Wait for update to complete
+                            delay(500)
+                            
+                            // Refresh the data to ensure UI updates
+                            temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+                            
+                        } catch (e: Exception) {
+                            println("Error updating date: ${e.message}")
+                            // Fallback to general update method
+                            try {
+                                temporaryApproverViewModel.updateTemporaryApprover(
+                                    projectId = projectId,
+                                    updatedApprover = updatedApprover,
+                                    originalApprover = currentApprover,
+                                    changedBy = changedBy
+                                )
+                                delay(300)
+                                temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+                            } catch (fallbackError: Exception) {
+                                println("Fallback update also failed: ${fallbackError.message}")
+                            }
+                        }
+                    }
+                    
                     showingDatePicker = false
+                    editingApprover = null
                 },
                 initialDate = currentDate
-            )
-        }
-        
-        // Approver Selection Dialog
-        if (showingApproverSelection) {
-            ApproverSelectionDialog(
-                approvers = availableApprovers,
-                isLoading = isLoadingApprovers,
-                error = approverError,
-                onApproverSelected = { approver ->
-                    selectedApprover = approver
-                    showingApproverSelection = false
-                    // Create new delegation with selected approver
-                    temporaryApproverViewModel.createTemporaryApprover(
-                        projectId = projectId,
-                        approverId = approver.uid,
-                        approverName = approver.name,
-                        approverPhone = approver.phone,
-                        startDate = Timestamp.now(),
-                        expiringDate = null
-                    )
-                },
-                onDismiss = { showingApproverSelection = false }
             )
         }
     }
 }
 
 @Composable
-private fun TemporaryApproverCard(
-    temporaryApprover: TemporaryApprover,
-    isEditing: Boolean = false,
-    onEdit: () -> Unit,
-    onRemove: () -> Unit,
-    onSaveEdit: (TemporaryApprover) -> Unit = {},
-    onCancelEdit: () -> Unit = {},
+private fun DelegateManagementSummaryCard(
+    currentApprover: TemporaryApprover?
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Person with clock icon
+                Box(
+                    modifier = Modifier
+                        .size(40.dp)
+                        .background(
+                            Color(0xFF1976D2),
+                            shape = RoundedCornerShape(20.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.People,
+                        contentDescription = "Delegate Management",
+                        tint = Color.White,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.width(12.dp))
+                Column {
+                    Text(
+                        text = "Delegate Management",
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = "Manage temporary approver details.",
+                        fontSize = 14.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Pending status pill
+                Box(
+                    modifier = Modifier
+                        .background(
+                            Color(0xFFFF9800),
+                            shape = RoundedCornerShape(12.dp)
+                        )
+                        .padding(horizontal = 12.dp, vertical = 6.dp)
+                ) {
+                    Text(
+                        text = "Pending",
+                        color = Color.White,
+                        fontSize = 12.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
+                
+                // Last updated text
+                Text(
+                    text = "Last updated: ${FormatUtils.formatDate(Timestamp.now())}",
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun DelegateInformationCard(
+    currentApprover: TemporaryApprover?,
     onStartDateClick: () -> Unit = {},
     onEndDateClick: () -> Unit = {}
 ) {
@@ -322,358 +447,279 @@ private fun TemporaryApproverCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Header with folder icon and department/category
+            // Header
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 Icon(
-                    Icons.Default.Info,
-                    contentDescription = "Department",
-                    tint = Color(0xFF4285F4),
+                    Icons.Default.Person,
+                    contentDescription = "Delegate Information",
+                    tint = Color(0xFF1976D2),
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Temporary Approver: ${temporaryApprover.approverName}",
+                    text = "Delegate Information",
                     fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
+                    fontWeight = FontWeight.Bold,
                     color = Color.Black
+                )
+            }
+            
+            Spacer(modifier = Modifier.height(16.dp))
+            
+            if (currentApprover != null) {
+                // Name section
+                InfoRow(
+                    icon = Icons.Default.Person,
+                    label = "NAME",
+                    value = currentApprover.approverName
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Phone section
+                InfoRow(
+                    icon = Icons.Default.Phone,
+                    label = "PHONE NUMBER",
+                    value = currentApprover.approverPhone
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Start date section
+                InfoRowWithArrow(
+                    icon = Icons.Default.CalendarToday,
+                    label = "START DATE & TIME",
+                    value = FormatUtils.formatDate(currentApprover.startDate),
+                    onClick = onStartDateClick
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // End date section
+                InfoRowWithArrow(
+                    icon = Icons.Default.CalendarToday,
+                    label = "END DATE & TIME",
+                    value = if (currentApprover.expiringDate != null) {
+                        FormatUtils.formatDate(currentApprover.expiringDate)
+                    } else {
+                        "Ongoing"
+                    },
+                    onClick = onEndDateClick
+                )
+                
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Current status section
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Info,
+                            contentDescription = "Current Status",
+                            tint = Color(0xFF1976D2),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Current Status",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                    }
+                    
+                    // Pending status pill
+                    Box(
+                        modifier = Modifier
+                            .background(
+                                Color(0xFFFF9800),
+                                shape = RoundedCornerShape(12.dp)
+                            )
+                            .padding(horizontal = 12.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "Pending",
+                            color = Color.White,
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
+            } else {
+                // No delegate assigned
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 32.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Text(
+                        text = "No delegate assigned",
+                        fontSize = 16.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InfoRow(
+    icon: ImageVector,
+    label: String,
+    value: String
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(
+            icon,
+            contentDescription = label,
+            tint = Color(0xFF1976D2),
+            modifier = Modifier.size(16.dp)
+        )
+        Spacer(modifier = Modifier.width(8.dp))
+        Column {
+            Text(
+                text = label,
+                fontSize = 12.sp,
+                color = Color.Gray
+            )
+            Text(
+                text = value,
+                fontSize = 14.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black
+            )
+        }
+    }
+}
+
+@Composable
+private fun InfoRowWithArrow(
+    icon: ImageVector,
+    label: String,
+    value: String,
+    onClick: () -> Unit = {}
+) {
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                icon,
+                contentDescription = label,
+                tint = Color(0xFF1976D2),
+                modifier = Modifier.size(16.dp)
+            )
+            Spacer(modifier = Modifier.width(8.dp))
+            Column {
+                Text(
+                    text = label,
+                    fontSize = 12.sp,
+                    color = Color.Gray
+                )
+                Text(
+                    text = value,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            }
+        }
+        
+        Icon(
+            Icons.Default.ArrowForward,
+            contentDescription = "Arrow",
+            tint = Color.Gray,
+            modifier = Modifier.size(16.dp)
+        )
+    }
+}
+
+@Composable
+private fun ActionButtonsCard(
+    onChangeTempApprover: () -> Unit,
+    onRefreshDetails: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        shape = RoundedCornerShape(12.dp)
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp)
+        ) {
+            // Change Temp Approver Button
+            Button(
+                onClick = onChangeTempApprover,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = Color(0xFF1976D2)
+                ),
+                shape = RoundedCornerShape(8.dp)
+            ) {
+                Icon(
+                    Icons.Default.People,
+                    contentDescription = "Change Temp Approver",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp)
+                )
+                Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                    text = "Change Temp Approver",
+                    color = Color.White,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
             
             Spacer(modifier = Modifier.height(12.dp))
             
-            // Assigned To section
-            Row(
+            // Refresh Details Button
+            OutlinedButton(
+                onClick = onRefreshDetails,
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Assigned To:",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-                Card(
-                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = temporaryApprover.approverName,
-                            fontSize = 14.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color(0xFF2E7D32)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Icon(
-                            Icons.Default.ArrowDropDown,
-                            contentDescription = "Dropdown",
-                            tint = Color(0xFF2E7D32),
-                            modifier = Modifier.size(16.dp)
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Phone number
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Phone:",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
-                Text(
-                    text = temporaryApprover.approverPhone,
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Black
-                )
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Date range
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                // Start date
-                Column {
-                    Text(
-                        text = "From:",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isEditing) Color(0xFFE3F2FD) else Color(0xFFF5F5F5)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = if (isEditing) Modifier.clickable { onStartDateClick() } else Modifier
-                    ) {
-                        Text(
-                            text = FormatUtils.formatDate(temporaryApprover.startDate),
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
-                }
-                
-                // End date
-                Column {
-                    Text(
-                        text = "To:",
-                        fontSize = 12.sp,
-                        color = Color.Gray
-                    )
-                    Card(
-                        colors = CardDefaults.cardColors(
-                            containerColor = if (isEditing) Color(0xFFE3F2FD) else Color(0xFFF5F5F5)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = if (isEditing) Modifier.clickable { onEndDateClick() } else Modifier
-                    ) {
-                        Text(
-                            text = if (temporaryApprover.expiringDate != null) {
-                                FormatUtils.formatDate(temporaryApprover.expiringDate)
-                            } else {
-                                "Ongoing"
-                            },
-                            fontSize = 14.sp,
-                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 8.dp)
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(16.dp))
-            
-            // Action buttons
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                if (isEditing) {
-                    // Save button
-                    Button(
-                        onClick = { onSaveEdit(temporaryApprover) },
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            Icons.Default.Check,
-                            contentDescription = "Save",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Save",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                    }
-                    
-                    // Cancel button
-                    Button(
-                        onClick = onCancelEdit,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF757575)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            Icons.Default.Close,
-                            contentDescription = "Cancel",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Cancel",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                    }
-                } else {
-                    // Edit button
-                    Button(
-                        onClick = onEdit,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF8B5FBF)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            Icons.Default.Edit,
-                            contentDescription = "Edit",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Edit",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                    }
-                    
-                    // Remove button
-                    Button(
-                        onClick = onRemove,
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFFE91E63)
-                        ),
-                        shape = RoundedCornerShape(8.dp),
-                        modifier = Modifier.weight(1f)
-                    ) {
-                        Icon(
-                            Icons.Default.Delete,
-                            contentDescription = "Remove",
-                            tint = Color.White,
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text(
-                            text = "Remove",
-                            color = Color.White,
-                            fontSize = 14.sp
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-@Composable
-private fun AddDelegationCard(
-    onClick: () -> Unit
-) {
-    Card(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Icon(
-                    Icons.Default.Search,
-                    contentDescription = "Search",
-                    tint = Color(0xFF4285F4),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(12.dp))
-                Text(
-                    text = "Add New Delegation",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF4285F4)
-                )
-            }
-            
-            Button(
-                onClick = onClick,
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF4285F4)
+                colors = ButtonDefaults.outlinedButtonColors(
+                    contentColor = Color(0xFF1976D2)
+                ),
+                border = ButtonDefaults.outlinedButtonBorder.copy(
+                    width = 1.dp
                 ),
                 shape = RoundedCornerShape(8.dp)
             ) {
                 Icon(
-                    Icons.Default.Add,
-                    contentDescription = "Add",
-                    tint = Color.White,
-                    modifier = Modifier.size(16.dp)
+                    Icons.Default.Refresh,
+                    contentDescription = "Refresh Details",
+                    tint = Color(0xFF1976D2),
+                    modifier = Modifier.size(20.dp)
                 )
-                Spacer(modifier = Modifier.width(4.dp))
+                Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Assign",
-                    color = Color.White,
-                    fontSize = 14.sp
+                    text = "Refresh Details",
+                    color = Color(0xFF1976D2),
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium
                 )
             }
         }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun DatePickerDialog(
-    onDismissRequest: () -> Unit,
-    onDateSelected: (Date) -> Unit,
-    initialDate: Date
-) {
-    val datePickerState = rememberDatePickerState(
-        initialSelectedDateMillis = initialDate.time,
-        yearRange = IntRange(2024, 2030)
-    )
-    
-    androidx.compose.material3.DatePickerDialog(
-        onDismissRequest = onDismissRequest,
-        confirmButton = {
-            TextButton(
-                onClick = {
-                    datePickerState.selectedDateMillis?.let { millis ->
-                        onDateSelected(Date(millis))
-                    }
-                }
-            ) {
-                Text("OK")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismissRequest) {
-                Text("Cancel")
-            }
-        }
-    ) {
-        DatePicker(
-            state = datePickerState,
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            title = {
-                Text(
-                    text = "Select Date",
-                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    style = MaterialTheme.typography.headlineSmall
-                )
-            },
-            showModeToggle = false,
-            colors = DatePickerDefaults.colors(
-                selectedDayContainerColor = Color(0xFF8B4513),
-                todayDateBorderColor = Color(0xFF8B4513),
-                dayContentColor = Color.Black,
-                weekdayContentColor = Color.Black,
-                yearContentColor = Color.Black
-            )
-        )
     }
 }
 
@@ -688,7 +734,7 @@ private fun ApproverSelectionDialog(
     AlertDialog(
         onDismissRequest = onDismiss,
         title = {
-            Text("Select Approver")
+            Text("Select New Approver")
         },
         text = {
             when {
@@ -702,7 +748,7 @@ private fun ApproverSelectionDialog(
                         Column(
                             horizontalAlignment = Alignment.CenterHorizontally
                         ) {
-                            CircularProgressIndicator(color = Color(0xFF4285F4))
+                            CircularProgressIndicator(color = Color(0xFF1976D2))
                             Spacer(modifier = Modifier.height(16.dp))
                             Text(
                                 text = "Loading approvers...",
@@ -787,4 +833,59 @@ private fun ApproverSelectionDialog(
             }
         }
     )
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun DatePickerDialog(
+    onDismissRequest: () -> Unit,
+    onDateSelected: (Date) -> Unit,
+    initialDate: Date
+) {
+    val datePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = initialDate.time,
+        yearRange = IntRange(2024, 2030)
+    )
+    
+    androidx.compose.material3.DatePickerDialog(
+        onDismissRequest = onDismissRequest,
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    datePickerState.selectedDateMillis?.let { millis ->
+                        onDateSelected(Date(millis))
+                    }
+                }
+            ) {
+                Text("OK")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismissRequest) {
+                Text("Cancel")
+            }
+        }
+    ) {
+        DatePicker(
+            state = datePickerState,
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            title = {
+                Text(
+                    text = "Select Date",
+                    modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+                    style = MaterialTheme.typography.headlineSmall
+                )
+            },
+            showModeToggle = false,
+            colors = DatePickerDefaults.colors(
+                selectedDayContainerColor = Color(0xFF1976D2),
+                todayDateBorderColor = Color(0xFF1976D2),
+                dayContentColor = Color.Black,
+                weekdayContentColor = Color.Black,
+                yearContentColor = Color.Black
+            )
+        )
+    }
 }

@@ -191,6 +191,38 @@ class TemporaryApproverRepository @Inject constructor(
     }
     
     /**
+     * Update start date of a temporary approver
+     */
+    suspend fun updateStartDate(
+        projectId: String, 
+        tempApproverId: String, 
+        newStartDate: Timestamp
+    ): Result<Unit> {
+        return try {
+            Log.d(TAG, "🔄 Updating start date for temporary approver: $tempApproverId")
+            
+            firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .document(tempApproverId)
+                .update(
+                    mapOf(
+                        "startdate" to newStartDate,  // Note: using lowercase "startdate" as per model
+                        "updatedAt" to Timestamp.now()
+                    )
+                )
+                .await()
+            
+            Log.d(TAG, "✅ Start date updated successfully")
+            Result.success(Unit)
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to update start date", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
      * Update expiring date of a temporary approver
      */
     suspend fun updateExpiringDate(

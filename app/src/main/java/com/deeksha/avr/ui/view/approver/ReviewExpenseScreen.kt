@@ -7,6 +7,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Create
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material3.*
@@ -32,6 +33,7 @@ import java.util.*
 fun ReviewExpenseScreen(
     expenseId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToExpenseChat: (String) -> Unit = {},
     approvalViewModel: ApprovalViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
@@ -466,7 +468,7 @@ fun ReviewExpenseScreen(
                     }
                 }
 
-                // Reviewer Note Input with minimal padding
+                // Reviewer Note Input with Chat Icon
                 OutlinedTextField(
                     value = reviewerNote,
                     onValueChange = { reviewerNote = it },
@@ -478,7 +480,21 @@ fun ReviewExpenseScreen(
                         focusedBorderColor = Color(0xFF1976D2),
                         unfocusedBorderColor = Color.Gray
                     ),
-                    maxLines = 3
+                    maxLines = 3,
+                    trailingIcon = {
+                        IconButton(
+                            onClick = {
+                                onNavigateToExpenseChat(expenseId)
+                            }
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Chat,
+                                contentDescription = "Chat with Submitter",
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                    }
                 )
 
                 // Action Buttons - No gap with text field

@@ -18,6 +18,7 @@ import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.AccountCircle
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material3.*
@@ -54,6 +55,7 @@ fun AddExpenseScreen(
     onNavigateBack: () -> Unit,
     onExpenseAdded: () -> Unit,
     onNavigateToNotifications: (String) -> Unit = {},
+    onNavigateToExpenseChat: (String) -> Unit = {},
     expenseViewModel: ExpenseViewModel = hiltViewModel(),
     notificationViewModel: NotificationViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel()
@@ -548,36 +550,63 @@ fun AddExpenseScreen(
                 }
             }
             
-            // Submit Button
+            // Submit Button and Chat Icon
             item {
-                Button(
-                    onClick = {
-                        expenseViewModel.submitExpense(
-                            projectId = project.id,
-                            userId = userId,
-                            userName = userName,
-                            onSuccess = onExpenseAdded
-                        )
-                    },
-                    enabled = !isSubmitting,
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .height(56.dp),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4285F4)
-                    ),
-                    shape = RoundedCornerShape(28.dp)
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    if (isSubmitting) {
-                        CircularProgressIndicator(
-                            color = Color.White,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    } else {
-                        Text(
-                            text = "Submit for Approval",
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
+                    // Submit Button
+                    Button(
+                        onClick = {
+                            expenseViewModel.submitExpense(
+                                projectId = project.id,
+                                userId = userId,
+                                userName = userName,
+                                onSuccess = onExpenseAdded
+                            )
+                        },
+                        enabled = !isSubmitting,
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4285F4)
+                        ),
+                        shape = RoundedCornerShape(28.dp)
+                    ) {
+                        if (isSubmitting) {
+                            CircularProgressIndicator(
+                                color = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                        } else {
+                            Text(
+                                text = "Submit for Approval",
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                        }
+                    }
+                    
+                    // Chat Icon Button
+                    Button(
+                        onClick = {
+                            onNavigateToExpenseChat(project.id)
+                        },
+                        modifier = Modifier
+                            .size(56.dp),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF4CAF50)
+                        ),
+                        shape = RoundedCornerShape(28.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Chat,
+                            contentDescription = "Chat with Approver",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
                         )
                     }
                 }

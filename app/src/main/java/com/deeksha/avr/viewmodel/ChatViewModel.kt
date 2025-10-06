@@ -114,6 +114,13 @@ class ChatViewModel @Inject constructor(
         }
     }
 
+    // Non-suspend wrapper for sending image message
+    fun sendImageMessageAsync(projectId: String, chatId: String, senderId: String, senderName: String, senderRole: String, imageUri: android.net.Uri) {
+        viewModelScope.launch {
+            sendImageMessage(projectId, chatId, senderId, senderName, senderRole, imageUri)
+        }
+    }
+
     // Mark messages as read
     fun markMessagesAsRead(projectId: String, chatId: String, userId: String) {
         viewModelScope.launch {

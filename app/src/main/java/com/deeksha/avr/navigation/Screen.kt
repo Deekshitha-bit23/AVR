@@ -21,6 +21,9 @@ sealed class Screen(val route: String) {
     object AddExpense : Screen("add_expense/{projectId}") {
         fun createRoute(projectId: String) = "add_expense/$projectId"
     }
+    object ExpenseChat : Screen("expense_chat/{projectId}") {
+        fun createRoute(projectId: String) = "expense_chat/$projectId"
+    }
     object TrackSubmissions : Screen("track_submissions/{projectId}") {
         fun createRoute(projectId: String) = "track_submissions/$projectId"
     }
@@ -36,6 +39,9 @@ sealed class Screen(val route: String) {
     }
     object ReviewExpense : Screen("review_expense/{expenseId}") {
         fun createRoute(expenseId: String) = "review_expense/$expenseId"
+    }
+    object ApproverExpenseChat : Screen("approver_expense_chat/{expenseId}") {
+        fun createRoute(expenseId: String) = "approver_expense_chat/$expenseId"
     }
     
     // New Approver Project Flow
