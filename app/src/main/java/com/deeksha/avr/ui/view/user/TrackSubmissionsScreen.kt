@@ -37,6 +37,7 @@ import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Create
+import androidx.compose.material.icons.filled.ChatBubbleOutline
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -65,6 +66,7 @@ import com.deeksha.avr.utils.FormatUtils
 fun TrackSubmissionsScreen(
     project: Project,
     onNavigateBack: () -> Unit,
+    onNavigateToExpenseChat: (String) -> Unit = {}, // Add chat navigation parameter
     expenseViewModel: ExpenseViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
@@ -591,7 +593,10 @@ fun TrackSubmissionsScreen(
                 }
             } else {
                         items(filteredExpenses) { expense ->
-                            ExpenseSubmissionCard(expense = expense)
+                            ExpenseSubmissionCard(
+                                expense = expense,
+                                onChatClick = { onNavigateToExpenseChat(expense.id) }
+                            )
                 }
             }
         }
@@ -652,7 +657,10 @@ private fun StatusCard(
 }
 
 @Composable
-private fun ExpenseSubmissionCard(expense: Expense) {
+private fun ExpenseSubmissionCard(
+    expense: Expense,
+    onChatClick: () -> Unit = {}
+) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
@@ -690,7 +698,7 @@ private fun ExpenseSubmissionCard(expense: Expense) {
                     }
                 }
                 
-                // Status Badge with icon
+                // Status Badge with icon and chat button for pending expenses
                 Row(
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(6.dp)
@@ -733,6 +741,19 @@ private fun ExpenseSubmissionCard(expense: Expense) {
                             color = Color.White,
                             fontWeight = FontWeight.Bold,
                             modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                        )
+                    }
+                    
+                    // Chat icon for pending expenses only
+                    if (expense.status == ExpenseStatus.PENDING) {
+                        Icon(
+                            Icons.Default.ChatBubbleOutline,
+                            contentDescription = "Chat with Approver",
+                            tint = Color(0xFF4285F4),
+                            modifier = Modifier
+                                .size(28.dp)
+                                .clickable { onChatClick() }
+                                .padding(6.dp)
                         )
                     }
                 }

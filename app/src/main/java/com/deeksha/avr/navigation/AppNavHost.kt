@@ -57,6 +57,7 @@ import com.deeksha.avr.ui.view.user.ExpenseChatScreen
 import com.deeksha.avr.ui.view.user.ExpenseListScreen
 import com.deeksha.avr.ui.view.user.TrackSubmissionsScreen
 import com.deeksha.avr.ui.view.user.UserDashboardScreen
+import com.deeksha.avr.ui.view.user.UserExpenseChatScreen
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadProjectSelectionScreen
 import com.deeksha.avr.ui.view.productionhead.CreateUserScreen
 import com.deeksha.avr.ui.view.productionhead.NewProjectScreen
@@ -748,7 +749,10 @@ fun AppNavHost(
                 selectedProject != null -> {
                     TrackSubmissionsScreen(
                         project = selectedProject,
-                        onNavigateBack = { navController.popBackStack() }
+                        onNavigateBack = { navController.popBackStack() },
+                        onNavigateToExpenseChat = { expenseId ->
+                            navController.navigate(Screen.UserExpenseChat.createRoute(expenseId))
+                        }
                     )
                 }
                 else -> {
@@ -784,6 +788,17 @@ fun AppNavHost(
                     }
                 }
             }
+        }
+
+        composable(
+            route = Screen.UserExpenseChat.route,
+            arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
+            UserExpenseChatScreen(
+                expenseId = expenseId,
+                onNavigateBack = { navController.popBackStack() }
+            )
         }
 
         // User Dashboard (Alternative entry point)
@@ -963,6 +978,9 @@ fun AppNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 onReviewExpense = { expenseId ->
                     navController.navigate("review_expense/$expenseId")
+                },
+                onNavigateToExpenseChat = { expenseId ->
+                    navController.navigate(Screen.ApproverExpenseChat.createRoute(expenseId))
                 }
             )
         }
@@ -977,6 +995,9 @@ fun AppNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 onReviewExpense = { expenseId ->
                     navController.navigate("review_expense/$expenseId")
+                },
+                onNavigateToExpenseChat = { expenseId ->
+                    navController.navigate(Screen.ApproverExpenseChat.createRoute(expenseId))
                 }
             )
         }
@@ -1167,6 +1188,9 @@ fun AppNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 onReviewExpense = { expenseId ->
                     navController.navigate(Screen.ProductionHeadReviewExpense.createRoute(expenseId))
+                },
+                onNavigateToExpenseChat = { expenseId ->
+                    navController.navigate(Screen.ApproverExpenseChat.createRoute(expenseId))
                 }
             )
         }
@@ -1181,6 +1205,9 @@ fun AppNavHost(
                 onNavigateBack = { navController.popBackStack() },
                 onReviewExpense = { expenseId ->
                     navController.navigate(Screen.ProductionHeadReviewExpense.createRoute(expenseId))
+                },
+                onNavigateToExpenseChat = { expenseId ->
+                    navController.navigate(Screen.ApproverExpenseChat.createRoute(expenseId))
                 }
             )
         }

@@ -30,6 +30,9 @@ sealed class Screen(val route: String) {
     object ExpenseDetail : Screen("expense_detail/{expenseId}") {
         fun createRoute(expenseId: String) = "expense_detail/$expenseId"
     }
+    object UserExpenseChat : Screen("user_expense_chat/{expenseId}") {
+        fun createRoute(expenseId: String) = "user_expense_chat/$expenseId"
+    }
     
     // Approver Flow
     object ApproverDashboard : Screen("approver_dashboard")

@@ -886,7 +886,7 @@ private fun ProjectOverviewSection(
             iconColor = Color(0xFFFF9800),
             value = FormatUtils.formatCurrency(projectBudgetSummary.totalBudget),
             label = "Total Budget",
-            subtitle = null
+            subtitle = "Remaining: ${FormatUtils.formatCurrency(projectBudgetSummary.totalRemaining)}"
         )
     }
     

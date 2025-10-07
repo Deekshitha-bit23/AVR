@@ -147,8 +147,8 @@ class ApproverProjectViewModel @Inject constructor(
                     val categoryBreakdown = calculateCategoryBreakdown(expenses, totalBudget)
                     Log.d("ApproverProjectVM", "📈 Category breakdown: ${categoryBreakdown.size} categories")
                     
-                    // Calculate department breakdown
-                    val departmentBreakdown = calculateDepartmentBreakdown(expenses, totalBudget)
+                    // Calculate department breakdown using explicit project department budgets
+                    val departmentBreakdown = calculateDepartmentBreakdown(expenses, project)
                     Log.d("ApproverProjectVM", "🏢 Department breakdown: ${departmentBreakdown.size} departments")
                     
                     // Get recent expenses (last 5)
@@ -236,49 +236,22 @@ class ApproverProjectViewModel @Inject constructor(
         return result
     }
     
-    private fun calculateDepartmentBreakdown(expenses: List<Expense>, totalBudget: Double): List<DepartmentBudgetBreakdown> {
-        Log.d("ApproverProjectVM", "🔄 Calculating dynamic department breakdown for ${expenses.size} expenses")
-        
-        // Get approved expenses and group by department
+    private fun calculateDepartmentBreakdown(expenses: List<Expense>, project: Project): List<DepartmentBudgetBreakdown> {
+        Log.d("ApproverProjectVM", "🔄 Calculating department breakdown using project department budgets for ${expenses.size} expenses")
+
+        // Map of approved spend by department
         val approvedExpenses = expenses.filter { it.status.name == "APPROVED" }
-        val expensesByDepartment = approvedExpenses.groupBy { it.department.trim() }
-            .filter { it.key.isNotEmpty() } // Remove empty departments
-        
-        Log.d("ApproverProjectVM", "📊 Found ${expensesByDepartment.size} departments with expenses: ${expensesByDepartment.keys}")
-        
-        // Log each expense's department for debugging
-        approvedExpenses.forEach { expense ->
-            Log.d("ApproverProjectVM", "💰 Expense: ${expense.category} - Department: '${expense.department}' (trimmed: '${expense.department.trim()}')")
-        }
-        
-        if (expensesByDepartment.isEmpty()) {
-            Log.d("ApproverProjectVM", "✅ No departments with expenses found")
-            return emptyList()
-        }
-        
-        // Calculate total spent across all departments
-        val totalSpent = approvedExpenses.sumOf { it.amount }
-        
-        // Create dynamic department budget breakdown
-        val result = expensesByDepartment.map { (department, departmentExpenses) ->
-            val spent = departmentExpenses.sumOf { it.amount }
-            
-            // Calculate allocated budget proportionally based on actual spending
-            // If no expenses yet, use equal distribution; otherwise use proportional allocation
-            val allocatedBudget = if (totalSpent > 0) {
-                // Proportional allocation based on spending pattern
-                val spendingRatio = spent / totalSpent
-                totalBudget * spendingRatio
-            } else {
-                // Equal distribution if no spending yet
-                totalBudget / expensesByDepartment.size
-            }
-            
-            val remaining = maxOf(0.0, allocatedBudget - spent) // Ensure non-negative
+        val spendByDepartment: Map<String, Double> = approvedExpenses
+            .groupBy { it.department.trim() }
+            .filter { it.key.isNotEmpty() }
+            .mapValues { entry -> entry.value.sumOf { it.amount } }
+
+        // Build breakdown strictly from project's configured departmentBudgets
+        val breakdownFromProjectBudgets = project.departmentBudgets.entries.map { (department, allocatedBudget) ->
+            val spent = spendByDepartment[department] ?: 0.0
+            val remaining = maxOf(0.0, allocatedBudget - spent)
             val usedPercentage = if (allocatedBudget > 0) (spent / allocatedBudget) * 100 else 0.0
-            
-            Log.d("ApproverProjectVM", "📈 $department: allocated=$allocatedBudget, spent=$spent, remaining=$remaining, ${departmentExpenses.size} expenses")
-            
+            Log.d("ApproverProjectVM", "📈 $department: allocated=$allocatedBudget, spent=$spent, remaining=$remaining")
             DepartmentBudgetBreakdown(
                 department = department,
                 budgetAllocated = allocatedBudget,
@@ -286,9 +259,26 @@ class ApproverProjectViewModel @Inject constructor(
                 remaining = remaining,
                 percentage = usedPercentage
             )
-        }.sortedByDescending { it.spent } // Sort by highest spending first
-        
-        Log.d("ApproverProjectVM", "✅ Dynamic department breakdown complete: ${result.size} departments")
+        }
+
+        // Optionally include departments that have spend but no configured budget (allocated = 0)
+        val extras = spendByDepartment.keys
+            .filter { it.isNotEmpty() && !project.departmentBudgets.containsKey(it) }
+            .map { department ->
+                val spent = spendByDepartment[department] ?: 0.0
+                DepartmentBudgetBreakdown(
+                    department = department,
+                    budgetAllocated = 0.0,
+                    spent = spent,
+                    remaining = 0.0,
+                    percentage = 0.0
+                )
+            }
+
+        val result = (breakdownFromProjectBudgets + extras)
+            .sortedByDescending { it.spent }
+
+        Log.d("ApproverProjectVM", "✅ Department breakdown computed: ${result.size} departments")
         return result
     }
     

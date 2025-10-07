@@ -12,6 +12,10 @@ import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.ArrowDropDown
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ChatBubbleOutline
+import androidx.compose.material.icons.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Check
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -38,6 +42,7 @@ fun ProductionHeadPendingApprovals(
     projectId: String? = null, // Optional project ID for project-specific approvals
     onNavigateBack: () -> Unit,
     onReviewExpense: (String) -> Unit,
+    onNavigateToExpenseChat: (String) -> Unit = {}, // Add chat navigation parameter
     approvalViewModel: ApprovalViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel()
 ) {
@@ -50,8 +55,7 @@ fun ProductionHeadPendingApprovals(
     var selectedDate by remember { mutableStateOf("") }
     var selectedDept by remember { mutableStateOf("") }
     var selectedExpenseIds by remember { mutableStateOf(setOf<String>()) }
-    var showDateDropdown by remember { mutableStateOf(false) }
-    var showDeptDropdown by remember { mutableStateOf(false) }
+    var showDeptModal by remember { mutableStateOf(false) }
     
     // Load data automatically when screen opens
     LaunchedEffect(projectId) {
@@ -101,313 +105,99 @@ fun ProductionHeadPendingApprovals(
         .distinct()
         .sorted()
     
-    Column(
+    Box(
         modifier = Modifier
             .fillMaxSize()
             .background(Color.White)
     ) {
-        // Header - Production Head branded
-        Box(
-            modifier = Modifier
-                .fillMaxWidth()
-                .background(Color(0xFF1976D2))
-                .padding(16.dp)
+        Column(
+            modifier = Modifier.fillMaxSize()
         ) {
-            Row(
+            // Header with close and search icons
+            Card(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
+                elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                shape = RoundedCornerShape(0.dp)
             ) {
-                IconButton(
-                    onClick = onNavigateBack,
-                    modifier = Modifier.size(40.dp)
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
+                    IconButton(onClick = onNavigateBack) {
                     Icon(
-                        Icons.Default.ArrowBack,
-                        contentDescription = "Back",
-                        tint = Color.White
-                    )
-                }
-                
-                Text(
-                    text = "PRODUCTION HEAD",
-                    fontSize = 32.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    modifier = Modifier.weight(1f),
-                    textAlign = TextAlign.Center
-                )
-                
-                IconButton(
-                    onClick = { 
-                        // Manual refresh
+                            Icons.Default.Close,
+                            contentDescription = "Close",
+                            tint = Color.Black
+                        )
+                    }
+                    
+                    // Show selection count when items are selected
+                    if (selectedExpenseIds.isNotEmpty()) {
+                            Text(
+                            text = "${selectedExpenseIds.size} selected",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                                color = Color.Black
+                            )
+                    } else {
+                        Spacer(modifier = Modifier.weight(1f))
+                    }
+                    
+                    IconButton(onClick = { 
                         if (projectId != null) {
                             approvalViewModel.loadPendingApprovalsForProject(projectId)
                         } else {
                             approvalViewModel.loadPendingApprovals()
                         }
-                    },
-                    modifier = Modifier.size(40.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Search,
-                        contentDescription = "Refresh",
-                        tint = Color.White
-                    )
-                }
-            }
-        }
-        
-        // Project/Category info - Dynamic based on context
-        Column(
-            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
-        ) {
-            Text(
-                text = if (projectId != null) "Project Specific" else "All Projects",
-                fontSize = 16.sp,
-                color = Color(0xFF1976D2),
-                fontWeight = FontWeight.Medium
-            )
-            Text(
-                text = "Pending Approvals",
-                fontSize = 40.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black
-            )
-        }
-        
-        // Show error if any
-        error?.let { errorMessage ->
-            Card(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(16.dp),
-                colors = CardDefaults.cardColors(containerColor = Color.Red.copy(alpha = 0.1f))
-            ) {
-                Row(
-                    modifier = Modifier.padding(16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = errorMessage,
-                        color = Color.Red,
-                        modifier = Modifier.weight(1f),
-                        fontWeight = FontWeight.Medium
-                    )
-                    TextButton(onClick = { approvalViewModel.clearError() }) {
-                        Text("Dismiss", color = Color.Red)
-                    }
-                }
-            }
-        }
-        
-        // Filters Row
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            horizontalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            // Date Filter
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { showDateDropdown = true },
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (selectedDate.isEmpty()) "Date" else selectedDate,
-                        color = if (selectedDate.isEmpty()) Color.Gray else Color.Black,
-                        fontSize = 14.sp
-                    )
-                    Icon(
-                        Icons.Default.ArrowDropDown,
-                        contentDescription = "Select Date",
-                        tint = Color.Gray
-                    )
-                }
-                
-                // Date Dropdown
-                if (showDateDropdown) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                    ) {
-                        Column {
-                            // Clear option
-                            Text(
-                                text = "All Dates",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        selectedDate = ""
-                                        showDateDropdown = false
-                                    }
-                                    .padding(16.dp),
-                                color = Color.Black
-                            )
-                            
-                            // Date options
-                            dates.forEach { date ->
-                                Text(
-                                    text = date,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedDate = date
-                                            showDateDropdown = false
-                                        }
-                                        .padding(16.dp),
-                                    color = Color.Black
-                                )
-                            }
-                        }
+                    }) {
+                        Icon(
+                            Icons.Default.Search,
+                            contentDescription = "Refresh",
+                            tint = Color.Black
+                        )
                     }
                 }
             }
             
-            // Department Filter
-            Card(
-                modifier = Modifier
-                    .weight(1f)
-                    .clickable { showDeptDropdown = true },
-                colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = if (selectedDept.isEmpty()) "Dept" else selectedDept,
-                        color = if (selectedDept.isEmpty()) Color.Gray else Color.Black,
-                        fontSize = 14.sp
-                    )
-                    Icon(
-                        Icons.Default.ArrowDropDown,
-                        contentDescription = "Select Department",
-                        tint = Color.Gray
-                    )
-                }
-                
-                // Department Dropdown
-                if (showDeptDropdown) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
-                    ) {
-                        Column {
-                            // Clear option
-                            Text(
-                                text = "All Departments",
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .clickable {
-                                        selectedDept = ""
-                                        showDeptDropdown = false
-                                    }
-                                    .padding(16.dp),
-                                color = Color.Black
-                            )
-                            
-                            // Department options
-                            departments.forEach { dept ->
-                                Text(
-                                    text = dept,
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .clickable {
-                                            selectedDept = dept
-                                            showDeptDropdown = false
-                                        }
-                                        .padding(16.dp),
-                                    color = Color.Black
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        // Spacer
-        Spacer(modifier = Modifier.height(16.dp))
-        
-        // Expense List with Table Structure
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(horizontal = 16.dp)
-        ) {
-            // Table Header
+            // Filter pills
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .background(Color(0xFF1976D2))
-                    .padding(16.dp),
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Text(
-                    text = "Date",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f)
+                FilterPill(
+                    text = "All Dates",
+                    isSelected = selectedDate.isEmpty(),
+                    onClick = { selectedDate = "" }
                 )
-                Text(
-                    text = "Dept",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1f)
+                
+                FilterPill(
+                    text = "All Depts",
+                    isSelected = selectedDept.isEmpty(),
+                    onClick = { showDeptModal = true }
                 )
-                Text(
-                    text = "Subcategory",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1.5f)
+                
+                FilterPill(
+                    text = "Amount",
+                    isSelected = false,
+                    onClick = { /* TODO: Implement amount sorting */ }
                 )
-                Text(
-                    text = "Submitted By",
-                    fontWeight = FontWeight.Bold,
-                    color = Color.White,
-                    fontSize = 14.sp,
-                    modifier = Modifier.weight(1.5f)
-                )
-                Box(
-                    modifier = Modifier.width(40.dp),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Text(
-                        text = "",
-                        fontSize = 14.sp
-                    )
-                }
             }
             
-            // Table Content
+            // Expenses list
             LazyColumn(
-                modifier = Modifier.weight(1f),
-                verticalArrangement = Arrangement.spacedBy(4.dp)
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(horizontal = 16.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(filteredExpenses, key = { it.id }) { expense ->
-                    ExpenseTableRow(
+                    ExpenseCard(
                         expense = expense,
                         isSelected = selectedExpenseIds.contains(expense.id),
                         onSelectionChange = { isSelected ->
@@ -417,11 +207,11 @@ fun ProductionHeadPendingApprovals(
                                 selectedExpenseIds - expense.id
                             }
                         },
-                        onExpenseClick = { onReviewExpense(expense.id) }
+                        onExpenseClick = { onReviewExpense(expense.id) },
+                        onChatClick = { onNavigateToExpenseChat(expense.id) }
                     )
                 }
                 
-                // Show message if no expenses
                 if (filteredExpenses.isEmpty()) {
                     item {
                         Box(
@@ -432,9 +222,9 @@ fun ProductionHeadPendingApprovals(
                         ) {
                             Text(
                                 text = if (pendingExpenses.isEmpty()) 
-                                    "No pending approvals found! ✅\nData: ${pendingExpenses.size} expenses" 
+                                    "No pending approvals found! ✅" 
                                 else 
-                                    "No expenses match the selected filters\nTotal: ${pendingExpenses.size} expenses",
+                                    "No expenses match the selected filters",
                                 fontSize = 16.sp,
                                 color = Color.Gray,
                                 textAlign = TextAlign.Center
@@ -443,64 +233,33 @@ fun ProductionHeadPendingApprovals(
                     }
                 }
             }
-            
-            // Selection info
-            if (selectedExpenseIds.isNotEmpty()) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Green.copy(alpha = 0.1f))
-                ) {
-                    Text(
-                        text = "Selected: ${selectedExpenseIds.size} expenses",
-                        color = Color.Green,
-                        modifier = Modifier.padding(16.dp),
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-            
-            // Show processing indicator
-            if (isProcessing) {
-                Card(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 8.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.Blue.copy(alpha = 0.1f))
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        horizontalArrangement = Arrangement.Center,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        CircularProgressIndicator(
-                            modifier = Modifier.size(20.dp),
-                            color = Color.Blue
-                        )
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text(
-                            text = "Processing ${selectedExpenseIds.size} selected expenses...",
-                            color = Color.Blue,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                }
-            }
-            
-            // Action Buttons
+        }
+        
+        // Department filter modal
+        if (showDeptModal) {
+            DepartmentFilterModal(
+                departments = departments,
+                selectedDepartment = selectedDept,
+                onDepartmentSelected = { dept ->
+                    selectedDept = dept
+                    showDeptModal = false
+                },
+                onDismiss = { showDeptModal = false }
+            )
+        }
+        
+        // Floating Approve and Reject buttons
+        if (selectedExpenseIds.isNotEmpty() && !isProcessing) {
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(vertical = 16.dp),
-                horizontalArrangement = Arrangement.spacedBy(16.dp)
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter),
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 // Approve Button
                 Button(
                     onClick = { 
-                        if (selectedExpenseIds.isNotEmpty() && !isProcessing) {
                             val currentUser = authState.user
                             val reviewerName = currentUser?.name?.takeIf { it.isNotEmpty() } ?: "System Approver"
                             
@@ -509,36 +268,30 @@ fun ProductionHeadPendingApprovals(
                                 reviewerName = reviewerName,
                                 comments = "Bulk approved by $reviewerName"
                             )
-                        }
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp),
+                        .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF2196F3),
-                        disabledContainerColor = Color.Gray
+                        containerColor = Color(0xFF4CAF50) // Green color
                     ),
-                    enabled = selectedExpenseIds.isNotEmpty() && !isProcessing,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(28.dp)
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(
-                            Icons.Default.CheckCircle,
+                            Icons.Default.Check,
                             contentDescription = "Approve",
                             tint = Color.White,
                             modifier = Modifier.size(20.dp)
                         )
                         Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (selectedExpenseIds.isNotEmpty()) 
-                                "Approve Selected (${selectedExpenseIds.size})" 
-                            else 
-                                "Approve Selected",
+                            text = "Approve",
                             color = Color.White,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -547,41 +300,71 @@ fun ProductionHeadPendingApprovals(
                 // Reject Button
                 Button(
                     onClick = { 
-                        if (selectedExpenseIds.isNotEmpty() && !isProcessing) {
                             val currentUser = authState.user
-                            val reviewerName = currentUser?.name?.takeIf { it.isNotEmpty() } ?: "System Reviewer"
+                        val reviewerName = currentUser?.name?.takeIf { it.isNotEmpty() } ?: "System Approver"
                             
                             approvalViewModel.rejectSelectedExpenses(
                                 expenseIds = selectedExpenseIds.toList(),
                                 reviewerName = reviewerName,
                                 comments = "Bulk rejected by $reviewerName"
                             )
-                        }
                     },
                     modifier = Modifier
                         .weight(1f)
-                        .height(48.dp),
+                        .height(56.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF6C757D),
-                        disabledContainerColor = Color.Gray
+                        containerColor = Color(0xFFF44336) // Red color
                     ),
-                    enabled = selectedExpenseIds.isNotEmpty() && !isProcessing,
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(28.dp)
                 ) {
                     Row(
                         horizontalArrangement = Arrangement.Center,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
+                        Icon(
+                            Icons.Default.Close,
+                            contentDescription = "Reject",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = if (selectedExpenseIds.isNotEmpty()) 
-                                "Reject Selected (${selectedExpenseIds.size})" 
-                            else 
-                                "Reject Selected",
+                            text = "Reject",
                             color = Color.White,
-                            fontSize = 14.sp,
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
+                }
+            }
+        }
+        
+        // Show processing indicator
+        if (isProcessing) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp)
+                    .align(Alignment.BottomCenter),
+                colors = CardDefaults.cardColors(containerColor = Color.Blue.copy(alpha = 0.1f))
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    horizontalArrangement = Arrangement.Center,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(
+                        modifier = Modifier.size(20.dp),
+                        color = Color.Blue
+                    )
+                    Spacer(modifier = Modifier.width(12.dp))
+                    Text(
+                        text = "Processing ${selectedExpenseIds.size} selected expenses...",
+                        color = Color.Blue,
+                        fontWeight = FontWeight.Medium
+                    )
                 }
             }
         }
@@ -589,75 +372,211 @@ fun ProductionHeadPendingApprovals(
 }
 
 @Composable
-fun ExpenseTableRow(
+fun FilterPill(
+    text: String,
+    isSelected: Boolean,
+    onClick: () -> Unit
+) {
+    Card(
+        modifier = Modifier.clickable { onClick() },
+        colors = CardDefaults.cardColors(
+            containerColor = if (isSelected) Color(0xFFE0E0E0) else Color(0xFFF5F5F5)
+        ),
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            fontSize = 14.sp,
+            color = if (isSelected) Color.Black else Color.Gray,
+            fontWeight = if (isSelected) FontWeight.Medium else FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+fun ExpenseCard(
     expense: Expense,
     isSelected: Boolean,
     onSelectionChange: (Boolean) -> Unit,
-    onExpenseClick: () -> Unit
+    onExpenseClick: () -> Unit,
+    onChatClick: () -> Unit = {}
 ) {
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onExpenseClick() },
-        colors = CardDefaults.cardColors(
-            containerColor = if (isSelected) Color(0xFFE3F2FD) else Color.White
-        ),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.5.dp),
-        shape = RoundedCornerShape(4.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp),
+        shape = RoundedCornerShape(12.dp)
     ) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp),
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Date
-            Text(
-                text = expense.date?.let { FormatUtils.formatDateShort(it) } ?: "",
-                fontSize = 13.sp,
-                color = Color.Black,
-                modifier = Modifier.weight(1f)
+            // Radio button
+            RadioButton(
+                selected = isSelected,
+                onClick = { onSelectionChange(!isSelected) },
+                colors = RadioButtonDefaults.colors(
+                    selectedColor = Color(0xFF1976D2)
+                )
             )
             
-            // Department
-            Text(
-                text = expense.department,
-                fontSize = 13.sp,
-                color = Color.Black,
-                modifier = Modifier.weight(1f)
-            )
+            Spacer(modifier = Modifier.width(12.dp))
             
-            // Category
+            // Main content
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(
+                    text = "₹${String.format("%.2f", expense.amount)}",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                
+                Spacer(modifier = Modifier.height(4.dp))
+                
             Text(
                 text = expense.category,
-                fontSize = 13.sp,
-                color = Color.Black,
-                modifier = Modifier.weight(1.5f)
+                    fontSize = 14.sp,
+                    color = Color.Black
             )
             
-            // User Name
+                Spacer(modifier = Modifier.height(2.dp))
+                
             Text(
-                text = expense.userName,
-                fontSize = 13.sp,
-                color = Color.Black,
-                modifier = Modifier.weight(1.5f)
-            )
-            
-            // Checkbox
-            Box(
-                modifier = Modifier.width(40.dp),
-                contentAlignment = Alignment.Center
-            ) {
-                Checkbox(
-                    checked = isSelected,
-                    onCheckedChange = { newValue ->
-                        onSelectionChange(newValue)
-                    },
-                    colors = CheckboxDefaults.colors(
-                        checkedColor = Color(0xFF2196F3),
-                        uncheckedColor = Color.Gray
-                    )
+                    text = "By: ${expense.userName}",
+                    fontSize = 12.sp,
+                    color = Color.Gray
                 )
+            }
+            
+            // Right side content
+            Column(
+                horizontalAlignment = Alignment.End
+            ) {
+                Text(
+                    text = expense.date?.let { 
+                        FormatUtils.formatDateShort(it) 
+                    } ?: "",
+                    fontSize = 14.sp,
+                    color = Color.Black
+                )
+                
+                Spacer(modifier = Modifier.height(8.dp))
+                
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(
+                        Icons.Default.ChatBubbleOutline,
+                        contentDescription = "Comments",
+                        tint = Color(0xFF4285F4),
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clickable { onChatClick() }
+                            .padding(6.dp)
+                    )
+                    
+                    Icon(
+                        Icons.Default.KeyboardArrowRight,
+                        contentDescription = "View Details",
+                        tint = Color.Gray,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+fun DepartmentFilterModal(
+    departments: List<String>,
+    selectedDepartment: String,
+    onDepartmentSelected: (String) -> Unit,
+    onDismiss: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color.Black.copy(alpha = 0.5f))
+            .clickable { onDismiss() }
+    ) {
+        Card(
+            modifier = Modifier
+                .fillMaxWidth()
+                .align(Alignment.BottomCenter)
+                .clickable { /* Prevent click through */ },
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            shape = RoundedCornerShape(topStart = 16.dp, topEnd = 16.dp),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp)
+            ) {
+                Text(
+                    text = "Filter by Department",
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = Color.Gray,
+                    modifier = Modifier.padding(bottom = 16.dp)
+                )
+                
+                // All Departments option
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onDepartmentSelected("") }
+                        .padding(vertical = 12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "All Departments",
+                        fontSize = 16.sp,
+                        color = if (selectedDepartment.isEmpty()) Color(0xFF1976D2) else Color.Black
+                    )
+                }
+                
+                // Department options
+                departments.forEach { dept ->
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { onDepartmentSelected(dept) }
+                            .padding(vertical = 12.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = dept,
+                            fontSize = 16.sp,
+                            color = if (selectedDepartment == dept) Color(0xFF1976D2) else Color.Black
+                        )
+                    }
+                }
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Cancel button
+                Button(
+                    onClick = onDismiss,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color.Transparent),
+                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp)
+                ) {
+                    Text(
+                        text = "Cancel",
+                        color = Color(0xFF1976D2),
+                        fontSize = 16.sp
+                    )
+                }
             }
         }
     }
