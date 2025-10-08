@@ -111,7 +111,8 @@ class ReportsViewModel @Inject constructor(
                         by = expense.userName,
                         amount = expense.amount,
                         department = expense.department,
-                        modeOfPayment = expense.modeOfPayment
+                        modeOfPayment = expense.modeOfPayment,
+                        status = expense.status
                     )
                 }.sortedByDescending { it.date?.toDate()?.time ?: 0L }
                 
@@ -148,27 +149,24 @@ class ReportsViewModel @Inject constructor(
         return try {
             android.util.Log.d("ReportsViewModel", "🔍 Getting filtered expenses for project: $currentProjectId")
             
-            // TEMP FIX: Use the same method as dashboard (getProjectExpenses flow) 
-            // instead of getApprovedExpensesForProject
-            android.util.Log.d("ReportsViewModel", "🔄 Using getProjectExpenses flow to match dashboard...")
+            // Get ALL expenses (not just approved) to support filtering by status
+            android.util.Log.d("ReportsViewModel", "🔄 Using getAllExpensesForProject to get all statuses...")
             
-            // Get expenses using the same method as dashboard
-            val allProjectExpenses = expenseRepository.getProjectExpenses(currentProjectId).first()
-            android.util.Log.d("ReportsViewModel", "📦 getProjectExpenses returned: ${allProjectExpenses.size} total expenses")
+            // Get all expenses regardless of status
+            val allProjectExpenses = expenseRepository.getAllExpensesForProject(currentProjectId)
+            android.util.Log.d("ReportsViewModel", "📦 getAllExpensesForProject returned: ${allProjectExpenses.size} total expenses")
             
-            // Filter for approved expenses manually (same as dashboard)
-            val approvedExpenses = allProjectExpenses.filter { it.status.name == "APPROVED" }
-            android.util.Log.d("ReportsViewModel", "✅ Approved expenses: ${approvedExpenses.size}")
-            
-            // Log expense details for debugging
-            approvedExpenses.forEachIndexed { index, expense ->
-                android.util.Log.d("ReportsViewModel", "💰 Expense $index: ${expense.category} - ${expense.department} - ₹${expense.amount} by ${expense.userName}")
+            // Log expense details by status for debugging
+            val statusCounts = allProjectExpenses.groupBy { it.status }
+            statusCounts.forEach { (status, expenses) ->
+                android.util.Log.d("ReportsViewModel", "📊 ${status.name} expenses: ${expenses.size}")
+                expenses.take(3).forEachIndexed { index, expense ->
+                    android.util.Log.d("ReportsViewModel", "💰 ${status.name} Expense $index: ${expense.category} - ${expense.department} - ₹${expense.amount} by ${expense.userName}")
+                }
             }
             
-            android.util.Log.d("ReportsViewModel", "📦 Final approved expenses count: ${approvedExpenses.size}")
-            
             // Filter by time range
-            val timeFilteredExpenses = filterByTimeRange(approvedExpenses, _selectedTimeRange.value)
+            val timeFilteredExpenses = filterByTimeRange(allProjectExpenses, _selectedTimeRange.value)
             android.util.Log.d("ReportsViewModel", "⏰ After time filter (${_selectedTimeRange.value}): ${timeFilteredExpenses.size}")
             
             // Filter by department

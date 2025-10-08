@@ -185,9 +185,6 @@ class ApprovalViewModel @Inject constructor(
                 // Send notification to expense submitter
                 sendExpenseStatusNotification(expense, true, reviewerName)
                 
-                // Send chat message
-                sendExpenseChatMessage(expense, true, reviewerName, comments)
-                
             } catch (e: Exception) {
                 _error.value = "Failed to approve expense: ${e.message}"
                 e.printStackTrace()
@@ -222,9 +219,6 @@ class ApprovalViewModel @Inject constructor(
                 val updatedExpense = expense.copy(amount = newAmount)
                 sendExpenseStatusNotification(updatedExpense, true, reviewerName)
                 
-                // Send chat message
-                sendExpenseChatMessage(updatedExpense, true, reviewerName, comments)
-                
             } catch (e: Exception) {
                 _error.value = "Failed to approve expense with amount change: ${e.message}"
                 e.printStackTrace()
@@ -251,9 +245,6 @@ class ApprovalViewModel @Inject constructor(
                 
                 // Send notification to expense submitter
                 sendExpenseStatusNotification(expense, false, reviewerName)
-                
-                // Send chat message
-                sendExpenseChatMessage(expense, false, reviewerName, comments)
                 
             } catch (e: Exception) {
                 _error.value = "Failed to reject expense: ${e.message}"
@@ -288,9 +279,6 @@ class ApprovalViewModel @Inject constructor(
                 // Send notification to expense submitter with updated amount
                 val updatedExpense = expense.copy(amount = newAmount)
                 sendExpenseStatusNotification(updatedExpense, false, reviewerName)
-                
-                // Send chat message
-                sendExpenseChatMessage(updatedExpense, false, reviewerName, comments)
                 
             } catch (e: Exception) {
                 _error.value = "Failed to reject expense with amount change: ${e.message}"
@@ -327,9 +315,6 @@ class ApprovalViewModel @Inject constructor(
                             
                             // Send notification for individual expense
                             sendExpenseStatusNotification(expense, true, reviewerName)
-                            
-                            // Send chat message
-                            sendExpenseChatMessage(expense, true, reviewerName, comments)
                             
                             successCount++
                             
@@ -388,9 +373,6 @@ class ApprovalViewModel @Inject constructor(
                             // Send notification for individual expense
                             sendExpenseStatusNotification(expense, false, reviewerName)
                             
-                            // Send chat message
-                            sendExpenseChatMessage(expense, false, reviewerName, comments)
-                            
                             successCount++
                             
                             // Small delay between each update
@@ -425,34 +407,6 @@ class ApprovalViewModel @Inject constructor(
         _error.value = null
     }
     
-    // Send chat message for expense approval/rejection
-    private suspend fun sendExpenseChatMessage(
-        expense: Expense,
-        isApproved: Boolean,
-        reviewerName: String,
-        comments: String
-    ) {
-        try {
-            val expenseChatId = "expense_approval_${expense.projectId}"
-            val action = if (isApproved) "approved" else "rejected"
-            val message = if (comments.isNotEmpty()) {
-                "Your expense has been $action by $reviewerName. Comments: $comments"
-            } else {
-                "Your expense has been $action by $reviewerName."
-            }
-            
-            chatRepository.sendMessage(
-                projectId = expense.projectId,
-                chatId = expenseChatId,
-                senderId = "system_approver", // Use a system ID for approval messages
-                senderName = reviewerName,
-                senderRole = "APPROVER",
-                message = message
-            )
-        } catch (e: Exception) {
-            Log.e("ApprovalViewModel", "Failed to send chat message: ${e.message}", e)
-        }
-    }
     
     // Debug method to test Firebase connectivity and data structure
     fun debugFirebaseConnection() {

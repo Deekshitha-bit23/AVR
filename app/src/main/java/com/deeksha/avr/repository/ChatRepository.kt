@@ -260,6 +260,23 @@ class ChatRepository @Inject constructor(
             val messagesCollection = getMessagesCollection(projectId, chatId)
             val chatsCollection = getChatsCollection(projectId)
             
+            // Check if chat exists, if not create it
+            val chatDoc = chatsCollection.document(chatId).get().await()
+            if (!chatDoc.exists()) {
+                Log.d("ChatRepository", "Chat $chatId does not exist, creating it")
+                val chatData = hashMapOf(
+                    "members" to listOf(senderId),
+                    "lastMessage" to "",
+                    "lastMessageTime" to Timestamp.now(),
+                    "lastMessageSenderId" to "",
+                    "unreadCount" to mapOf(senderId to 0),
+                    "createdAt" to Timestamp.now(),
+                    "updatedAt" to Timestamp.now()
+                )
+                chatsCollection.document(chatId).set(chatData).await()
+                Log.d("ChatRepository", "Created chat: $chatId")
+            }
+            
             val messageData = hashMapOf(
                 "chatId" to chatId,
                 "senderId" to senderId,

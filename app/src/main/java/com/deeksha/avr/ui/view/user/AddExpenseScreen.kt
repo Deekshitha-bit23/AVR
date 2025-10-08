@@ -602,71 +602,44 @@ fun AddExpenseScreen(
                 }
             }
             
-            // Submit Button and Chat Icon
+            // Submit Button
             item {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    // Submit Button
-                    Button(
-                        onClick = {
-                            // Check if budget validation failed
-                            if (budgetValidationResult?.isValid == false) {
-                                showBudgetExceededDialog = true
-                            } else {
-                                expenseViewModel.submitExpense(
-                                    projectId = project.id,
-                                    userId = userId,
-                                    userName = userName,
-                                    onSuccess = onExpenseAdded
-                                )
-                            }
-                        },
-                        enabled = !isSubmitting && formData.amount.isNotEmpty() && formData.department.isNotEmpty() && formData.category.isNotEmpty(),
-                        modifier = Modifier
-                            .weight(1f)
-                            .height(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF4285F4)
-                        ),
-                        shape = RoundedCornerShape(28.dp)
-                    ) {
-                        if (isSubmitting) {
-                            CircularProgressIndicator(
-                                color = Color.White,
-                                modifier = Modifier.size(20.dp)
-                            )
+                Button(
+                    onClick = {
+                        // Check if budget validation failed
+                        if (budgetValidationResult?.isValid == false) {
+                            showBudgetExceededDialog = true
                         } else {
-                            Text(
-                                text = when {
-                                    budgetValidationResult?.isValid == false -> "Budget Exceeded"
-                                    else -> "Submit for Approval"
-                                },
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold
+                            expenseViewModel.submitExpense(
+                                projectId = project.id,
+                                userId = userId,
+                                userName = userName,
+                                onSuccess = onExpenseAdded
                             )
                         }
-                    }
-                    
-                    // Chat Icon Button
-                    Button(
-                        onClick = {
-                            onNavigateToExpenseChat(project.id)
-                        },
-                        modifier = Modifier
-                            .size(56.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4CAF50)
-                        ),
-                        shape = RoundedCornerShape(28.dp)
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Chat,
-                            contentDescription = "Chat with Approver",
-                            tint = Color.White,
-                            modifier = Modifier.size(24.dp)
+                    },
+                    enabled = !isSubmitting && formData.amount.isNotEmpty() && formData.department.isNotEmpty() && formData.category.isNotEmpty(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF4285F4)
+                    ),
+                    shape = RoundedCornerShape(28.dp)
+                ) {
+                    if (isSubmitting) {
+                        CircularProgressIndicator(
+                            color = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                    } else {
+                        Text(
+                            text = when {
+                                budgetValidationResult?.isValid == false -> "Budget Exceeded"
+                                else -> "Submit for Approval"
+                            },
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold
                         )
                     }
                 }

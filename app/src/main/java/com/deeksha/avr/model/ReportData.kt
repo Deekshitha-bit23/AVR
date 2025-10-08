@@ -20,7 +20,8 @@ data class DetailedExpense(
     val by: String = "",
     val amount: Double = 0.0,
     val department: String = "",
-    val modeOfPayment: String = ""
+    val modeOfPayment: String = "",
+    val status: ExpenseStatus = ExpenseStatus.PENDING
 )
 
 data class CategoryData(

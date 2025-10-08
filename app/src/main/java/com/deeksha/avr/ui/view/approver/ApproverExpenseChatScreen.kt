@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
@@ -74,7 +75,7 @@ fun ApproverExpenseChatScreen(
     }
 
     // Create a unique chat ID for expense approval chat
-    val expenseChatId = "expense_approval_${selectedExpense?.projectId ?: expenseId}"
+    val expenseChatId = "expense_approval_${expenseId}"
 
     // Image picker launcher for gallery
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -130,8 +131,9 @@ fun ApproverExpenseChatScreen(
     }
 
     // Load messages for expense chat
-    LaunchedEffect(expenseChatId) {
+    LaunchedEffect(expenseChatId, selectedExpense) {
         selectedExpense?.projectId?.let { projectId ->
+            Log.d("ApproverExpenseChatScreen", "Loading messages for project: $projectId, chat: $expenseChatId")
             chatViewModel.loadMessages(projectId, expenseChatId)
             currentUser?.phone?.let { userPhone ->
                 chatViewModel.markMessagesAsRead(projectId, expenseChatId, userPhone)
@@ -369,6 +371,13 @@ fun ApproverExpenseChatScreen(
                     // Send Button
                     IconButton(
                         onClick = {
+                            Log.d("ApproverExpenseChatScreen", "Send button clicked")
+                            Log.d("ApproverExpenseChatScreen", "currentUser: $currentUser")
+                            Log.d("ApproverExpenseChatScreen", "isUploadingImage: $isUploadingImage")
+                            Log.d("ApproverExpenseChatScreen", "selectedExpense: $selectedExpense")
+                            Log.d("ApproverExpenseChatScreen", "messageText: '$messageText'")
+                            Log.d("ApproverExpenseChatScreen", "selectedImageUri: $selectedImageUri")
+                            
                             if (currentUser != null && !isUploadingImage && selectedExpense != null) {
                                 if (selectedImageUri != null) {
                                     // Send image message
@@ -401,6 +410,11 @@ fun ApproverExpenseChatScreen(
                                     }
                                 } else if (messageText.isNotBlank()) {
                                     // Send text message
+                                    Log.d("ApproverExpenseChatScreen", "Sending text message: '$messageText'")
+                                    Log.d("ApproverExpenseChatScreen", "Project ID: ${selectedExpense!!.projectId}")
+                                    Log.d("ApproverExpenseChatScreen", "Chat ID: $expenseChatId")
+                                    Log.d("ApproverExpenseChatScreen", "Sender: ${currentUser.name} (${currentUser.phone})")
+                                    
                                     chatViewModel.sendMessage(
                                         projectId = selectedExpense!!.projectId,
                                         chatId = expenseChatId,
@@ -411,7 +425,15 @@ fun ApproverExpenseChatScreen(
                                         context = context
                                     )
                                     messageText = ""
+                                    Log.d("ApproverExpenseChatScreen", "Message sent, cleared input")
+                                } else {
+                                    Log.d("ApproverExpenseChatScreen", "No message to send - messageText is blank")
                                 }
+                            } else {
+                                Log.d("ApproverExpenseChatScreen", "Send conditions not met:")
+                                Log.d("ApproverExpenseChatScreen", "  currentUser != null: ${currentUser != null}")
+                                Log.d("ApproverExpenseChatScreen", "  !isUploadingImage: ${!isUploadingImage}")
+                                Log.d("ApproverExpenseChatScreen", "  selectedExpense != null: ${selectedExpense != null}")
                             }
                         },
                         modifier = Modifier

@@ -65,7 +65,7 @@ fun ExpenseChatScreen(
     var uploadError by remember { mutableStateOf<String?>(null) }
     val coroutineScope = rememberCoroutineScope()
 
-    // Create a unique chat ID for expense approval chat
+    // Create a unique chat ID for expense approval chat  
     val expenseChatId = "expense_approval_${project.id}"
 
     // Image picker launcher for gallery

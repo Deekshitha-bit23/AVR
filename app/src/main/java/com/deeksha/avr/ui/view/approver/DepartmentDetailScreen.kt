@@ -75,13 +75,33 @@ fun DepartmentDetailScreen(
     
     // Filtered expenses based on status and search
     val filteredExpenses = remember(departmentExpenses, selectedStatus, searchQuery) {
-        departmentExpenses.filter { expense ->
-            val statusMatch = selectedStatus == null || selectedStatus == "All"
+        val filtered = departmentExpenses.filter { expense ->
+            val statusMatch = when (selectedStatus) {
+                null, "All" -> true
+                "Pending" -> expense.status == ExpenseStatus.PENDING
+                "Approved" -> expense.status == ExpenseStatus.APPROVED
+                "Rejected" -> expense.status == ExpenseStatus.REJECTED
+                else -> true
+            }
             val searchMatch = searchQuery.isEmpty() || 
                 expense.by.contains(searchQuery, ignoreCase = true) ||
                 expense.invoice.contains(searchQuery, ignoreCase = true)
             statusMatch && searchMatch
         }
+        
+        // Debug logging
+        Log.d("DepartmentDetailScreen", "🔍 Filtering expenses:")
+        Log.d("DepartmentDetailScreen", "  Total department expenses: ${departmentExpenses.size}")
+        Log.d("DepartmentDetailScreen", "  Selected status filter: $selectedStatus")
+        Log.d("DepartmentDetailScreen", "  Search query: '$searchQuery'")
+        Log.d("DepartmentDetailScreen", "  Filtered result: ${filtered.size} expenses")
+        
+        // Log each expense and its status for debugging
+        departmentExpenses.forEach { expense ->
+            Log.d("DepartmentDetailScreen", "  📋 Expense: ${expense.id} - Status: ${expense.status} - Amount: ₹${expense.amount}")
+        }
+        
+        filtered
     }
     
     LaunchedEffect(projectId) {
@@ -402,15 +422,29 @@ private fun ModernExpenseCard(expense: DetailedExpense) {
                     )
                 }
                 
-                // Status Badge (assuming all DetailedExpense are approved since they come from reports)
+                // Status Badge (dynamic based on actual status)
+                val statusColor = when (expense.status) {
+                    ExpenseStatus.APPROVED -> Color(0xFF4CAF50)
+                    ExpenseStatus.PENDING -> Color(0xFFFF9800)
+                    ExpenseStatus.REJECTED -> Color(0xFFF44336)
+                    ExpenseStatus.DRAFT -> Color(0xFF9E9E9E)
+                }
+                
+                val statusText = when (expense.status) {
+                    ExpenseStatus.APPROVED -> "Approved"
+                    ExpenseStatus.PENDING -> "Pending"
+                    ExpenseStatus.REJECTED -> "Rejected"
+                    ExpenseStatus.DRAFT -> "Draft"
+                }
+                
                 Card(
                     colors = CardDefaults.cardColors(
-                        containerColor = Color(0xFF4CAF50)
+                        containerColor = statusColor
                     ),
                     shape = RoundedCornerShape(16.dp)
                 ) {
                     Text(
-                        text = "Approved",
+                        text = statusText,
                         fontSize = 12.sp,
                         color = Color.White,
                         fontWeight = FontWeight.Bold,

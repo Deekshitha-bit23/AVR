@@ -4,6 +4,7 @@ import android.Manifest
 import android.content.Context
 import android.content.pm.PackageManager
 import android.net.Uri
+import android.util.Log
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.result.PickVisualMediaRequest
@@ -75,7 +76,7 @@ fun UserExpenseChatScreen(
     }
 
     // Create a unique chat ID for expense approval chat
-    val expenseChatId = "expense_approval_${selectedExpense?.projectId ?: expenseId}"
+    val expenseChatId = "expense_approval_${expenseId}"
 
     // Image picker launcher for gallery
     val imagePickerLauncher = rememberLauncherForActivityResult(
@@ -131,8 +132,9 @@ fun UserExpenseChatScreen(
     }
 
     // Load messages for expense chat
-    LaunchedEffect(expenseChatId) {
+    LaunchedEffect(expenseChatId, selectedExpense) {
         selectedExpense?.projectId?.let { projectId ->
+            Log.d("UserExpenseChatScreen", "Loading messages for project: $projectId, chat: $expenseChatId")
             chatViewModel.loadMessages(projectId, expenseChatId)
             currentUser?.phone?.let { userPhone ->
                 chatViewModel.markMessagesAsRead(projectId, expenseChatId, userPhone)
@@ -362,6 +364,13 @@ fun UserExpenseChatScreen(
                     // Send Button
                     IconButton(
                         onClick = {
+                            Log.d("UserExpenseChatScreen", "Send button clicked")
+                            Log.d("UserExpenseChatScreen", "currentUser: $currentUser")
+                            Log.d("UserExpenseChatScreen", "isUploadingImage: $isUploadingImage")
+                            Log.d("UserExpenseChatScreen", "selectedExpense: $selectedExpense")
+                            Log.d("UserExpenseChatScreen", "messageText: '$messageText'")
+                            Log.d("UserExpenseChatScreen", "selectedImageUri: $selectedImageUri")
+                            
                             if (currentUser != null && !isUploadingImage && selectedExpense != null) {
                                 if (selectedImageUri != null) {
                                     // Send image message
@@ -394,6 +403,11 @@ fun UserExpenseChatScreen(
                                     }
                                 } else if (messageText.isNotBlank()) {
                                     // Send text message
+                                    Log.d("UserExpenseChatScreen", "Sending text message: '$messageText'")
+                                    Log.d("UserExpenseChatScreen", "Project ID: ${selectedExpense!!.projectId}")
+                                    Log.d("UserExpenseChatScreen", "Chat ID: $expenseChatId")
+                                    Log.d("UserExpenseChatScreen", "Sender: ${currentUser.name} (${currentUser.phone})")
+                                    
                                     chatViewModel.sendMessage(
                                         projectId = selectedExpense!!.projectId,
                                         chatId = expenseChatId,
@@ -404,7 +418,15 @@ fun UserExpenseChatScreen(
                                         context = context
                                     )
                                     messageText = ""
+                                    Log.d("UserExpenseChatScreen", "Message sent, cleared input")
+                                } else {
+                                    Log.d("UserExpenseChatScreen", "No message to send - messageText is blank")
                                 }
+                            } else {
+                                Log.d("UserExpenseChatScreen", "Send conditions not met:")
+                                Log.d("UserExpenseChatScreen", "  currentUser != null: ${currentUser != null}")
+                                Log.d("UserExpenseChatScreen", "  !isUploadingImage: ${!isUploadingImage}")
+                                Log.d("UserExpenseChatScreen", "  selectedExpense != null: ${selectedExpense != null}")
                             }
                         },
                         modifier = Modifier
