@@ -23,10 +23,9 @@ import com.deeksha.avr.model.DepartmentBudget
 import com.deeksha.avr.model.Project
 import com.deeksha.avr.model.User
 import com.deeksha.avr.model.UserRole
+import com.deeksha.avr.model.TemporaryApprover
 import com.deeksha.avr.viewmodel.ProductionHeadViewModel
-import com.deeksha.avr.ui.components.TemporaryApproverDialog
-import com.deeksha.avr.ui.components.TemporaryApproversSection
-import com.deeksha.avr.viewmodel.AuthViewModel
+import com.deeksha.avr.viewmodel.TemporaryApproverViewModel
 import com.google.firebase.Timestamp
 import java.text.SimpleDateFormat
 import java.util.*
@@ -37,7 +36,7 @@ fun EditProjectScreen(
     projectId: String,
     onNavigateBack: () -> Unit,
     viewModel: ProductionHeadViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel()
+    tempApproverViewModel: TemporaryApproverViewModel = hiltViewModel()
 ) {
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
@@ -51,14 +50,14 @@ fun EditProjectScreen(
     val totalBudget by viewModel.totalBudget.collectAsState()
     val totalAllocated by viewModel.totalAllocated.collectAsState()
     
-    // Current user for temporary approver assignment
-    val currentUser by authViewModel.currentUser.collectAsState()
+    // Temporary approvers
+    val temporaryApprovers by tempApproverViewModel.temporaryApprovers.collectAsState()
+    
     
     // Form state
     var projectName by remember { mutableStateOf("") }
     var description by remember { mutableStateOf("") }
     var selectedManagerId by remember { mutableStateOf("") }
-    var selectedTempararyId by remember { mutableStateOf("") }
     var selectedTeamMembers by remember { mutableStateOf(setOf<String>()) }
     var startDate by remember { mutableStateOf<Date?>(null) }
     var endDate by remember { mutableStateOf<Date?>(null) }
@@ -71,8 +70,6 @@ fun EditProjectScreen(
     val startDatePickerState = rememberDatePickerState()
     val endDatePickerState = rememberDatePickerState()
     
-    // Temporary approver dialog state
-    var showTempApproverDialog by remember { mutableStateOf(false) }
     
     // Date formatter
     val dateFormatter = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
@@ -80,6 +77,7 @@ fun EditProjectScreen(
     // Load project for editing when screen opens
     LaunchedEffect(projectId) {
         viewModel.loadProjectForEdit(projectId)
+        tempApproverViewModel.loadTemporaryApprovers(projectId)
     }
     
     // Update form when project is loaded
@@ -88,7 +86,6 @@ fun EditProjectScreen(
             projectName = project.name
             description = project.description
             selectedManagerId = project.managerId
-            selectedTempararyId = project.temporaryApproverPhone
             selectedTeamMembers = project.teamMembers.toSet()
             
             project.startDate?.let { start ->
@@ -299,38 +296,24 @@ fun EditProjectScreen(
                 
                 // Manager Selection
                 item {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        Text(
-                            text = "Project Manager",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium,
-                            color = Color.Black
-                        )
-                        
-                        // Plus icon for adding temporary approver
-                        IconButton(
-                            onClick = { showTempApproverDialog = true },
-                            modifier = Modifier.size(32.dp)
-                        ) {
-                            Icon(
-                                imageVector = Icons.Default.Add,
-                                contentDescription = "Add Temporary Approver",
-                                tint = Color(0xFF4285F4),
-                                modifier = Modifier.size(20.dp)
-                            )
-                        }
-                    }
+                    Text(
+                        text = "Project Manager",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.Black
+                    )
                 }
                 
                 item {
+                    // Display all approvers (permanent and temporary) in a unified list
                     availableApprovers.forEach { approver ->
-                        // Check if this approver is the current project's permanent approver
-                        val isCurrentProjectApprover = selectedManagerId == approver.phone
-                        val isCurrentTemporaryApprover = selectedTempararyId == approver.phone
+                        // Check if this approver is currently selected
+                        val isSelected = selectedManagerId == approver.phone
+                        
+                        // Check if this approver is also a temporary approver
+                        val isTemporaryApprover = temporaryApprovers.any { tempApprover -> 
+                            tempApprover.approverPhone == approver.phone 
+                        }
                         
                         Row(
                             modifier = Modifier
@@ -339,7 +322,7 @@ fun EditProjectScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             RadioButton(
-                                selected = selectedManagerId == approver.phone && selectedTempararyId == approver.phone,
+                                selected = isSelected,
                                 onClick = { selectedManagerId = approver.phone }
                             )
                             Text(
@@ -349,8 +332,23 @@ fun EditProjectScreen(
                                     .weight(1f)
                             )
                             
-                            // Show Permanent Approver Label only for current project's approver
-                            if (isCurrentProjectApprover) {
+                            // Show appropriate label based on status
+                            if (isTemporaryApprover) {
+                                // Always show TEMPORARY badge for temporary approvers
+                                Card(
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEEC4C4)),
+                                    shape = RoundedCornerShape(12.dp)
+                                ) {
+                                    Text(
+                                        text = "TEMPORARY",
+                                        color = Color(0xFFFF0000),
+                                        fontSize = 10.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        modifier = Modifier.padding(horizontal = 8.dp, vertical = 4.dp)
+                                    )
+                                }
+                            } else if (isSelected) {
+                                // Show PERMANENT badge only when selected
                                 Card(
                                     colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
                                     shape = RoundedCornerShape(12.dp)
@@ -364,17 +362,43 @@ fun EditProjectScreen(
                                     )
                                 }
                             }
-
-                            if (isCurrentTemporaryApprover) {
+                        }
+                    }
+                    
+                    // Display temporary approvers who are NOT in the permanent approvers list
+                    temporaryApprovers.forEach { tempApprover ->
+                        val isInPermanentList = availableApprovers.any { approver -> 
+                            approver.phone == tempApprover.approverPhone 
+                        }
+                        
+                        // Only show if not already in permanent list
+                        if (!isInPermanentList) {
+                            val isSelected = selectedManagerId == tempApprover.approverPhone
+                            
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = isSelected,
+                                    onClick = { selectedManagerId = tempApprover.approverPhone }
+                                )
+                                Text(
+                                    text = "${tempApprover.approverName} (${tempApprover.approverPhone})",
+                                    modifier = Modifier
+                                        .padding(start = 8.dp)
+                                        .weight(1f)
+                                )
+                                
+                                // Always show Temporary Approver Label
                                 Card(
-                                    colors = CardDefaults.cardColors(containerColor = Color(
-                                        0xFFEEC4C4
-                                    )
-                                    ),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFEEC4C4)),
                                     shape = RoundedCornerShape(12.dp)
-                                )  {
+                                ) {
                                     Text(
-                                        text = "Temporary",
+                                        text = "TEMPORARY",
                                         color = Color(0xFFFF0000),
                                         fontSize = 10.sp,
                                         fontWeight = FontWeight.Bold,
@@ -386,15 +410,6 @@ fun EditProjectScreen(
                     }
                 }
                 
-                // Temporary Approvers Section (only visible if there are any)
-                editingProject?.let { project ->
-                    item {
-                        TemporaryApproversSection(
-                            projectId = project.id,
-                            currentUserId = currentUser?.uid ?: ""
-                        )
-                    }
-                }
                 
                 // Team Members Selection
                 item {
@@ -717,19 +732,6 @@ fun EditProjectScreen(
         )
     }
     
-    // Temporary Approver Dialog
-    if (showTempApproverDialog) {
-        TemporaryApproverDialog(
-            projectId = projectId,
-            currentUserId = currentUser?.uid ?: "",
-            currentUserName = currentUser?.name ?: "",
-            onDismiss = { showTempApproverDialog = false },
-            onApproverAdded = {
-                // Refresh the project data to show updated temporary approvers
-                viewModel.loadProjectForEdit(projectId)
-            }
-        )
-    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)

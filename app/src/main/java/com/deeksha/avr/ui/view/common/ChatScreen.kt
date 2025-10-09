@@ -655,7 +655,7 @@ fun ChatScreen(
                             modifier = Modifier.padding(top = 8.dp)
                         )
                     }
-                    
+                       
                     // Gallery option
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,

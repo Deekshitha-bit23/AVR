@@ -41,6 +41,7 @@ import com.deeksha.avr.model.UserRole
 import com.deeksha.avr.utils.FormatUtils
 import com.deeksha.avr.viewmodel.TemporaryApproverViewModel
 import com.deeksha.avr.viewmodel.AuthViewModel
+import com.deeksha.avr.viewmodel.ProductionHeadViewModel
 import com.deeksha.avr.repository.AuthRepository
 import com.google.firebase.Timestamp
 import com.google.firebase.firestore.FirebaseFirestore
@@ -55,12 +56,16 @@ fun DelegationScreen(
     projectId: String,
     onNavigateBack: () -> Unit,
     temporaryApproverViewModel: TemporaryApproverViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    productionHeadViewModel: ProductionHeadViewModel = hiltViewModel()
 ) {
     val temporaryApprovers by temporaryApproverViewModel.temporaryApprovers.collectAsState()
     val isLoading by temporaryApproverViewModel.isLoading.collectAsState()
     val error by temporaryApproverViewModel.error.collectAsState()
     val authState by authViewModel.authState.collectAsState()
+    
+    // Project data for filtering
+    val editingProject by productionHeadViewModel.editingProject.collectAsState()
     
     // State for approver selection
     var showingApproverSelection by remember { mutableStateOf(false) }
@@ -73,6 +78,16 @@ fun DelegationScreen(
     var selectedDateType by remember { mutableStateOf("") } // "start" or "end"
     var editingApprover by remember { mutableStateOf<TemporaryApprover?>(null) }
     
+    // State for confirmation dialog
+    var showingDeleteConfirmation by remember { mutableStateOf(false) }
+    
+    // State for approver selection with dates
+    var selectedApproverForAssignment by remember { mutableStateOf<User?>(null) }
+    var tempStartDate by remember { mutableStateOf<Date?>(null) }
+    var tempEndDate by remember { mutableStateOf<Date?>(null) }
+    var showDateSelectionDialog by remember { mutableStateOf(false) }
+    var isAssigningApprover by remember { mutableStateOf(false) }
+    
     // Coroutine scope for async operations
     val coroutineScope = rememberCoroutineScope()
     
@@ -82,17 +97,35 @@ fun DelegationScreen(
     // Load data when screen opens
     LaunchedEffect(projectId) {
         temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+        productionHeadViewModel.loadProjectForEdit(projectId)
+    }
+    
+    // Reload temporary approvers when assignment completes
+    LaunchedEffect(isAssigningApprover) {
+        if (!isAssigningApprover) {
+            // Assignment completed, reload data
+            temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+        }
     }
     
     // Load approvers when showing selection dialog
-    LaunchedEffect(showingApproverSelection) {
+    LaunchedEffect(showingApproverSelection, editingProject, currentApprover) {
         if (showingApproverSelection) {
             isLoadingApprovers = true
             approverError = null
             try {
                 val authRepository = AuthRepository(FirebaseFirestore.getInstance())
-                val approvers = authRepository.getUsersByRole(UserRole.APPROVER)
-                availableApprovers = approvers
+                val allApprovers = authRepository.getUsersByRole(UserRole.APPROVER)
+                
+                // Filter out permanent approver and current temporary approver
+                val filteredApprovers = allApprovers.filter { approver ->
+                    val isPermanentApprover = editingProject?.managerId == approver.phone
+                    val isCurrentTemporaryApprover = currentApprover?.approverPhone == approver.phone
+                    
+                    !isPermanentApprover && !isCurrentTemporaryApprover
+                }
+                
+                availableApprovers = filteredApprovers
             } catch (e: Exception) {
                 approverError = e.message ?: "Failed to load approvers"
             } finally {
@@ -208,8 +241,12 @@ fun DelegationScreen(
                 
                 // Action Buttons Card
                 ActionButtonsCard(
+                    currentApprover = currentApprover,
                     onChangeTempApprover = {
                         showingApproverSelection = true
+                    },
+                    onRemoveTempApprover = {
+                        showingDeleteConfirmation = true
                     },
                     onRefreshDetails = {
                         temporaryApproverViewModel.loadTemporaryApprovers(projectId)
@@ -225,38 +262,11 @@ fun DelegationScreen(
                 isLoading = isLoadingApprovers,
                 error = approverError,
                 onApproverSelected = { approver ->
-                    coroutineScope.launch {
-                        try {
-                            // Remove existing approver first if it exists
-                            if (currentApprover != null) {
-                                temporaryApproverViewModel.removeTemporaryApproverById(
-                                    projectId = projectId, 
-                                    documentId = currentApprover.id
-                                )
-                                
-                                // Wait for deletion to complete
-                                delay(500)
-                            }
-                            
-                            // Create new delegation with selected approver
-                            temporaryApproverViewModel.createTemporaryApprover(
-                                projectId = projectId,
-                                approverId = approver.uid,
-                                approverName = approver.name,
-                                approverPhone = approver.phone,
-                                startDate = Timestamp.now(),
-                                expiringDate = null
-                            )
-                            
-                            // Refresh the data to ensure UI updates
-                            temporaryApproverViewModel.loadTemporaryApprovers(projectId)
-                            
-                        } catch (e: Exception) {
-                            // Handle any errors
-                            println("Error replacing temp approver: ${e.message}")
-                        }
-                    }
+                    selectedApproverForAssignment = approver
+                    tempStartDate = Date() // Default to current date
+                    tempEndDate = null // Default to no end date
                     showingApproverSelection = false
+                    showDateSelectionDialog = true
                 },
                 onDismiss = { showingApproverSelection = false }
             )
@@ -339,6 +349,114 @@ fun DelegationScreen(
                     editingApprover = null
                 },
                 initialDate = currentDate
+            )
+        }
+        
+        // Date Selection Dialog for Temporary Approver Assignment
+        if (showDateSelectionDialog && selectedApproverForAssignment != null) {
+            TemporaryApproverDateSelectionDialog(
+                approver = selectedApproverForAssignment!!,
+                startDate = tempStartDate,
+                endDate = tempEndDate,
+                isAssigning = isAssigningApprover,
+                onStartDateChanged = { tempStartDate = it },
+                onEndDateChanged = { tempEndDate = it },
+                onConfirm = {
+                    isAssigningApprover = true
+                    coroutineScope.launch {
+                        try {
+                            // Remove existing approver first if it exists
+                            if (currentApprover != null) {
+                                temporaryApproverViewModel.removeTemporaryApproverById(
+                                    projectId = projectId, 
+                                    documentId = currentApprover.id
+                                )
+                                
+                                // Wait for deletion to complete
+                                delay(1000)
+                            }
+                            
+                            // Create new delegation with selected approver and dates
+                            temporaryApproverViewModel.createTemporaryApprover(
+                                projectId = projectId,
+                                approverId = selectedApproverForAssignment!!.uid,
+                                approverName = selectedApproverForAssignment!!.name,
+                                approverPhone = selectedApproverForAssignment!!.phone,
+                                startDate = Timestamp(tempStartDate ?: Date()),
+                                expiringDate = tempEndDate?.let { Timestamp(it) }
+                            )
+                            
+                            // Wait for creation to complete
+                            delay(1000)
+                            
+                            // Refresh the data to ensure UI updates
+                            temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+                            
+                            // Wait for data to load
+                            delay(500)
+                            
+                            // Close dialog and reset state
+                            showDateSelectionDialog = false
+                            selectedApproverForAssignment = null
+                            tempStartDate = null
+                            tempEndDate = null
+                            isAssigningApprover = false
+                            
+                        } catch (e: Exception) {
+                            // Handle any errors
+                            println("Error assigning temp approver: ${e.message}")
+                            isAssigningApprover = false
+                        }
+                    }
+                },
+                onDismiss = {
+                    showDateSelectionDialog = false
+                    selectedApproverForAssignment = null
+                    tempStartDate = null
+                    tempEndDate = null
+                }
+            )
+        }
+        
+        // Delete Confirmation Dialog
+        if (showingDeleteConfirmation) {
+            AlertDialog(
+                onDismissRequest = { showingDeleteConfirmation = false },
+                title = {
+                    Text("Remove Temporary Approver")
+                },
+                text = {
+                    Text("Are you sure you want to completely remove this temporary approver from the project? This action cannot be undone.")
+                },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            currentApprover?.let { approver ->
+                                coroutineScope.launch {
+                                    try {
+                                        temporaryApproverViewModel.removeTemporaryApproverById(
+                                            projectId = projectId,
+                                            documentId = approver.id
+                                        )
+                                        // Refresh the data to ensure UI updates
+                                        temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+                                    } catch (e: Exception) {
+                                        println("Error removing temp approver: ${e.message}")
+                                    }
+                                }
+                            }
+                            showingDeleteConfirmation = false
+                        },
+                        colors = ButtonDefaults.textButtonColors(contentColor = Color(0xFFD32F2F))
+                    ) {
+                        Text("Remove")
+                    }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showingDeleteConfirmation = false }) {
+                        Text("Cancel")
+                    }
+                }
             )
         }
     }
@@ -653,7 +771,9 @@ private fun InfoRowWithArrow(
 
 @Composable
 private fun ActionButtonsCard(
+    currentApprover: TemporaryApprover?,
     onChangeTempApprover: () -> Unit,
+    onRemoveTempApprover: () -> Unit,
     onRefreshDetails: () -> Unit
 ) {
     Card(
@@ -667,7 +787,7 @@ private fun ActionButtonsCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Change Temp Approver Button
+            // Add/Change Temp Approver Button
             Button(
                 onClick = onChangeTempApprover,
                 modifier = Modifier.fillMaxWidth(),
@@ -678,17 +798,46 @@ private fun ActionButtonsCard(
             ) {
                 Icon(
                     Icons.Default.People,
-                    contentDescription = "Change Temp Approver",
+                    contentDescription = if (currentApprover != null) "Change Temp Approver" else "Add Temp Approver",
                     tint = Color.White,
                     modifier = Modifier.size(20.dp)
                 )
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
-                    text = "Change Temp Approver",
+                    text = if (currentApprover != null) "Change Temp Approver" else "Add Temp Approver",
                     color = Color.White,
                     fontSize = 16.sp,
                     fontWeight = FontWeight.Medium
                 )
+            }
+            
+            // Only show remove button if there's a current approver
+            if (currentApprover != null) {
+                Spacer(modifier = Modifier.height(12.dp))
+                
+                // Remove Temp Approver Button
+                Button(
+                    onClick = onRemoveTempApprover,
+                    modifier = Modifier.fillMaxWidth(),
+                    colors = ButtonDefaults.buttonColors(
+                        containerColor = Color(0xFFD32F2F)
+                    ),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Delete,
+                        contentDescription = "Remove Temp Approver",
+                        tint = Color.White,
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Remove Temp Approver",
+                        color = Color.White,
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Medium
+                    )
+                }
             }
             
             Spacer(modifier = Modifier.height(12.dp))
@@ -887,5 +1036,249 @@ private fun DatePickerDialog(
                 yearContentColor = Color.Black
             )
         )
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun TemporaryApproverDateSelectionDialog(
+    approver: User,
+    startDate: Date?,
+    endDate: Date?,
+    isAssigning: Boolean = false,
+    onStartDateChanged: (Date?) -> Unit,
+    onEndDateChanged: (Date?) -> Unit,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    var showStartDatePicker by remember { mutableStateOf(false) }
+    var showEndDatePicker by remember { mutableStateOf(false) }
+    
+    val startDatePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = startDate?.time ?: System.currentTimeMillis(),
+        yearRange = IntRange(2024, 2030)
+    )
+    
+    val endDatePickerState = rememberDatePickerState(
+        initialSelectedDateMillis = endDate?.time ?: System.currentTimeMillis(),
+        yearRange = IntRange(2024, 2030)
+    )
+    
+    val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+    
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = {
+            Text("Set Assignment Dates")
+        },
+        text = {
+            if (isAssigning) {
+                // Loading state
+                Box(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(200.dp),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Column(
+                        horizontalAlignment = Alignment.CenterHorizontally
+                    ) {
+                        CircularProgressIndicator(color = Color(0xFF1976D2))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text(
+                            text = "Assigning temporary approver...",
+                            color = Color.Gray,
+                            textAlign = TextAlign.Center
+                        )
+                    }
+                }
+            } else {
+                Column(
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    // Selected Approver Info
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD))
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(16.dp)
+                        ) {
+                            Text(
+                                text = "Selected Approver",
+                                fontSize = 12.sp,
+                                color = Color.Gray
+                            )
+                            Text(
+                                text = approver.name,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold
+                            )
+                            Text(
+                                text = approver.phone,
+                                fontSize = 14.sp,
+                                color = Color.Gray
+                            )
+                        }
+                    }
+                    
+                    Spacer(modifier = Modifier.height(16.dp))
+                    
+                    // Start Date Selection
+                    OutlinedTextField(
+                        value = startDate?.let { dateFormatter.format(it) } ?: "",
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("Start Date") },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.CalendarToday,
+                                contentDescription = "Select Start Date",
+                                modifier = Modifier.clickable { showStartDatePicker = true }
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showStartDatePicker = true },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1976D2),
+                            unfocusedBorderColor = Color.Gray
+                        )
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    // End Date Selection
+                    OutlinedTextField(
+                        value = endDate?.let { dateFormatter.format(it) } ?: "",
+                        onValueChange = { },
+                        readOnly = true,
+                        label = { Text("End Date (Optional)") },
+                        trailingIcon = {
+                            Icon(
+                                Icons.Default.CalendarToday,
+                                contentDescription = "Select End Date",
+                                modifier = Modifier.clickable { showEndDatePicker = true }
+                            )
+                        },
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .clickable { showEndDatePicker = true },
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = Color(0xFF1976D2),
+                            unfocusedBorderColor = Color.Gray
+                        )
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // Clear End Date Button
+                    TextButton(
+                        onClick = { onEndDateChanged(null) },
+                        modifier = Modifier.align(Alignment.End)
+                    ) {
+                        Text("Clear End Date")
+                    }
+                }
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = startDate != null && !isAssigning
+            ) {
+                if (isAssigning) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        CircularProgressIndicator(
+                            modifier = Modifier.size(16.dp),
+                            color = Color(0xFF1976D2)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Assigning...")
+                    }
+                } else {
+                    Text("Assign")
+                }
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        }
+    )
+    
+    // Start Date Picker
+    if (showStartDatePicker) {
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showStartDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        startDatePickerState.selectedDateMillis?.let { millis ->
+                            onStartDateChanged(Date(millis))
+                        }
+                        showStartDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showStartDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(
+                state = startDatePickerState,
+                modifier = Modifier.padding(16.dp),
+                title = {
+                    Text(
+                        text = "Select Start Date",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                },
+                showModeToggle = false
+            )
+        }
+    }
+    
+    // End Date Picker
+    if (showEndDatePicker) {
+        androidx.compose.material3.DatePickerDialog(
+            onDismissRequest = { showEndDatePicker = false },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        endDatePickerState.selectedDateMillis?.let { millis ->
+                            onEndDateChanged(Date(millis))
+                        }
+                        showEndDatePicker = false
+                    }
+                ) {
+                    Text("OK")
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showEndDatePicker = false }) {
+                    Text("Cancel")
+                }
+            }
+        ) {
+            DatePicker(
+                state = endDatePickerState,
+                modifier = Modifier.padding(16.dp),
+                title = {
+                    Text(
+                        text = "Select End Date",
+                        modifier = Modifier.padding(16.dp)
+                    )
+                },
+                showModeToggle = false
+            )
+        }
     }
 }

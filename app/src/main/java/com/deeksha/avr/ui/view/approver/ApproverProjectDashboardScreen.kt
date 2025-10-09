@@ -917,12 +917,12 @@ private fun ProjectOverviewSection(
             )
         }
         
-        // Departments Card - Dynamic count
+        // Departments Card - Dynamic count (only departments with allocated budgets)
         DynamicOverviewCard(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.Settings,
             iconColor = Color(0xFF9C27B0),
-            value = projectBudgetSummary.departmentBreakdown.size.toString(),
+            value = projectBudgetSummary.departmentBreakdown.count { it.budgetAllocated > 0 }.toString(),
             label = "Departments",
             subtitle = null
         )
@@ -1107,14 +1107,14 @@ private fun DepartmentBudgetsSection(
     
     Spacer(modifier = Modifier.height(16.dp))
     
-    // Department Budget Cards - Show only departments with spending
-    val departmentsWithSpending = departmentBreakdown.filter { it.spent > 0 }
+    // Department Budget Cards - Show all departments with allocated budgets
+    val departmentsWithBudgets = departmentBreakdown.filter { it.budgetAllocated > 0 }
     
-    if (departmentsWithSpending.isNotEmpty()) {
+    if (departmentsWithBudgets.isNotEmpty()) {
         LazyRow(
             horizontalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            items(departmentsWithSpending) { department ->
+            items(departmentsWithBudgets) { department ->
                 DepartmentBudgetCard(
                     department = department,
                     onClick = { onNavigateToDepartmentDetail(projectId, department.department) }
