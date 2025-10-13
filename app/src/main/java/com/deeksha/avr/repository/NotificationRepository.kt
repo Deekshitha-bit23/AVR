@@ -24,20 +24,36 @@ class NotificationRepository @Inject constructor(
     // Create a new notification
     suspend fun createNotification(notification: Notification): Result<String> {
         return try {
+            Log.d("NotificationRepository", "🔄 Starting to create notification...")
+            Log.d("NotificationRepository", "   - Title: ${notification.title}")
+            Log.d("NotificationRepository", "   - Recipient: ${notification.recipientId}")
+            
             val docRef = notificationsCollection.document()
-            val notificationWithId = notification.copy(id = docRef.id)
+            val notificationId = docRef.id
+            
+            Log.d("NotificationRepository", "📝 Generated notification ID: $notificationId")
+            
+            val notificationWithId = notification.copy(id = notificationId)
+            
+            Log.d("NotificationRepository", "💾 About to save to Firestore...")
             docRef.set(notificationWithId).await()
-            Log.d("NotificationRepository", "✅ Created notification: ${notification.title}")
+            
+            Log.d("NotificationRepository", "✅ Successfully saved notification to Firestore!")
             Log.d("NotificationRepository", "📋 Notification details:")
-            Log.d("NotificationRepository", "   - ID: ${docRef.id}")
+            Log.d("NotificationRepository", "   - ID: $notificationId")
             Log.d("NotificationRepository", "   - recipientId: '${notification.recipientId}'")
             Log.d("NotificationRepository", "   - recipientRole: '${notification.recipientRole}'")
             Log.d("NotificationRepository", "   - type: '${notification.type}'")
             Log.d("NotificationRepository", "   - projectId: '${notification.projectId}'")
             Log.d("NotificationRepository", "   - projectName: '${notification.projectName}'")
-            Result.success(docRef.id)
+            Log.d("NotificationRepository", "   - isRead: ${notification.isRead}")
+            Log.d("NotificationRepository", "   - actionRequired: ${notification.actionRequired}")
+            
+            Result.success(notificationId)
         } catch (e: Exception) {
             Log.e("NotificationRepository", "❌ Error creating notification: ${e.message}")
+            Log.e("NotificationRepository", "❌ Exception type: ${e.javaClass.simpleName}")
+            e.printStackTrace()
             Result.failure(e)
         }
     }

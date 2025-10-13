@@ -192,6 +192,49 @@ class ChatRepository @Inject constructor(
         }
     }
 
+    // Get all approvers for a project (for expense approval chats)
+    private suspend fun getApproversForExpenseChat(projectId: String): List<String> {
+        return try {
+            Log.d("ChatRepository", "📋 Getting approvers for project: $projectId")
+            
+            // Get project details
+            val projectDoc = projectsCollection.document(projectId).get().await()
+            if (!projectDoc.exists()) {
+                Log.e("ChatRepository", "❌ Project not found: $projectId")
+                return emptyList()
+            }
+            
+            val approvers = mutableSetOf<String>()
+            
+            // Get regular approvers
+            val approverIds = projectDoc.get("approverIds") as? List<*>
+            approverIds?.filterIsInstance<String>()?.forEach { approverId ->
+                approvers.add(approverId)
+                Log.d("ChatRepository", "📋 Added regular approver: $approverId")
+            }
+            
+            // Get production heads
+            val productionHeadIds = projectDoc.get("productionHeadIds") as? List<*>
+            productionHeadIds?.filterIsInstance<String>()?.forEach { prodHeadId ->
+                approvers.add(prodHeadId)
+                Log.d("ChatRepository", "📋 Added production head: $prodHeadId")
+            }
+            
+            // Get temporary approver
+            val temporaryApproverPhone = projectDoc.get("temporaryApproverPhone") as? String
+            if (!temporaryApproverPhone.isNullOrEmpty()) {
+                approvers.add(temporaryApproverPhone)
+                Log.d("ChatRepository", "📋 Added temporary approver: $temporaryApproverPhone")
+            }
+            
+            Log.d("ChatRepository", "📋 Total approvers found: ${approvers.size}")
+            approvers.toList()
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "❌ Error getting approvers for expense chat: ${e.message}")
+            emptyList()
+        }
+    }
+
     // Get or create a chat between two users for a specific project
     suspend fun getOrCreateChat(projectId: String, currentUserId: String, otherUserId: String): String {
         return try {
@@ -264,17 +307,91 @@ class ChatRepository @Inject constructor(
             val chatDoc = chatsCollection.document(chatId).get().await()
             if (!chatDoc.exists()) {
                 Log.d("ChatRepository", "Chat $chatId does not exist, creating it")
+                
+                // FOR EXPENSE APPROVAL CHATS: Include approvers in initial chat creation
+                val initialMembers = if (chatId.startsWith("expense_approval_")) {
+                    Log.d("ChatRepository", "📋 Creating expense approval chat: $chatId")
+                    try {
+                        // Get all approvers for this project
+                        val allApprovers = getApproversForExpenseChat(projectId)
+                        Log.d("ChatRepository", "📋 Found ${allApprovers.size} approvers for project: $projectId")
+                        
+                        // Combine sender and approvers
+                        val members = mutableSetOf(senderId)
+                        members.addAll(allApprovers)
+                        Log.d("ChatRepository", "📋 Creating chat with members: $members")
+                        members.toList()
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "❌ Error getting approvers, creating chat with sender only: ${e.message}")
+                        listOf(senderId)
+                    }
+                } else {
+                    listOf(senderId)
+                }
+                
+                // Create unread count map for all members
+                val initialUnreadCount = initialMembers.associateWith { 0 }
+                
                 val chatData = hashMapOf(
-                    "members" to listOf(senderId),
+                    "members" to initialMembers,
                     "lastMessage" to "",
                     "lastMessageTime" to Timestamp.now(),
                     "lastMessageSenderId" to "",
-                    "unreadCount" to mapOf(senderId to 0),
+                    "unreadCount" to initialUnreadCount,
                     "createdAt" to Timestamp.now(),
                     "updatedAt" to Timestamp.now()
                 )
                 chatsCollection.document(chatId).set(chatData).await()
-                Log.d("ChatRepository", "Created chat: $chatId")
+                Log.d("ChatRepository", "Created chat: $chatId with ${initialMembers.size} members")
+            } else {
+                // Chat exists - FOR EXPENSE APPROVAL CHATS: Ensure all approvers are still members (in case new ones were added)
+                if (chatId.startsWith("expense_approval_")) {
+                    Log.d("ChatRepository", "📋 Updating existing expense approval chat: $chatId")
+                    try {
+                        // Get all approvers for this project
+                        val allApprovers = getApproversForExpenseChat(projectId)
+                        Log.d("ChatRepository", "📋 Found ${allApprovers.size} approvers for project: $projectId")
+                        
+                        // Get current chat members
+                        val currentMembers = (chatDoc.get("members") as? List<*>)?.filterIsInstance<String>()?.toMutableSet() ?: mutableSetOf()
+                        Log.d("ChatRepository", "📋 Current chat members: $currentMembers")
+                        
+                        // Add sender if not already in members
+                        currentMembers.add(senderId)
+                        
+                        // Add all approvers to members if not already present
+                        var addedNewMembers = false
+                        allApprovers.forEach { approverId ->
+                            if (!currentMembers.contains(approverId)) {
+                                currentMembers.add(approverId)
+                                addedNewMembers = true
+                                Log.d("ChatRepository", "📋 Adding approver to existing chat: $approverId")
+                            }
+                        }
+                        
+                        // Update chat members and unread counts if new members were added
+                        if (addedNewMembers) {
+                            val unreadCount = (chatDoc.get("unreadCount") as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value }?.toMutableMap() ?: mutableMapOf()
+                            // Initialize unread count for new members
+                            currentMembers.forEach { memberId ->
+                                if (!unreadCount.containsKey(memberId)) {
+                                    unreadCount[memberId] = 0
+                                }
+                            }
+                            
+                            chatsCollection.document(chatId).update(
+                                mapOf(
+                                    "members" to currentMembers.toList(),
+                                    "unreadCount" to unreadCount
+                                )
+                            ).await()
+                            Log.d("ChatRepository", "📋 Updated chat members to: $currentMembers")
+                        }
+                    } catch (e: Exception) {
+                        Log.e("ChatRepository", "❌ Error adding approvers to existing expense chat: ${e.message}")
+                        // Continue with sending message even if this fails
+                    }
+                }
             }
             
             val messageData = hashMapOf(
@@ -320,9 +437,15 @@ class ChatRepository @Inject constructor(
             chatsCollection.document(chatId).update("unreadCount", updatedUnreadCount).await()
             
             // Send notifications to other members
+            Log.d("ChatRepository", "💬 Preparing to send notifications...")
+            Log.d("ChatRepository", "   - All members: $members")
+            Log.d("ChatRepository", "   - SenderId: $senderId")
             val otherMembers = members.filter { it != senderId }
+            Log.d("ChatRepository", "   - Other members (after filtering): $otherMembers")
+            Log.d("ChatRepository", "   - Other members count: ${otherMembers.size}")
+            
             if (otherMembers.isNotEmpty()) {
-                Log.d("ChatRepository", "Creating notifications for ${otherMembers.size} members")
+                Log.d("ChatRepository", "✅ Creating notifications for ${otherMembers.size} members")
                 
                 // Get project name for notification
                 val projectDoc = projectsCollection.document(projectId).get().await()
@@ -339,22 +462,47 @@ class ChatRepository @Inject constructor(
                         val receiverDoc = usersCollection.document(normalizedReceiverId).get().await()
                         val receiverRole = receiverDoc.get("role") as? String ?: "USER"
                         
+                        // Create notification with appropriate title based on chat type
+                        val notificationTitle = if (chatId.startsWith("expense_approval_")) {
+                            "New message about pending expense from $senderName"
+                        } else {
+                            "New message from $senderName"
+                        }
+                        
                         val notification = Notification(
                             recipientId = normalizedReceiverId, // Use normalized ID
                             recipientRole = receiverRole,
-                            title = "New message from $senderName",
+                            title = notificationTitle,
                             message = message,
                             type = NotificationType.CHAT_MESSAGE,
                             projectId = projectId,
                             projectName = projectName,
                             relatedId = chatId,
                             isRead = false,
-                            actionRequired = false,
+                            actionRequired = if (chatId.startsWith("expense_approval_")) true else false,
                             navigationTarget = "chat/$projectId/$chatId/$senderName"
                         )
                         
-                        notificationRepository.createNotification(notification)
-                        Log.d("ChatRepository", "Created notification for receiver: $normalizedReceiverId (role: $receiverRole)")
+                        Log.d("ChatRepository", "📧 About to create notification:")
+                        Log.d("ChatRepository", "   - recipientId: $normalizedReceiverId")
+                        Log.d("ChatRepository", "   - recipientRole: $receiverRole")
+                        Log.d("ChatRepository", "   - title: ${notification.title}")
+                        Log.d("ChatRepository", "   - message: ${notification.message}")
+                        Log.d("ChatRepository", "   - type: ${notification.type}")
+                        Log.d("ChatRepository", "   - projectId: $projectId")
+                        Log.d("ChatRepository", "   - projectName: $projectName")
+                        Log.d("ChatRepository", "   - actionRequired: ${notification.actionRequired}")
+                        
+                        val notificationResult = notificationRepository.createNotification(notification)
+                        
+                        if (notificationResult.isSuccess) {
+                            Log.d("ChatRepository", "✅ Successfully created notification for receiver: $normalizedReceiverId (role: $receiverRole)")
+                            Log.d("ChatRepository", "✅ Notification ID: ${notificationResult.getOrNull()}")
+                        } else {
+                            Log.e("ChatRepository", "❌ Failed to create notification for receiver: $normalizedReceiverId")
+                            Log.e("ChatRepository", "❌ Error: ${notificationResult.exceptionOrNull()?.message}")
+                            notificationResult.exceptionOrNull()?.printStackTrace()
+                        }
                         
                     } catch (e: Exception) {
                         Log.e("ChatRepository", "Error creating notification for $receiverId: ${e.message}")
@@ -373,6 +521,12 @@ class ChatRepository @Inject constructor(
                 } else {
                     Log.w("ChatRepository", "Context not provided, message sent without notifications")
                 }
+            } else {
+                Log.w("ChatRepository", "⚠️ No other members to notify! otherMembers is empty.")
+                Log.w("ChatRepository", "⚠️ This means either:")
+                Log.w("ChatRepository", "⚠️   1. Chat has no members")
+                Log.w("ChatRepository", "⚠️   2. Sender ID doesn't match any member (ID format mismatch)")
+                Log.w("ChatRepository", "⚠️   3. Chat only has 1 member (the sender)")
             }
             
             true
