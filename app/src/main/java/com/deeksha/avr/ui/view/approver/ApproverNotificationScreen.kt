@@ -424,6 +424,11 @@ private fun handleApproverNotificationClick(
     // For approvers, navigate based on notification type
     if (notification.projectId.isNotEmpty()) {
         when (notification.type) {
+            NotificationType.DELEGATION_REMOVED -> {
+                // For delegation removed notifications, just mark as read and don't navigate
+                // The notification will disappear from the list
+                return
+            }
             NotificationType.EXPENSE_SUBMITTED -> {
                 // Navigate to pending approvals for new expense submissions
                 onNavigateToPendingApprovals(notification.projectId)

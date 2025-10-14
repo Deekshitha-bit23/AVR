@@ -230,6 +230,18 @@ fun NotificationIcon(
             icon = Icons.Default.Edit
             tint = Color(0xFF9C27B0)
         }
+        NotificationType.DELEGATION_EXPIRED -> {
+            icon = Icons.Default.Schedule
+            tint = Color(0xFFFF9800)
+        }
+        NotificationType.DELEGATION_REMOVED -> {
+            icon = Icons.Default.Delete
+            tint = Color(0xFFF44336)
+        }
+        NotificationType.DELEGATION_RESPONSE -> {
+            icon = Icons.Default.CheckCircle
+            tint = Color(0xFF4CAF50)
+        }
         NotificationType.CHAT_MESSAGE -> {
             icon = Icons.Default.Chat
             tint = Color(0xFF2196F3)

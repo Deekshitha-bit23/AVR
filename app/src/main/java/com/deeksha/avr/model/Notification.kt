@@ -28,6 +28,9 @@ enum class NotificationType {
     ROLE_ASSIGNMENT,        // When role is assigned/changed
     TEMPORARY_APPROVER_ASSIGNMENT, // When assigned as temporary approver
     DELEGATION_CHANGED,     // When delegation settings are modified
+    DELEGATION_EXPIRED,     // When delegation assignment expires
+    DELEGATION_REMOVED,     // When delegation assignment is removed
+    DELEGATION_RESPONSE,    // When approver responds to delegation (accept/reject)
     CHAT_MESSAGE,           // New chat message notification
     INFO                    // General information
 }

@@ -487,4 +487,248 @@ class NotificationService @Inject constructor(
             Result.failure(e)
         }
     }
+    
+    /**
+     * Send temporary approver assignment notification with accept/reject actions
+     */
+    suspend fun sendTemporaryApproverAssignmentNotification(
+        projectId: String,
+        approverId: String,
+        approverName: String,
+        approverPhone: String,
+        assignedByName: String,
+        startDate: Timestamp,
+        expiringDate: Timestamp?
+    ): Result<Unit> {
+        return try {
+            Log.d("NotificationService", "🔄 Sending temporary approver assignment notification")
+            Log.d("NotificationService", "📋 To: $approverName ($approverPhone)")
+            Log.d("NotificationService", "📋 Project ID: $projectId")
+            Log.d("NotificationService", "📋 Approver ID: $approverId")
+            
+            // Get project details
+            val projectDoc = firestore.collection("projects").document(projectId).get().await()
+            if (!projectDoc.exists()) {
+                Log.e("NotificationService", "❌ Project not found: $projectId")
+                return Result.failure(Exception("Project not found"))
+            }
+            
+            val projectData = projectDoc.data ?: return Result.failure(Exception("Project data is null"))
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
+            
+            // Format dates
+            val dateFormat = java.text.SimpleDateFormat("dd MMM yyyy", java.util.Locale.getDefault())
+            val startDateStr = dateFormat.format(startDate.toDate())
+            val expiryDateStr = expiringDate?.let { dateFormat.format(it.toDate()) } ?: "Ongoing"
+            
+            // Create notification with accept/reject actions
+            val notification = Notification(
+                recipientId = approverPhone, // Use phone number to match user's phone
+                recipientRole = "APPROVER",
+                title = "Temporary Approver Assignment",
+                message = "$assignedByName has assigned you as a temporary approver for '$projectName' from $startDateStr to $expiryDateStr. Please accept or reject this assignment.",
+                type = NotificationType.TEMPORARY_APPROVER_ASSIGNMENT,
+                projectId = projectId,
+                projectName = projectName,
+                relatedId = approverId, // Store approver ID for action handling
+                actionRequired = true, // This enables accept/reject buttons
+                navigationTarget = "approver_project_dashboard/$projectId"
+            )
+            
+            Log.d("NotificationService", "📋 Creating notification:")
+            Log.d("NotificationService", "   - Title: ${notification.title}")
+            Log.d("NotificationService", "   - Message: ${notification.message}")
+            Log.d("NotificationService", "   - Action Required: ${notification.actionRequired}")
+            
+            val result = notificationRepository.createNotification(notification)
+            
+            result.onSuccess { notificationId ->
+                Log.d("NotificationService", "✅ Temporary approver assignment notification sent successfully: $notificationId")
+            }.onFailure { error ->
+                Log.e("NotificationService", "❌ Failed to send temporary approver assignment notification: ${error.message}")
+            }
+            
+            // Convert Result<String> to Result<Unit>
+            if (result.isSuccess) {
+                Result.success(Unit)
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Unknown error"))
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationService", "❌ Error sending temporary approver assignment notification: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Send notification about delegation expiry to the user
+     */
+    suspend fun sendDelegationExpiryNotification(
+        projectId: String,
+        projectName: String,
+        approverId: String,
+        approverName: String,
+        approverPhone: String
+    ): Result<Unit> {
+        return try {
+            Log.d("NotificationService", "🔄 Sending delegation expiry notification")
+            Log.d("NotificationService", "📋 To: $approverName ($approverPhone)")
+            Log.d("NotificationService", "📋 Project: $projectName")
+            
+            // Create notification about delegation expiry
+            val notification = Notification(
+                recipientId = approverPhone, // Use phone number to match user's phone
+                recipientRole = "APPROVER",
+                title = "Delegation Expired",
+                message = "Your temporary approver assignment for project '$projectName' has expired. You have been automatically removed from the project team.",
+                type = NotificationType.DELEGATION_EXPIRED,
+                projectId = projectId,
+                projectName = projectName,
+                relatedId = approverId,
+                actionRequired = false, // No action required, just informational
+                navigationTarget = "user_dashboard"
+            )
+            
+            Log.d("NotificationService", "📋 Creating delegation expiry notification:")
+            Log.d("NotificationService", "   - Title: ${notification.title}")
+            Log.d("NotificationService", "   - Message: ${notification.message}")
+            
+            val result = notificationRepository.createNotification(notification)
+            
+            result.onSuccess { notificationId ->
+                Log.d("NotificationService", "✅ Delegation expiry notification sent successfully: $notificationId")
+            }.onFailure { error ->
+                Log.e("NotificationService", "❌ Failed to send delegation expiry notification: ${error.message}")
+            }
+            
+            // Convert Result<String> to Result<Unit>
+            if (result.isSuccess) {
+                Result.success(Unit)
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Unknown error"))
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationService", "❌ Error sending delegation expiry notification: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Send notification about delegation removal to the approver
+     */
+    suspend fun sendDelegationRemovalNotification(
+        approverId: String,
+        approverPhone: String,
+        projectId: String,
+        projectName: String
+    ): Result<Unit> {
+        return try {
+            Log.d("NotificationService", "🔄 Sending delegation removal notification")
+            Log.d("NotificationService", "📋 To: $approverPhone")
+            Log.d("NotificationService", "📋 Project: $projectName")
+            
+            // Create notification about delegation removal
+            val notification = Notification(
+                recipientId = approverPhone, // Use phone number to match user's phone
+                recipientRole = "APPROVER",
+                title = "Delegation Removed",
+                message = "Your temporary approver assignment for project '$projectName' has been removed by the production head.",
+                type = NotificationType.DELEGATION_REMOVED,
+                projectId = projectId,
+                projectName = projectName,
+                relatedId = approverId,
+                actionRequired = false, // No action required, just informational
+                navigationTarget = "user_dashboard"
+            )
+            
+            Log.d("NotificationService", "📋 Creating delegation removal notification:")
+            Log.d("NotificationService", "   - Title: ${notification.title}")
+            Log.d("NotificationService", "   - Message: ${notification.message}")
+            
+            val result = notificationRepository.createNotification(notification)
+            
+            result.onSuccess { notificationId ->
+                Log.d("NotificationService", "✅ Delegation removal notification sent successfully: $notificationId")
+            }.onFailure { error ->
+                Log.e("NotificationService", "❌ Failed to send delegation removal notification: ${error.message}")
+            }
+            
+            // Convert Result<String> to Result<Unit>
+            if (result.isSuccess) {
+                Result.success(Unit)
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Unknown error"))
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationService", "❌ Error sending delegation removal notification: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
+    
+    /**
+     * Send confirmation notification to approver about their response (accept/reject)
+     */
+    suspend fun sendDelegationResponseConfirmation(
+        approverId: String,
+        approverPhone: String,
+        projectId: String,
+        projectName: String,
+        isAccepted: Boolean,
+        responseMessage: String
+    ): Result<Unit> {
+        return try {
+            Log.d("NotificationService", "🔄 Sending delegation response confirmation")
+            Log.d("NotificationService", "📋 To: $approverPhone")
+            Log.d("NotificationService", "📋 Project: $projectName")
+            Log.d("NotificationService", "📋 Response: ${if (isAccepted) "Accepted" else "Rejected"}")
+            
+            val action = if (isAccepted) "accepted" else "rejected"
+            val title = if (isAccepted) "Delegation Accepted" else "Delegation Rejected"
+            val message = if (responseMessage.isNotEmpty()) {
+                "You have $action the temporary approver assignment for project '$projectName'. Your response: \"$responseMessage\""
+            } else {
+                "You have $action the temporary approver assignment for project '$projectName'."
+            }
+            
+            // Create notification about delegation response
+            val notification = Notification(
+                recipientId = approverPhone, // Use phone number to match user's phone
+                recipientRole = "APPROVER",
+                title = title,
+                message = message,
+                type = NotificationType.DELEGATION_RESPONSE,
+                projectId = projectId,
+                projectName = projectName,
+                relatedId = approverId,
+                actionRequired = false, // No action required, just confirmation
+                navigationTarget = if (isAccepted) "approver_project_dashboard/$projectId" else "user_dashboard"
+            )
+            
+            Log.d("NotificationService", "📋 Creating delegation response confirmation:")
+            Log.d("NotificationService", "   - Title: ${notification.title}")
+            Log.d("NotificationService", "   - Message: ${notification.message}")
+            
+            val result = notificationRepository.createNotification(notification)
+            
+            result.onSuccess { notificationId ->
+                Log.d("NotificationService", "✅ Delegation response confirmation sent successfully: $notificationId")
+            }.onFailure { error ->
+                Log.e("NotificationService", "❌ Failed to send delegation response confirmation: ${error.message}")
+            }
+            
+            // Convert Result<String> to Result<Unit>
+            if (result.isSuccess) {
+                Result.success(Unit)
+            } else {
+                Result.failure(result.exceptionOrNull() ?: Exception("Unknown error"))
+            }
+        } catch (e: Exception) {
+            Log.e("NotificationService", "❌ Error sending delegation response confirmation: ${e.message}")
+            e.printStackTrace()
+            Result.failure(e)
+        }
+    }
 } 

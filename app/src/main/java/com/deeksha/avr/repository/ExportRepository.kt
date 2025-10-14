@@ -7,6 +7,7 @@ import androidx.core.content.FileProvider
 import com.deeksha.avr.model.ExportData
 import com.deeksha.avr.model.DetailedExpense
 import com.deeksha.avr.utils.FormatUtils
+import com.deeksha.avr.service.ProfessionalReportGenerator
 import com.itextpdf.kernel.pdf.PdfDocument
 import com.itextpdf.kernel.pdf.PdfWriter
 import com.itextpdf.layout.Document
@@ -25,7 +26,8 @@ import com.google.firebase.Timestamp
 
 @Singleton
 class ExportRepository @Inject constructor(
-    private val context: Context
+    private val context: Context,
+    private val professionalReportGenerator: ProfessionalReportGenerator
 ) {
     
     suspend fun exportToPDF(exportData: ExportData): Result<File> {

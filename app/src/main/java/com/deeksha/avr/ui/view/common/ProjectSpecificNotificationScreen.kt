@@ -283,6 +283,11 @@ fun ProjectSpecificNotificationScreen(
                                     
                                     // Navigate based on notification type
                                     when (clickedNotification.type) {
+                                        com.deeksha.avr.model.NotificationType.DELEGATION_REMOVED -> {
+                                            // For delegation removed notifications, just mark as read and don't navigate
+                                            // The notification will disappear from the list
+                                            // No navigation needed - just mark as read
+                                        }
                                         com.deeksha.avr.model.NotificationType.EXPENSE_APPROVED,
                                         com.deeksha.avr.model.NotificationType.EXPENSE_REJECTED -> {
                                             if (clickedNotification.projectId.isNotEmpty() && clickedNotification.relatedId.isNotEmpty()) {

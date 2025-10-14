@@ -6,6 +6,7 @@ import com.deeksha.avr.model.*
 import com.deeksha.avr.repository.ExpenseRepository
 import com.deeksha.avr.repository.ProjectRepository
 import com.deeksha.avr.repository.ExportRepository
+import com.deeksha.avr.repository.ProfessionalExportRepository
 import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -20,7 +21,8 @@ import javax.inject.Inject
 class ReportsViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val projectRepository: ProjectRepository,
-    private val exportRepository: ExportRepository
+    private val exportRepository: ExportRepository,
+    private val professionalExportRepository: ProfessionalExportRepository
 ) : ViewModel() {
     
     private val _reportData = MutableStateFlow(ReportData())
@@ -234,10 +236,10 @@ class ReportsViewModel @Inject constructor(
                     generatedAt = Timestamp.now()
                 )
                 
-                val result = exportRepository.exportToPDF(exportData)
+                val result = professionalExportRepository.exportToPDF(exportData)
                 result.fold(
                     onSuccess = { file ->
-                        val shareIntent = exportRepository.shareFile(file, "application/pdf")
+                        val shareIntent = professionalExportRepository.shareFile(file, "application/pdf")
                         onSuccess(shareIntent)
                     },
                     onFailure = { exception ->
@@ -265,10 +267,10 @@ class ReportsViewModel @Inject constructor(
                     generatedAt = Timestamp.now()
                 )
                 
-                val result = exportRepository.exportToCSV(exportData)
+                val result = professionalExportRepository.exportToCSV(exportData)
                 result.fold(
                     onSuccess = { file ->
-                        val shareIntent = exportRepository.shareFile(file, "text/csv")
+                        val shareIntent = professionalExportRepository.shareFile(file, "text/csv")
                         onSuccess(shareIntent)
                     },
                     onFailure = { exception ->

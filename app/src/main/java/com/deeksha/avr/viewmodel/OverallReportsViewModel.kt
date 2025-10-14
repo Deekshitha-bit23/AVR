@@ -6,6 +6,7 @@ import com.deeksha.avr.model.*
 import com.deeksha.avr.repository.ExpenseRepository
 import com.deeksha.avr.repository.ProjectRepository
 import com.deeksha.avr.repository.ExportRepository
+import com.deeksha.avr.repository.ProfessionalExportRepository
 import com.google.firebase.Timestamp
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -52,7 +53,8 @@ data class ProjectFilter(
 class OverallReportsViewModel @Inject constructor(
     private val expenseRepository: ExpenseRepository,
     private val projectRepository: ProjectRepository,
-    private val exportRepository: ExportRepository
+    private val exportRepository: ExportRepository,
+    private val professionalExportRepository: ProfessionalExportRepository
 ) : ViewModel() {
     
     private val _reportData = MutableStateFlow(OverallReportData())
@@ -520,11 +522,11 @@ class OverallReportsViewModel @Inject constructor(
                 android.util.Log.d("OverallReportsViewModel", "📋 Export data prepared: ${exportData.detailedExpenses.size} expenses, ₹${exportData.totalSpent}")
                 android.util.Log.d("OverallReportsViewModel", "🏷️ Categories: ${exportData.categoryBreakdown.size}")
                 
-                val result = exportRepository.exportToPDF(exportData)
+                val result = professionalExportRepository.exportToPDF(exportData)
                 result.fold(
                     onSuccess = { file ->
                         android.util.Log.d("OverallReportsViewModel", "✅ PDF export successful: ${file.absolutePath}")
-                        val shareIntent = exportRepository.shareFile(file, "application/pdf")
+                        val shareIntent = professionalExportRepository.shareFile(file, "application/pdf")
                         android.util.Log.d("OverallReportsViewModel", "📤 Share intent created: ${shareIntent != null}")
                         onSuccess(shareIntent)
                     },
@@ -573,11 +575,11 @@ class OverallReportsViewModel @Inject constructor(
                 android.util.Log.d("OverallReportsViewModel", "📋 Export data prepared: ${exportData.detailedExpenses.size} expenses, ₹${exportData.totalSpent}")
                 android.util.Log.d("OverallReportsViewModel", "🏷️ Categories: ${exportData.categoryBreakdown.size}")
                 
-                val result = exportRepository.exportToCSV(exportData)
+                val result = professionalExportRepository.exportToCSV(exportData)
                 result.fold(
                     onSuccess = { file ->
                         android.util.Log.d("OverallReportsViewModel", "✅ CSV export successful: ${file.absolutePath}")
-                        val shareIntent = exportRepository.shareFile(file, "text/csv")
+                        val shareIntent = professionalExportRepository.shareFile(file, "text/csv")
                         android.util.Log.d("OverallReportsViewModel", "📤 Share intent created: ${shareIntent != null}")
                         onSuccess(shareIntent)
                     },
@@ -612,7 +614,7 @@ class OverallReportsViewModel @Inject constructor(
                 result.fold(
                     onSuccess = { file ->
                         android.util.Log.d("OverallReportsViewModel", "✅ Test export successful: ${file.absolutePath}")
-                        val shareIntent = exportRepository.shareFile(file, "application/pdf")
+                        val shareIntent = professionalExportRepository.shareFile(file, "application/pdf")
                         android.util.Log.d("OverallReportsViewModel", "📤 Test share intent created: ${shareIntent != null}")
                         onSuccess(shareIntent)
                     },

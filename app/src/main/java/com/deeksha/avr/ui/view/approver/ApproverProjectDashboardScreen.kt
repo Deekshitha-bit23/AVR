@@ -1097,7 +1097,7 @@ private fun DepartmentBudgetsSection(
             shape = RoundedCornerShape(16.dp)
         ) {
             Text(
-                text = "Across All Projects",
+                text = "Across the Project",
                 fontSize = 14.sp,
                 color = Color(0xFF2E7D32),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)

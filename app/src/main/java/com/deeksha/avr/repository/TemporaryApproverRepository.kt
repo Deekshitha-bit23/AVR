@@ -201,6 +201,42 @@ class TemporaryApproverRepository @Inject constructor(
         return try {
             Log.d(TAG, "🔄 Updating start date for temporary approver: $tempApproverId")
             
+            // Get the current approver data before updating
+            val currentDoc = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .document(tempApproverId)
+                .get()
+                .await()
+            
+            if (!currentDoc.exists()) {
+                Log.e(TAG, "❌ Temporary approver not found: $tempApproverId")
+                return Result.failure(Exception("Temporary approver not found"))
+            }
+            
+            val currentData = currentDoc.data ?: return Result.failure(Exception("No data found"))
+            val originalApprover = TemporaryApprover(
+                id = currentDoc.id,
+                projectId = currentData["projectId"] as? String ?: "",
+                approverId = currentData["approverId"] as? String ?: "",
+                approverName = currentData["approverName"] as? String ?: "",
+                approverPhone = currentData["approverPhone"] as? String ?: "",
+                assignedDate = currentData["assignedDate"] as? Timestamp ?: Timestamp.now(),
+                startDate = currentData["startdate"] as? Timestamp ?: Timestamp.now(),
+                expiringDate = currentData["expiringDate"] as? Timestamp,
+                isActive = currentData["isActive"] as? Boolean ?: true,
+                assignedBy = currentData["assignedBy"] as? String ?: "",
+                assignedByName = currentData["assignedByName"] as? String ?: "",
+                createdAt = currentData["createdAt"] as? Timestamp ?: Timestamp.now(),
+                updatedAt = currentData["updatedAt"] as? Timestamp ?: Timestamp.now(),
+                isAccepted = currentData["isAccepted"] as? Boolean,
+                acceptedAt = currentData["acceptedAt"] as? Timestamp,
+                rejectedAt = currentData["rejectedAt"] as? Timestamp,
+                responseMessage = currentData["responseMessage"] as? String ?: "",
+                status = currentData["status"] as? String ?: "PENDING"
+            )
+            
+            // Update the start date
             firestore.collection(COLLECTION_PROJECTS)
                 .document(projectId)
                 .collection(SUBCOLLECTION_TEMP_APPROVERS)
@@ -212,6 +248,15 @@ class TemporaryApproverRepository @Inject constructor(
                     )
                 )
                 .await()
+            
+            // Create updated approver for notification
+            val updatedApprover = originalApprover.copy(
+                startDate = newStartDate,
+                updatedAt = Timestamp.now()
+            )
+            
+            // Send notification about start date change
+            sendDelegationChangeNotification(projectId, updatedApprover, originalApprover, "System")
             
             Log.d(TAG, "✅ Start date updated successfully")
             Result.success(Unit)
@@ -233,6 +278,42 @@ class TemporaryApproverRepository @Inject constructor(
         return try {
             Log.d(TAG, "🔄 Updating expiring date for temporary approver: $tempApproverId")
             
+            // Get the current approver data before updating
+            val currentDoc = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .document(tempApproverId)
+                .get()
+                .await()
+            
+            if (!currentDoc.exists()) {
+                Log.e(TAG, "❌ Temporary approver not found: $tempApproverId")
+                return Result.failure(Exception("Temporary approver not found"))
+            }
+            
+            val currentData = currentDoc.data ?: return Result.failure(Exception("No data found"))
+            val originalApprover = TemporaryApprover(
+                id = currentDoc.id,
+                projectId = currentData["projectId"] as? String ?: "",
+                approverId = currentData["approverId"] as? String ?: "",
+                approverName = currentData["approverName"] as? String ?: "",
+                approverPhone = currentData["approverPhone"] as? String ?: "",
+                assignedDate = currentData["assignedDate"] as? Timestamp ?: Timestamp.now(),
+                startDate = currentData["startdate"] as? Timestamp ?: Timestamp.now(),
+                expiringDate = currentData["expiringDate"] as? Timestamp,
+                isActive = currentData["isActive"] as? Boolean ?: true,
+                assignedBy = currentData["assignedBy"] as? String ?: "",
+                assignedByName = currentData["assignedByName"] as? String ?: "",
+                createdAt = currentData["createdAt"] as? Timestamp ?: Timestamp.now(),
+                updatedAt = currentData["updatedAt"] as? Timestamp ?: Timestamp.now(),
+                isAccepted = currentData["isAccepted"] as? Boolean,
+                acceptedAt = currentData["acceptedAt"] as? Timestamp,
+                rejectedAt = currentData["rejectedAt"] as? Timestamp,
+                responseMessage = currentData["responseMessage"] as? String ?: "",
+                status = currentData["status"] as? String ?: "PENDING"
+            )
+            
+            // Update the expiring date
             firestore.collection(COLLECTION_PROJECTS)
                 .document(projectId)
                 .collection(SUBCOLLECTION_TEMP_APPROVERS)
@@ -244,6 +325,15 @@ class TemporaryApproverRepository @Inject constructor(
                     )
                 )
                 .await()
+            
+            // Create updated approver for notification
+            val updatedApprover = originalApprover.copy(
+                expiringDate = newExpiringDate,
+                updatedAt = Timestamp.now()
+            )
+            
+            // Send notification about end date change
+            sendDelegationChangeNotification(projectId, updatedApprover, originalApprover, "System")
             
             Log.d(TAG, "✅ Expiring date updated successfully")
             Result.success(Unit)
@@ -469,6 +559,9 @@ class TemporaryApproverRepository @Inject constructor(
                 sendAssignmentResponseNotification(projectId, approverId, true, responseMessage, service)
             }
             
+            // Send confirmation notification to the approver about their acceptance
+            sendDelegationResponseConfirmation(projectId, approverId, true, responseMessage)
+            
             Result.success(Unit)
             
         } catch (e: Exception) {
@@ -648,6 +741,9 @@ class TemporaryApproverRepository @Inject constructor(
                 sendAssignmentResponseNotification(projectId, approverId, false, responseMessage, service)
             }
             
+            // Send confirmation notification to the approver about their rejection
+            sendDelegationResponseConfirmation(projectId, approverId, false, responseMessage)
+            
             Result.success(Unit)
             
         } catch (e: Exception) {
@@ -811,6 +907,15 @@ class TemporaryApproverRepository @Inject constructor(
         return try {
             Log.d(TAG, "🔄 Creating temporary approver assignment for project $projectId")
             
+            // Get the production head details who is making this assignment
+            val projectDoc = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .get()
+                .await()
+            
+            val productionHeadPhone = projectDoc.getString("productionHeadPhone") ?: ""
+            val productionHeadName = projectDoc.getString("productionHeadName") ?: "Production Head"
+            
             val tempApprover = TemporaryApprover(
                 id = "", // Will be auto-generated by Firestore
                 projectId = projectId,
@@ -820,8 +925,8 @@ class TemporaryApproverRepository @Inject constructor(
                 startDate = startDate,
                 expiringDate = expiringDate,
                 isActive = true,
-                assignedBy = "", // Will be set by the calling code
-                assignedByName = "",
+                assignedBy = productionHeadPhone,
+                assignedByName = productionHeadName,
                 createdAt = Timestamp.now(),
                 updatedAt = Timestamp.now(),
                 status = "PENDING"
@@ -841,6 +946,24 @@ class TemporaryApproverRepository @Inject constructor(
                 .await()
             
             Log.d(TAG, "✅ Temporary approver assignment created successfully")
+            
+            // Send notification to the temporary approver with accept/reject options
+            notificationService?.sendTemporaryApproverAssignmentNotification(
+                projectId = projectId,
+                approverId = approverId,
+                approverName = approverName,
+                approverPhone = approverPhone,
+                assignedByName = productionHeadName,
+                startDate = startDate,
+                expiringDate = expiringDate
+            )?.also { result ->
+                if (result.isSuccess) {
+                    Log.d(TAG, "✅ Notification sent to temporary approver")
+                } else {
+                    Log.e(TAG, "❌ Failed to send notification: ${result.exceptionOrNull()?.message}")
+                }
+            }
+            
             Result.success(Unit)
             
         } catch (e: Exception) {
@@ -943,6 +1066,11 @@ class TemporaryApproverRepository @Inject constructor(
             
             val docData = docSnapshot.data
             val approverPhone = docData?.get("approverPhone") as? String ?: ""
+            val approverId = docData?.get("approverId") as? String ?: ""
+            val approverName = docData?.get("approverName") as? String ?: ""
+            
+            // Send notification to approver about delegation removal before deleting
+            sendDelegationRemovalNotification(projectId, approverId, approverName, approverPhone)
             
             // Completely delete the temporary approver document
             docRef.delete().await()
@@ -1059,6 +1187,102 @@ class TemporaryApproverRepository @Inject constructor(
     }
     
     /**
+     * Send notification about delegation removal to the approver
+     */
+    private suspend fun sendDelegationRemovalNotification(
+        projectId: String,
+        approverId: String,
+        approverName: String,
+        approverPhone: String
+    ) {
+        try {
+            // Get project details for the notification
+            val projectDoc = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .get()
+                .await()
+            
+            if (!projectDoc.exists()) {
+                Log.e(TAG, "❌ Project not found for removal notification: $projectId")
+                return
+            }
+            
+            val projectData = projectDoc.data ?: return
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
+            
+            // Send notification using the notification service
+            notificationService?.sendDelegationRemovalNotification(
+                approverId = approverId,
+                approverPhone = approverPhone,
+                projectId = projectId,
+                projectName = projectName
+            )
+            
+            Log.d(TAG, "📧 Delegation removal notification sent to: $approverName")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to send delegation removal notification", e)
+        }
+    }
+    
+    /**
+     * Send confirmation notification to approver about their response (accept/reject)
+     */
+    private suspend fun sendDelegationResponseConfirmation(
+        projectId: String,
+        approverId: String,
+        isAccepted: Boolean,
+        responseMessage: String
+    ) {
+        try {
+            // Get project details for the notification
+            val projectDoc = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .get()
+                .await()
+            
+            if (!projectDoc.exists()) {
+                Log.e(TAG, "❌ Project not found for response confirmation: $projectId")
+                return
+            }
+            
+            val projectData = projectDoc.data ?: return
+            val projectName = projectData["name"] as? String ?: "Unknown Project"
+            
+            // Get approver details
+            val approverDoc = firestore.collection("users")
+                .whereEqualTo("uid", approverId)
+                .limit(1)
+                .get()
+                .await()
+            
+            if (approverDoc.isEmpty) {
+                Log.e(TAG, "❌ Approver not found for response confirmation: $approverId")
+                return
+            }
+            
+            val approverData = approverDoc.documents.first().data
+            val approverPhone = approverData?.get("phone") as? String ?: ""
+            val approverName = approverData?.get("name") as? String ?: "Approver"
+            
+            // Send notification using the notification service
+            notificationService?.sendDelegationResponseConfirmation(
+                approverId = approverId,
+                approverPhone = approverPhone,
+                projectId = projectId,
+                projectName = projectName,
+                isAccepted = isAccepted,
+                responseMessage = responseMessage
+            )
+            
+            Log.d(TAG, "📧 Delegation response confirmation sent to: $approverName")
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Failed to send delegation response confirmation", e)
+        }
+    }
+    
+    /**
      * Build a description of what changed in the delegation
      */
     private fun buildChangeDescription(
@@ -1106,6 +1330,58 @@ class TemporaryApproverRepository @Inject constructor(
             "Delegation settings have been updated."
         } else {
             changes.joinToString(". ")
+        }
+    }
+    
+    /**
+     * Get all temporary approvers for a specific project
+     */
+    suspend fun getTemporaryApproversForProject(projectId: String): List<TemporaryApprover> {
+        return try {
+            Log.d(TAG, "🔄 Getting temporary approvers for project: $projectId")
+            
+            val query = firestore.collection(COLLECTION_PROJECTS)
+                .document(projectId)
+                .collection(SUBCOLLECTION_TEMP_APPROVERS)
+                .get()
+                .await()
+            
+            val approvers = query.documents.mapNotNull { doc ->
+                try {
+                    val data = doc.data ?: return@mapNotNull null
+                    
+                    TemporaryApprover(
+                        id = doc.id,
+                        projectId = data["projectId"] as? String ?: "",
+                        approverId = data["approverId"] as? String ?: "",
+                        approverName = data["approverName"] as? String ?: "",
+                        approverPhone = data["approverPhone"] as? String ?: "",
+                        assignedDate = data["assignedDate"] as? Timestamp ?: Timestamp.now(),
+                        startDate = data["startdate"] as? Timestamp ?: Timestamp.now(),
+                        expiringDate = data["expiringDate"] as? Timestamp,
+                        isActive = data["isActive"] as? Boolean ?: true,
+                        assignedBy = data["assignedBy"] as? String ?: "",
+                        assignedByName = data["assignedByName"] as? String ?: "",
+                        createdAt = data["createdAt"] as? Timestamp ?: Timestamp.now(),
+                        updatedAt = data["updatedAt"] as? Timestamp ?: Timestamp.now(),
+                        isAccepted = data["isAccepted"] as? Boolean,
+                        acceptedAt = data["acceptedAt"] as? Timestamp,
+                        rejectedAt = data["rejectedAt"] as? Timestamp,
+                        responseMessage = data["responseMessage"] as? String ?: "",
+                        status = data["status"] as? String ?: "PENDING"
+                    )
+                } catch (e: Exception) {
+                    Log.e(TAG, "Error parsing temporary approver document ${doc.id}: ${e.message}")
+                    null
+                }
+            }
+            
+            Log.d(TAG, "✅ Found ${approvers.size} temporary approvers for project: $projectId")
+            approvers
+            
+        } catch (e: Exception) {
+            Log.e(TAG, "❌ Error getting temporary approvers for project: ${e.message}", e)
+            emptyList()
         }
     }
 }

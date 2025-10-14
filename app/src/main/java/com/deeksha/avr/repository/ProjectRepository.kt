@@ -2,6 +2,8 @@ package com.deeksha.avr.repository
 
 import android.util.Log
 import com.deeksha.avr.model.Project
+import com.deeksha.avr.model.TemporaryApprover
+import com.deeksha.avr.model.isExpired
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
@@ -147,13 +149,17 @@ class ProjectRepository @Inject constructor(
                     Log.d("ProjectRepository", "🔍 Project ${project.name}: hasTemporaryApproverPhone=$hasTemporaryApproverPhone")
                     hasTemporaryApproverPhone
                 }
+                
+                // Filter out projects where delegation has expired
+                // Note: We'll do this filtering in a different way since we can't call suspend functions in filter
+                val activeTemporaryProjects = acceptedTemporaryProjects
 
-                Log.d("ProjectRepository", "🎯 Sending ${acceptedTemporaryProjects.size} accepted temporary approver projects for user $userId to UI")
-                acceptedTemporaryProjects.forEach { project ->
-                    Log.d("ProjectRepository", "  📋 Accepted Temporary Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
+                Log.d("ProjectRepository", "🎯 Sending ${activeTemporaryProjects.size} active temporary approver projects for user $userId to UI")
+                activeTemporaryProjects.forEach { project ->
+                    Log.d("ProjectRepository", "  📋 Active Temporary Project: ${project.name} (ID: ${project.id}, Budget: ${project.budget})")
                 }
                 
-                trySend(acceptedTemporaryProjects)
+                trySend(activeTemporaryProjects)
             }
         
         awaitClose { 
@@ -442,6 +448,45 @@ class ProjectRepository @Inject constructor(
             Result.success(Unit)
         } catch (e: Exception) {
             Result.failure(e)
+        }
+    }
+    
+    /**
+     * Check if delegation is still active for a user in a project
+     * This method can be called from UI layer to filter expired delegations
+     */
+    suspend fun isDelegationActiveForUser(projectId: String, userId: String): Boolean {
+        return try {
+            Log.d("ProjectRepository", "🔍 Checking delegation status for user $userId in project $projectId")
+            
+            // Get temporary approvers for this project
+            val tempApprovers = temporaryApproverRepository.getTemporaryApproversForProject(projectId)
+            
+            // Find active delegation for this user
+            val userDelegation = tempApprovers.find { approver ->
+                approver.approverId == userId && approver.isActive && approver.status == "ACCEPTED"
+            }
+            
+            if (userDelegation == null) {
+                Log.d("ProjectRepository", "❌ No active delegation found for user $userId in project $projectId")
+                return false
+            }
+            
+            // Check if delegation has expired
+            val isExpired = userDelegation.isExpired()
+            val isActive = !isExpired
+            
+            Log.d("ProjectRepository", "📊 Delegation status for user $userId in project $projectId:")
+            Log.d("ProjectRepository", "   - isActive: ${userDelegation.isActive}")
+            Log.d("ProjectRepository", "   - status: ${userDelegation.status}")
+            Log.d("ProjectRepository", "   - isExpired: $isExpired")
+            Log.d("ProjectRepository", "   - final result: $isActive")
+            
+            isActive
+            
+        } catch (e: Exception) {
+            Log.e("ProjectRepository", "❌ Error checking delegation status: ${e.message}", e)
+            false // Return false on error to be safe
         }
     }
 } 

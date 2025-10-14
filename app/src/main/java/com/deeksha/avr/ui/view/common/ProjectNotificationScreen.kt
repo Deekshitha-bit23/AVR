@@ -320,6 +320,11 @@ private fun handleNotificationClick(
     
     // Navigate based on notification type and navigation target
     when (notification.type) {
+        NotificationType.DELEGATION_REMOVED -> {
+            // For delegation removed notifications, just mark as read and don't navigate
+            // The notification will disappear from the list
+            return
+        }
         NotificationType.EXPENSE_SUBMITTED -> {
             if (notification.projectId.isNotEmpty()) {
                 onNavigateToPendingApprovals(notification.projectId)

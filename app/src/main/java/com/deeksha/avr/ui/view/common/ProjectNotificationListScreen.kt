@@ -276,6 +276,11 @@ fun ProjectNotificationListScreen(
                             onNotificationClick = { clickedNotification ->
                                 // Navigate based on notification type
                                 when (clickedNotification.type) {
+                                    NotificationType.DELEGATION_REMOVED -> {
+                                        // For delegation removed notifications, just mark as read and don't navigate
+                                        // The notification will disappear from the list
+                                        // No navigation needed - just mark as read
+                                    }
                                     NotificationType.EXPENSE_SUBMITTED,
                                     NotificationType.PENDING_APPROVAL -> {
                                         onNavigateToPendingApprovals(clickedNotification.projectId)
