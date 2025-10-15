@@ -533,12 +533,6 @@ class ExpenseViewModel @Inject constructor(
             _isLoading.value = true
             _error.value = null
             
-            // Clear previous data to avoid stale state
-            _expenses.value = emptyList()
-            _filteredExpenses.value = emptyList()
-            _statusCounts.value = StatusCounts()
-            _selectedStatusFilter.value = null
-            
             try {
                 // Load project details first
                 Log.d("ExpenseViewModel", "🏗️ Loading project details for: $projectId")
@@ -553,65 +547,55 @@ class ExpenseViewModel @Inject constructor(
                     return@launch
                 }
                 
-                // Try real-time listener first
-                Log.d("ExpenseViewModel", "🔄 Setting up real-time listener for user expenses...")
+                // Use direct loading for immediate results
+                Log.d("ExpenseViewModel", "🔄 Loading expenses directly first...")
+                val directExpenses = expenseRepository.getUserExpensesForProjectDirect(projectId, userId)
+                Log.d("ExpenseViewModel", "📊 Direct loading received ${directExpenses.size} expenses")
                 
-                try {
-                    expenseRepository.getUserExpensesForProject(projectId, userId)
-                        .catch { exception ->
-                            Log.e("ExpenseViewModel", "❌ Error in real-time listener: ${exception.message}")
-                            exception.printStackTrace()
-                            // Try fallback method immediately
-                            loadUserExpensesForProjectFallback(projectId, userId)
-                        }
-                        .collect { expenses ->
-                            Log.d("ExpenseViewModel", "📊 Received ${expenses.size} expenses from real-time listener")
-                            
-                            // Update expenses state
-                            _expenses.value = expenses
-                            
-                            // Calculate status counts and update filtered expenses
-                            calculateUserProjectSummary(expenses)
-                            
-                            // If no filter is applied, show all expenses
-                            if (_selectedStatusFilter.value == null) {
-                                _filteredExpenses.value = expenses
-                                Log.d("ExpenseViewModel", "📋 Showing all ${expenses.size} expenses (no filter)")
-                            } else {
-                                // Apply current filter
-                                val filteredExpenses = expenses.filter { it.status == _selectedStatusFilter.value }
-                                _filteredExpenses.value = filteredExpenses
-                                Log.d("ExpenseViewModel", "📋 Showing ${filteredExpenses.size} expenses (filter: ${_selectedStatusFilter.value})")
+                // Update state immediately with direct results
+                _expenses.value = directExpenses
+                _filteredExpenses.value = directExpenses
+                calculateUserProjectSummary(directExpenses)
+                
+                // Set up real-time listener for updates in a separate coroutine
+                Log.d("ExpenseViewModel", "🔄 Setting up real-time listener for ongoing updates...")
+                viewModelScope.launch {
+                    try {
+                        expenseRepository.getUserExpensesForProject(projectId, userId)
+                            .catch { exception ->
+                                Log.e("ExpenseViewModel", "❌ Error in real-time listener: ${exception.message}")
+                                // Don't clear data on listener error, keep showing what we have
+                                Log.w("ExpenseViewModel", "⚠️ Keeping existing data due to real-time listener error")
                             }
-                            
-                            // Log detailed status breakdown
-                            val statusBreakdown = expenses.groupBy { it.status }
-                                .mapValues { it.value.size }
-                            Log.d("ExpenseViewModel", "📊 Status breakdown: $statusBreakdown")
-                            
-                            // Log current status counts for debugging
-                            val currentCounts = _statusCounts.value
-                            Log.d("ExpenseViewModel", "📊 Status counts: Approved=${currentCounts.approved}, Pending=${currentCounts.pending}, Rejected=${currentCounts.rejected}, Total=${currentCounts.total}")
-                            
-                            // Log sample expenses for debugging
-                            if (expenses.isNotEmpty()) {
-                                Log.d("ExpenseViewModel", "🎯 Sample expenses (first 3):")
-                                expenses.take(3).forEach { expense ->
-                                    Log.d("ExpenseViewModel", "  💰 ${expense.id}: ${expense.category} - ${expense.status} - ₹${expense.amount}")
+                            .collect { expenses ->
+                                Log.d("ExpenseViewModel", "📊 Real-time update: ${expenses.size} expenses")
+                                
+                                // Only update if we have new data and it's not empty (unless current is also empty)
+                                if (expenses != _expenses.value && (expenses.isNotEmpty() || _expenses.value.isEmpty())) {
+                                    _expenses.value = expenses
+                                    
+                                    // Update filtered expenses based on current filter
+                                    if (_selectedStatusFilter.value == null) {
+                                        _filteredExpenses.value = expenses
+                                    } else {
+                                        _filteredExpenses.value = expenses.filter { it.status == _selectedStatusFilter.value }
+                                    }
+                                    
+                                    // Recalculate status counts
+                                    calculateUserProjectSummary(expenses)
+                                } else if (expenses.isEmpty() && _expenses.value.isNotEmpty()) {
+                                    Log.w("ExpenseViewModel", "⚠️ Ignoring empty real-time update to preserve existing data")
                                 }
-                            } else {
-                                Log.d("ExpenseViewModel", "📭 No expenses found for user $userId in project $projectId")
                             }
-                            
-                            _isLoading.value = false
-                        }
-                } catch (e: Exception) {
-                    Log.e("ExpenseViewModel", "❌ Real-time listener failed: ${e.message}")
-                    e.printStackTrace()
-                    
-                    // Try fallback method
-                    loadUserExpensesForProjectFallback(projectId, userId)
+                    } catch (e: Exception) {
+                        Log.e("ExpenseViewModel", "❌ Error in real-time listener setup: ${e.message}")
+                        // Don't clear data on error, keep showing what we have
+                        Log.w("ExpenseViewModel", "⚠️ Keeping existing data due to real-time listener setup error")
+                    }
                 }
+                
+                // Only set loading to false after we have data and listener is set up
+                _isLoading.value = false
                 
             } catch (e: Exception) {
                 Log.e("ExpenseViewModel", "❌ Error loading user expenses: ${e.message}")
@@ -890,36 +874,11 @@ class ExpenseViewModel @Inject constructor(
         }
     }
     
-    // Listen for real-time status updates from approval process
+    // This method is now integrated into loadUserExpensesForProject
+    // Keeping for backward compatibility but it's no longer used
+    @Deprecated("Use loadUserExpensesForProject instead")
     fun listenForStatusUpdates(projectId: String, userId: String) {
-        viewModelScope.launch {
-            try {
-                Log.d("ExpenseViewModel", "🎧 Setting up status update listener for project: $projectId, user: $userId")
-                
-                expenseRepository.getUserExpensesForProject(projectId, userId)
-                    .collect { expenses ->
-                        Log.d("ExpenseViewModel", "📡 Real-time status update received: ${expenses.size} expenses")
-                        
-                        // Update expenses state
-                        _expenses.value = expenses
-                        
-                        // Update filtered expenses if filter is active
-                        if (_selectedStatusFilter.value != null) {
-                            _filteredExpenses.value = expenses.filter { it.status == _selectedStatusFilter.value }
-                        } else {
-                            _filteredExpenses.value = expenses
-                        }
-                        
-                        // Recalculate status counts
-                        calculateUserProjectSummary(expenses)
-                        
-                        Log.d("ExpenseViewModel", "✅ Real-time status update processed successfully")
-                    }
-            } catch (e: Exception) {
-                Log.e("ExpenseViewModel", "❌ Error in status update listener: ${e.message}")
-                _error.value = "Failed to listen for status updates: ${e.message}"
-            }
-        }
+        Log.d("ExpenseViewModel", "⚠️ listenForStatusUpdates is deprecated, use loadUserExpensesForProject instead")
     }
     
     fun addDemoExpenses(projectId: String, userId: String, userName: String) {

@@ -1043,7 +1043,6 @@ class ExpenseRepository @Inject constructor(
             .document(projectId)
             .collection("expenses")
             .whereEqualTo("userId", userId)
-            .orderBy("submittedAt", com.google.firebase.firestore.Query.Direction.DESCENDING)
             .addSnapshotListener { snapshot, error ->
                 if (error != null) {
                     Log.e("ExpenseRepository", "❌ Error fetching user expenses for project: ${error.message}")
@@ -1051,8 +1050,8 @@ class ExpenseRepository @Inject constructor(
                     Log.e("ExpenseRepository", "❌ Error details: ${error.localizedMessage}")
                     error.printStackTrace()
                     
-                    // Don't close the flow immediately, try to send empty list and continue
-                    trySend(emptyList())
+                    // Don't send empty list on error, keep existing data
+                    Log.w("ExpenseRepository", "⚠️ Keeping existing data due to query error")
                     return@addSnapshotListener
                 }
                 

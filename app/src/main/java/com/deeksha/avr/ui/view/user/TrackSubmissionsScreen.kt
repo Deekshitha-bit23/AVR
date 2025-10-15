@@ -79,11 +79,19 @@ fun TrackSubmissionsScreen(
     val errorMessage by expenseViewModel.error.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
     
+    // Debug logging for UI state
+    LaunchedEffect(isLoading, filteredExpenses.size, statusCounts.total) {
+        Log.d("TrackSubmissionsScreen", "📊 UI State - Loading: $isLoading, Expenses: ${filteredExpenses.size}, StatusCounts: ${statusCounts.total}")
+    }
+    
     // Real-time update indicators
     var lastUpdateTime by remember { mutableStateOf(System.currentTimeMillis()) }
     var isRealTimeConnected by remember { mutableStateOf(true) }
     var refreshTrigger by remember { mutableStateOf(0) }
     var isRefreshing by remember { mutableStateOf(false) }
+    
+    // Safety mechanism to prevent page from disappearing too quickly
+    var hasInitiallyLoaded by remember { mutableStateOf(false) }
     
     // Coroutine scope for async operations
     val scope = rememberCoroutineScope()
@@ -123,68 +131,24 @@ fun TrackSubmissionsScreen(
         }
     }
 
-    // Load user's expenses for this project when screen starts
+    // Single LaunchedEffect to handle all data loading and state management
     LaunchedEffect(project.id, authState.user?.phone, refreshTrigger) {
         authState.user?.let { user ->
-            Log.d("TrackSubmissionsScreen", "🚀 Loading expenses from subcollection: projects/${project.id}/expenses for user: nH6HRRTo2Xhhb5D8nR1iEzlrf7A2")
+            Log.d("TrackSubmissionsScreen", "🚀 Starting data loading for project: ${project.id}, user: ${user.phone}")
+            Log.d("TrackSubmissionsScreen", "🔍 Auth state: ${authState.isAuthenticated}, User: ${authState.user?.phone}")
             
             // Clear any existing data first
             expenseViewModel.clearFilter()
             
-            // Use direct loading method for immediate results
-            expenseViewModel.loadUserExpensesForProjectDirect(project.id,user.phone)
+            // Use the unified loading method that handles both direct loading and real-time updates
+            expenseViewModel.loadUserExpensesForProject(project.id, user.phone)
             
-            // Set up real-time status update listener
-            expenseViewModel.listenForStatusUpdates(project.id, user.phone)
-        }
-    }
-    
-    // Debug: Monitor expenses state (raw data from Firestore)
-    LaunchedEffect(Unit) {
-        expenseViewModel.expenses.collect { expenses ->
-            Log.d("TrackSubmissionsScreen", "📊 Raw expenses from Firestore: ${expenses.size} expenses")
-            if (expenses.isNotEmpty()) {
-                expenses.forEach { expense ->
-                    Log.d("TrackSubmissionsScreen", "  💰 ${expense.id}: ${expense.category} - ${expense.status} - ₹${expense.amount} - User: ${expense.userId}")
-                }
-            } else {
-                Log.d("TrackSubmissionsScreen", "📭 No expenses found in Firestore subcollection")
-            }
-        }
-    }
-
-    // Debug: Monitor filtered expenses state (what UI shows)
-    LaunchedEffect(Unit) {
-        expenseViewModel.filteredExpenses.collect { filteredExpenses ->
-            Log.d("TrackSubmissionsScreen", "📋 Filtered expenses for UI: ${filteredExpenses.size} expenses")
-            if (filteredExpenses.isNotEmpty()) {
-                filteredExpenses.forEach { expense ->
-                    Log.d("TrackSubmissionsScreen", "  🎯 ${expense.id}: ${expense.category} - ${expense.status} - ₹${expense.amount}")
-                }
-            } else {
-                Log.d("TrackSubmissionsScreen", "📭 No filtered expenses - UI will show empty state")
-            }
-        }
-    }
-
-    // Debug: Monitor status counts
-    LaunchedEffect(Unit) {
-        expenseViewModel.statusCounts.collect { statusCounts ->
-            Log.d("TrackSubmissionsScreen", "📊 Status counts: A=${statusCounts.approved}, P=${statusCounts.pending}, R=${statusCounts.rejected}, T=${statusCounts.total}")
-        }
-    }
-
-    // Debug: Monitor selected filter
-    LaunchedEffect(Unit) {
-        expenseViewModel.selectedStatusFilter.collect { filter ->
-            Log.d("TrackSubmissionsScreen", "🔍 Status filter: ${filter?.name ?: "None"}")
-        }
-    }
-
-    // Debug: Monitor loading state
-    LaunchedEffect(Unit) {
-        expenseViewModel.isLoading.collect { loading ->
-            Log.d("TrackSubmissionsScreen", "⏳ Loading state: $loading")
+            // Mark as initially loaded after a short delay to prevent premature disappearing
+            kotlinx.coroutines.delay(500)
+            hasInitiallyLoaded = true
+            Log.d("TrackSubmissionsScreen", "✅ Initial loading completed")
+        } ?: run {
+            Log.e("TrackSubmissionsScreen", "❌ No user found in auth state")
         }
     }
     
@@ -283,16 +247,18 @@ fun TrackSubmissionsScreen(
                 // Manual refresh button
                 IconButton(
                     onClick = {
-                        authState.user?.let { user ->
-                            scope.launch {
-                                isRefreshing = true
-                                expenseViewModel.forceRefreshData(project.id, user.uid)
-                                isRealTimeConnected = true
-                                lastUpdateTime = System.currentTimeMillis()
-                                // Stop refreshing after a delay
-                                kotlinx.coroutines.delay(1000)
-                                isRefreshing = false
-                    }
+                        if (!isRefreshing) {
+                            authState.user?.let { user ->
+                                scope.launch {
+                                    isRefreshing = true
+                                    refreshTrigger++
+                                    isRealTimeConnected = true
+                                    lastUpdateTime = System.currentTimeMillis()
+                                    // Stop refreshing after a delay
+                                    kotlinx.coroutines.delay(1000)
+                                    isRefreshing = false
+                                }
+                            }
                         }
                     }
                 ) {
@@ -329,9 +295,9 @@ fun TrackSubmissionsScreen(
             }
         }
         
-        // Main content
+        // Main content - always show content
         LazyColumn(
-                modifier = Modifier
+            modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
@@ -494,17 +460,35 @@ fun TrackSubmissionsScreen(
             }
                 }
             }
-            // Dynamic Expense List Below Cards
+            // Loading indicator
             if (isLoading) {
                 item {
                     Box(
-                        modifier = Modifier.fillMaxWidth().padding(32.dp),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(32.dp),
                         contentAlignment = Alignment.Center
                     ) {
-                        CircularProgressIndicator(color = Color(0xFF4285F4))
+                        Column(
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.spacedBy(16.dp)
+                        ) {
+                            CircularProgressIndicator(
+                                modifier = Modifier.size(48.dp),
+                                color = Color(0xFF4285F4)
+                            )
+                            Text(
+                                text = "Loading submissions...",
+                                fontSize = 16.sp,
+                                color = Color.Gray
+                            )
                         }
                     }
-            } else if (filteredExpenses.isEmpty()) {
+                }
+            }
+            
+            // Dynamic Expense List Below Cards
+            if (filteredExpenses.isEmpty() && !isLoading) {
                 item {
                     Card(
                         modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
