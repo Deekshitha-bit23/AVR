@@ -92,7 +92,23 @@ class ChatViewModel @Inject constructor(
     // Send a message
     fun sendMessage(projectId: String, chatId: String, senderId: String, senderName: String, senderRole: String, message: String, context: android.content.Context? = null) {
         viewModelScope.launch {
-            chatRepository.sendMessage(projectId, chatId, senderId, senderName, senderRole, message, context = context)
+            android.util.Log.d("ChatViewModel", "🚀 ========== SEND MESSAGE CALLED ==========")
+            android.util.Log.d("ChatViewModel", "🚀 Project ID: $projectId")
+            android.util.Log.d("ChatViewModel", "🚀 Chat ID: $chatId")
+            android.util.Log.d("ChatViewModel", "🚀 Sender ID: $senderId")
+            android.util.Log.d("ChatViewModel", "🚀 Sender Name: $senderName")
+            android.util.Log.d("ChatViewModel", "🚀 Sender Role: $senderRole")
+            android.util.Log.d("ChatViewModel", "🚀 Message: $message")
+            android.util.Log.d("ChatViewModel", "🚀 Is Expense Chat: ${chatId.startsWith("expense_approval_")}")
+            android.util.Log.d("ChatViewModel", "🚀 Context provided: ${context != null}")
+            
+            val result = chatRepository.sendMessage(projectId, chatId, senderId, senderName, senderRole, message, context = context)
+            
+            if (result) {
+                android.util.Log.d("ChatViewModel", "✅ Message sent successfully")
+            } else {
+                android.util.Log.e("ChatViewModel", "❌ Failed to send message")
+            }
         }
     }
 
