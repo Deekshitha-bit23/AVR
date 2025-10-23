@@ -332,69 +332,10 @@ private fun ApproverNotificationItem(
                         color = Color.Gray
                     )
                     
-                    // Show accept/reject buttons for temporary approver assignments
-                    if (notification.type == NotificationType.TEMPORARY_APPROVER_ASSIGNMENT && 
-                        notification.actionRequired && 
-                        !notification.isRead) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
-                            // Accept Button
-                            Button(
-                                onClick = {
-                                    onAcceptAssignment(notification.projectId, notification.relatedId)
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFF4CAF50)
-                                ),
-                                shape = RoundedCornerShape(20.dp),
-                                modifier = Modifier.height(32.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Check,
-                                    contentDescription = "Accept",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Accept",
-                                    fontSize = 12.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                            
-                            // Reject Button
-                            Button(
-                                onClick = {
-                                    onRejectAssignment(notification.projectId, notification.relatedId)
-                                },
-                                colors = ButtonDefaults.buttonColors(
-                                    containerColor = Color(0xFFF44336)
-                                ),
-                                shape = RoundedCornerShape(20.dp),
-                                modifier = Modifier.height(32.dp),
-                                contentPadding = PaddingValues(horizontal = 16.dp, vertical = 4.dp)
-                            ) {
-                                Icon(
-                                    imageVector = Icons.Default.Close,
-                                    contentDescription = "Reject",
-                                    tint = Color.White,
-                                    modifier = Modifier.size(16.dp)
-                                )
-                                Spacer(modifier = Modifier.width(4.dp))
-                                Text(
-                                    text = "Reject",
-                                    fontSize = 12.sp,
-                                    color = Color.White,
-                                    fontWeight = FontWeight.Medium
-                                )
-                            }
-                        }
-                    } else if (notification.actionRequired && !notification.isRead) {
-                        // Show regular action required badge for other notification types
+                    // Show action required badge for notifications that need action (excluding temporary approver assignments)
+                    if (notification.actionRequired && 
+                        !notification.isRead && 
+                        notification.type != NotificationType.TEMPORARY_APPROVER_ASSIGNMENT) {
                         Badge(
                             containerColor = Color.Red,
                             contentColor = Color.White

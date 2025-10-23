@@ -521,17 +521,17 @@ class NotificationService @Inject constructor(
             val startDateStr = dateFormat.format(startDate.toDate())
             val expiryDateStr = expiringDate?.let { dateFormat.format(it.toDate()) } ?: "Ongoing"
             
-            // Create notification with accept/reject actions
+            // Create notification as informational only (no accept/reject actions)
             val notification = Notification(
                 recipientId = approverPhone, // Use phone number to match user's phone
                 recipientRole = "APPROVER",
                 title = "Temporary Approver Assignment",
-                message = "$assignedByName has assigned you as a temporary approver for '$projectName' from $startDateStr to $expiryDateStr. Please accept or reject this assignment.",
+                message = "$assignedByName has assigned you as a temporary approver for '$projectName' from $startDateStr to $expiryDateStr.",
                 type = NotificationType.TEMPORARY_APPROVER_ASSIGNMENT,
                 projectId = projectId,
                 projectName = projectName,
-                relatedId = approverId, // Store approver ID for action handling
-                actionRequired = true, // This enables accept/reject buttons
+                relatedId = approverId, // Store approver ID for reference
+                actionRequired = false, // Changed to false - no accept/reject buttons
                 navigationTarget = "approver_project_dashboard/$projectId"
             )
             

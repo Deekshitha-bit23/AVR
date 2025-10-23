@@ -67,7 +67,7 @@ class DelegationExpiryService @Inject constructor(
             val now = Date()
             val expiredApprovers = mutableListOf<TemporaryApprover>()
             
-            // Find expired approvers
+            // Find expired approverss
             for (approver in tempApprovers) {
                 if (approver.isActive && approver.isExpired()) {
                     expiredApprovers.add(approver)

@@ -929,7 +929,10 @@ class TemporaryApproverRepository @Inject constructor(
                 assignedByName = productionHeadName,
                 createdAt = Timestamp.now(),
                 updatedAt = Timestamp.now(),
-                status = "PENDING"
+                status = "ACCEPTED", // Changed from PENDING to ACCEPTED - no manual acceptance required
+                isAccepted = true,
+                acceptedAt = Timestamp.now(),
+                responseMessage = "Auto-accepted"
             )
             
             // Add to Firestore
@@ -945,9 +948,9 @@ class TemporaryApproverRepository @Inject constructor(
                 .update("temporaryApproverPhone", approverPhone)
                 .await()
             
-            Log.d(TAG, "✅ Temporary approver assignment created successfully")
+            Log.d(TAG, "✅ Temporary approver assignment created successfully (auto-accepted)")
             
-            // Send notification to the temporary approver with accept/reject options
+            // Send informational notification to the temporary approver
             notificationService?.sendTemporaryApproverAssignmentNotification(
                 projectId = projectId,
                 approverId = approverId,

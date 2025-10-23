@@ -19,6 +19,8 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.tasks.await
+import kotlinx.coroutines.NonCancellable
+import kotlinx.coroutines.withContext
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -412,15 +414,17 @@ class ChatRepository @Inject constructor(
         mediaUrl: String? = null,
         context: android.content.Context? = null
     ): Boolean {
-        return try {
-            Log.d("ChatRepository", "🚀 ========== SEND MESSAGE START ==========")
-            Log.d("ChatRepository", "🚀 ProjectId: $projectId")
-            Log.d("ChatRepository", "🚀 ChatId: $chatId")
-            Log.d("ChatRepository", "🚀 SenderId: $senderId")
-            Log.d("ChatRepository", "🚀 SenderName: $senderName")
-            Log.d("ChatRepository", "🚀 SenderRole: $senderRole")
-            Log.d("ChatRepository", "🚀 Message: $message")
-            Log.d("ChatRepository", "🚀 Is Expense Chat: ${chatId.startsWith("expense_approval_")}")
+        // Wrap entire function in NonCancellable to ensure it completes
+        return withContext(NonCancellable) {
+            try {
+                Log.d("ChatRepository", "🚀 ========== SEND MESSAGE START ==========")
+                Log.d("ChatRepository", "🚀 ProjectId: $projectId")
+                Log.d("ChatRepository", "🚀 ChatId: $chatId")
+                Log.d("ChatRepository", "🚀 SenderId: $senderId")
+                Log.d("ChatRepository", "🚀 SenderName: $senderName")
+                Log.d("ChatRepository", "🚀 SenderRole: $senderRole")
+                Log.d("ChatRepository", "🚀 Message: $message")
+                Log.d("ChatRepository", "🚀 Is Expense Chat: ${chatId.startsWith("expense_approval_")}")
             
             val messagesCollection = getMessagesCollection(projectId, chatId)
             val chatsCollection = getChatsCollection(projectId)
@@ -768,73 +772,74 @@ class ChatRepository @Inject constructor(
                 val projectName = projectDoc.get("name") as? String ?: "Unknown Project"
                 
                 // Create notifications for each receiver
+                // Note: Entire function is already wrapped in NonCancellable
                 for (receiverId in otherMembers) {
                     try {
-                        // Get the normalized user ID for notification (same as chat creation)
-                        val normalizedReceiverId = getChatUserId(receiverId)
-                        Log.d("ChatRepository", "Creating notification for receiver: $receiverId -> $normalizedReceiverId")
-                        
-                        // Get receiver's role for notification
-                        val receiverDoc = usersCollection.document(normalizedReceiverId).get().await()
-                        val receiverRole = receiverDoc.get("role") as? String ?: "USER"
-                        
-                        // Create notification with appropriate title based on chat type
-                        val notificationTitle = if (chatId.startsWith("expense_approval_")) {
-                            "New message about pending expense from $senderName"
-                        } else {
-                            "New message from $senderName"
-                        }
-                        
-                        val notification = Notification(
-                            recipientId = normalizedReceiverId, // Use normalized ID
-                            recipientRole = receiverRole,
-                            title = notificationTitle,
-                            message = message,
-                            type = NotificationType.CHAT_MESSAGE,
-                            projectId = projectId,
-                            projectName = projectName,
-                            relatedId = chatId,
-                            isRead = false,
-                            actionRequired = if (chatId.startsWith("expense_approval_")) true else false,
-                            navigationTarget = "chat/$projectId/$chatId/$senderName",
-                            createdAt = Timestamp.now() // Ensure timestamp is set
-                        )
-                        
-                        Log.d("ChatRepository", "📧 ========== CREATING NOTIFICATION ==========")
-                        Log.d("ChatRepository", "📧 Notification Details:")
-                        Log.d("ChatRepository", "   - recipientId: '$normalizedReceiverId'")
-                        Log.d("ChatRepository", "   - recipientRole: '$receiverRole'")
-                        Log.d("ChatRepository", "   - title: '${notification.title}'")
-                        Log.d("ChatRepository", "   - message: '${notification.message}'")
-                        Log.d("ChatRepository", "   - type: '${notification.type}'")
-                        Log.d("ChatRepository", "   - projectId: '$projectId'")
-                        Log.d("ChatRepository", "   - projectName: '$projectName'")
-                        Log.d("ChatRepository", "   - relatedId (chatId): '$chatId'")
-                        Log.d("ChatRepository", "   - isRead: ${notification.isRead}")
-                        Log.d("ChatRepository", "   - actionRequired: ${notification.actionRequired}")
-                        Log.d("ChatRepository", "   - navigationTarget: '${notification.navigationTarget}'")
-                        Log.d("ChatRepository", "   - createdAt: ${notification.createdAt}")
-                        
-                        val notificationResult = notificationRepository.createNotification(notification)
-                        
-                        if (notificationResult.isSuccess) {
-                            val notificationId = notificationResult.getOrNull()
-                            Log.d("ChatRepository", "✅ ========== NOTIFICATION CREATED SUCCESSFULLY ==========")
-                            Log.d("ChatRepository", "✅ Notification ID: $notificationId")
-                            Log.d("ChatRepository", "✅ Recipient: $normalizedReceiverId ($receiverRole)")
-                            Log.d("ChatRepository", "✅ Title: $notificationTitle")
-                            Log.d("ChatRepository", "✅ Message: $message")
-                            Log.d("ChatRepository", "✅ Chat ID: $chatId")
-                            Log.d("ChatRepository", "✅ ========== ========== ========== ==========")
-                        } else {
-                            Log.e("ChatRepository", "❌ ========== NOTIFICATION CREATION FAILED ==========")
-                            Log.e("ChatRepository", "❌ Failed to create notification for receiver: $normalizedReceiverId")
-                            Log.e("ChatRepository", "❌ Recipient role: $receiverRole")
-                            Log.e("ChatRepository", "❌ Error: ${notificationResult.exceptionOrNull()?.message}")
-                            Log.e("ChatRepository", "❌ ========== ========== ========== ==========")
-                            notificationResult.exceptionOrNull()?.printStackTrace()
-                        }
-                        
+                            // Get the normalized user ID for notification (same as chat creation)
+                            val normalizedReceiverId = getChatUserId(receiverId)
+                            Log.d("ChatRepository", "Creating notification for receiver: $receiverId -> $normalizedReceiverId")
+                            
+                            // Get receiver's role for notification
+                            val receiverDoc = usersCollection.document(normalizedReceiverId).get().await()
+                            val receiverRole = receiverDoc.get("role") as? String ?: "USER"
+                            
+                            // Create notification with appropriate title based on chat type
+                            val notificationTitle = if (chatId.startsWith("expense_approval_")) {
+                                "New message about pending expense from $senderName"
+                            } else {
+                                "New message from $senderName"
+                            }
+                            
+                            val notification = Notification(
+                                recipientId = normalizedReceiverId, // Use normalized ID
+                                recipientRole = receiverRole,
+                                title = notificationTitle,
+                                message = message,
+                                type = NotificationType.CHAT_MESSAGE,
+                                projectId = projectId,
+                                projectName = projectName,
+                                relatedId = chatId,
+                                isRead = false,
+                                actionRequired = if (chatId.startsWith("expense_approval_")) true else false,
+                                navigationTarget = "chat/$projectId/$chatId/$senderName",
+                                createdAt = Timestamp.now() // Ensure timestamp is set
+                            )
+                            
+                            Log.d("ChatRepository", "📧 ========== CREATING NOTIFICATION ==========")
+                            Log.d("ChatRepository", "📧 Notification Details:")
+                            Log.d("ChatRepository", "   - recipientId: '$normalizedReceiverId'")
+                            Log.d("ChatRepository", "   - recipientRole: '$receiverRole'")
+                            Log.d("ChatRepository", "   - title: '${notification.title}'")
+                            Log.d("ChatRepository", "   - message: '${notification.message}'")
+                            Log.d("ChatRepository", "   - type: '${notification.type}'")
+                            Log.d("ChatRepository", "   - projectId: '$projectId'")
+                            Log.d("ChatRepository", "   - projectName: '$projectName'")
+                            Log.d("ChatRepository", "   - relatedId (chatId): '$chatId'")
+                            Log.d("ChatRepository", "   - isRead: ${notification.isRead}")
+                            Log.d("ChatRepository", "   - actionRequired: ${notification.actionRequired}")
+                            Log.d("ChatRepository", "   - navigationTarget: '${notification.navigationTarget}'")
+                            Log.d("ChatRepository", "   - createdAt: ${notification.createdAt}")
+                            
+                            val notificationResult = notificationRepository.createNotification(notification)
+                            
+                            if (notificationResult.isSuccess) {
+                                val notificationId = notificationResult.getOrNull()
+                                Log.d("ChatRepository", "✅ ========== NOTIFICATION CREATED SUCCESSFULLY ==========")
+                                Log.d("ChatRepository", "✅ Notification ID: $notificationId")
+                                Log.d("ChatRepository", "✅ Recipient: $normalizedReceiverId ($receiverRole)")
+                                Log.d("ChatRepository", "✅ Title: $notificationTitle")
+                                Log.d("ChatRepository", "✅ Message: $message")
+                                Log.d("ChatRepository", "✅ Chat ID: $chatId")
+                                Log.d("ChatRepository", "✅ ========== ========== ========== ==========")
+                            } else {
+                                Log.e("ChatRepository", "❌ ========== NOTIFICATION CREATION FAILED ==========")
+                                Log.e("ChatRepository", "❌ Failed to create notification for receiver: $normalizedReceiverId")
+                                Log.e("ChatRepository", "❌ Recipient role: $receiverRole")
+                                Log.e("ChatRepository", "❌ Error: ${notificationResult.exceptionOrNull()?.message}")
+                                Log.e("ChatRepository", "❌ ========== ========== ========== ==========")
+                                notificationResult.exceptionOrNull()?.printStackTrace()
+                            }
+                            
                     } catch (e: Exception) {
                         Log.e("ChatRepository", "❌ Exception creating notification for $receiverId: ${e.message}")
                         e.printStackTrace()
@@ -876,13 +881,14 @@ class ChatRepository @Inject constructor(
                 }
             }
             
-            Log.d("ChatRepository", "🎉 ========== SEND MESSAGE SUCCESS ==========")
-            true
-        } catch (e: Exception) {
-            Log.e("ChatRepository", "❌ ========== SEND MESSAGE FAILED ==========")
-            Log.e("ChatRepository", "❌ Error sending message: ${e.message}")
-            e.printStackTrace()
-            false
+                Log.d("ChatRepository", "🎉 ========== SEND MESSAGE SUCCESS ==========")
+                true
+            } catch (e: Exception) {
+                Log.e("ChatRepository", "❌ ========== SEND MESSAGE FAILED ==========")
+                Log.e("ChatRepository", "❌ Error sending message: ${e.message}")
+                e.printStackTrace()
+                false
+            }
         }
     }
 
