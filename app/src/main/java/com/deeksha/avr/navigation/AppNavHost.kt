@@ -283,23 +283,49 @@ fun AppNavHost(
         
         // Project Selection
         composable(Screen.ProjectSelection.route) {
-            ProjectSelectionScreen(
-                onProjectSelected = { projectId ->
-                    navController.navigate(Screen.ExpenseList.createRoute(projectId))
-                },
-                onNotificationClick = { userId ->
-                    navController.navigate(Screen.NotificationList.route)
-                },
-                onNavigateToChat = { projectId, projectName ->
-                    navController.navigate(Screen.ChatList.createRoute(projectId, projectName))
-                },
-                onLogout = {
-                    navController.navigate(Screen.Login.route) {
-                        popUpTo(0) { inclusive = true }
-                    }
-                },
-                authViewModel = authViewModel
-            )
+            // Check if user is a regular user, then show the new UI
+            val authState = authViewModel.authState.collectAsState().value
+            val isRegularUser = authState.user?.role == com.deeksha.avr.model.UserRole.USER
+            
+            if (isRegularUser) {
+                // New UI for regular users
+                com.deeksha.avr.ui.view.common.NewProjectSelectionScreen(
+                    onProjectSelected = { projectId: String ->
+                        navController.navigate(Screen.ExpenseList.createRoute(projectId))
+                    },
+                    onNotificationClick = { userId: String ->
+                        navController.navigate(Screen.NotificationList.route)
+                    },
+                    onNavigateToChat = { projectId: String, projectName: String ->
+                        navController.navigate(Screen.ChatList.createRoute(projectId, projectName))
+                    },
+                    onLogout = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    authViewModel = authViewModel
+                )
+            } else {
+                // Original UI for other roles
+                ProjectSelectionScreen(
+                    onProjectSelected = { projectId ->
+                        navController.navigate(Screen.ExpenseList.createRoute(projectId))
+                    },
+                    onNotificationClick = { userId ->
+                        navController.navigate(Screen.NotificationList.route)
+                    },
+                    onNavigateToChat = { projectId, projectName ->
+                        navController.navigate(Screen.ChatList.createRoute(projectId, projectName))
+                    },
+                    onLogout = {
+                        navController.navigate(Screen.Login.route) {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    },
+                    authViewModel = authViewModel
+                )
+            }
         }
         
         // Notification Screen

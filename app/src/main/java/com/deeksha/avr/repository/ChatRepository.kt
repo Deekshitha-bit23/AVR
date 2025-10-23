@@ -192,10 +192,123 @@ class ChatRepository @Inject constructor(
         }
     }
 
-    // Get all approvers for a project (for expense approval chats)
-    private suspend fun getApproversForExpenseChat(projectId: String): List<String> {
+    // Get expense details from chat ID (for expense approval chats)
+    private suspend fun getExpenseFromChatId(projectId: String, chatId: String): com.deeksha.avr.model.Expense? {
         return try {
-            Log.d("ChatRepository", "📋 Getting approvers for project: $projectId")
+            // Extract expense ID from chat ID (format: "expense_approval_{expenseId}")
+            if (!chatId.startsWith("expense_approval_")) {
+                Log.d("ChatRepository", "⚠️ Not an expense approval chat: $chatId")
+                return null
+            }
+            
+            val expenseId = chatId.removePrefix("expense_approval_")
+            Log.d("ChatRepository", "🔍 Extracted expense ID: $expenseId from chat ID: $chatId")
+            
+            // Get expense from Firestore
+            val expenseDoc = firestore.collection("projects")
+                .document(projectId)
+                .collection("expenses")
+                .document(expenseId)
+                .get()
+                .await()
+                
+            if (!expenseDoc.exists()) {
+                Log.e("ChatRepository", "❌ Expense not found: $expenseId")
+                return null
+            }
+            
+            // Map document to Expense object
+            val expenseData = expenseDoc.data
+            if (expenseData == null) {
+                Log.e("ChatRepository", "❌ Expense data is null for ID: $expenseId")
+                return null
+            }
+            
+            val expense = com.deeksha.avr.model.Expense(
+                id = expenseDoc.id,
+                projectId = projectId,
+                userId = expenseData["userId"] as? String ?: "",
+                userName = expenseData["userName"] as? String ?: "",
+                date = expenseData["date"] as? com.google.firebase.Timestamp,
+                amount = (expenseData["amount"] as? Number)?.toDouble() ?: 0.0,
+                department = expenseData["department"] as? String ?: "",
+                category = expenseData["category"] as? String ?: "",
+                description = expenseData["description"] as? String ?: "",
+                modeOfPayment = expenseData["modeOfPayment"] as? String ?: "",
+                tds = (expenseData["tds"] as? Number)?.toDouble() ?: 0.0,
+                gst = (expenseData["gst"] as? Number)?.toDouble() ?: 0.0,
+                netAmount = (expenseData["netAmount"] as? Number)?.toDouble() ?: 0.0,
+                attachmentUrl = expenseData["attachmentUrl"] as? String ?: "",
+                attachmentFileName = expenseData["attachmentFileName"] as? String ?: "",
+                status = when (expenseData["status"] as? String) {
+                    "APPROVED" -> com.deeksha.avr.model.ExpenseStatus.APPROVED
+                    "REJECTED" -> com.deeksha.avr.model.ExpenseStatus.REJECTED
+                    "DRAFT" -> com.deeksha.avr.model.ExpenseStatus.DRAFT
+                    else -> com.deeksha.avr.model.ExpenseStatus.PENDING
+                },
+                submittedAt = expenseData["submittedAt"] as? com.google.firebase.Timestamp,
+                reviewedAt = expenseData["reviewedAt"] as? com.google.firebase.Timestamp,
+                reviewedBy = expenseData["reviewedBy"] as? String ?: "",
+                reviewComments = expenseData["reviewComments"] as? String ?: "",
+                receiptNumber = expenseData["receiptNumber"] as? String ?: ""
+            )
+            
+            Log.d("ChatRepository", "✅ Found expense: ${expense.id}, submitted by: ${expense.userId}")
+            expense
+            
+        } catch (e: Exception) {
+            Log.e("ChatRepository", "❌ Error getting expense from chat ID: ${e.message}")
+            e.printStackTrace()
+            null
+        }
+    }
+
+    // Get all approvers for a project (for expense approval chats)
+    private suspend fun getApproversForExpenseChat(projectId: String, chatId: String): List<String> {
+        return try {
+            Log.d("ChatRepository", "📋 Getting approvers for project: $projectId, chatId: $chatId")
+            
+            val chatsCollection = getChatsCollection(projectId)
+            val messagesCollection = getMessagesCollection(projectId, chatId)
+            
+            // First check if chat already exists and has messages from approvers
+            val existingChatDoc = chatsCollection.document(chatId).get().await()
+            if (existingChatDoc.exists()) {
+                Log.d("ChatRepository", "📋 Chat exists, checking for approvers who have sent messages")
+                
+                // Get all messages in this chat
+                val messages = messagesCollection.get().await()
+                
+                // Find unique sender IDs who are approvers (have sent messages in this chat)
+                val approverSenders = mutableSetOf<String>()
+                for (messageDoc in messages.documents) {
+                    val senderId = messageDoc.get("senderId") as? String
+                    if (senderId != null) {
+                        try {
+                            // Check if this sender is an approver
+                            val userDoc = usersCollection.document(senderId).get().await()
+                            val role = userDoc.get("role") as? String
+                            if (role != null && (role.uppercase().contains("APPROVER") || role.uppercase().contains("PRODUCTION"))) {
+                                approverSenders.add(senderId)
+                                Log.d("ChatRepository", "📋 Found approver who has sent messages: $senderId (role: $role)")
+                            }
+                        } catch (e: Exception) {
+                            Log.e("ChatRepository", "Error checking sender role: ${e.message}")
+                        }
+                    }
+                }
+                
+                // If there are approvers who have actively participated, only notify them
+                if (approverSenders.isNotEmpty()) {
+                    Log.d("ChatRepository", "📋 Using ${approverSenders.size} approvers who have participated in chat")
+                    return approverSenders.toList()
+                }
+                
+                Log.d("ChatRepository", "📋 No approvers have sent messages yet, will notify all project approvers")
+            }
+            
+            // If chat doesn't exist or no approvers have participated yet, get all project approvers
+            Log.d("ChatRepository", "📋 Getting all approvers for project: $projectId")
             
             // Get project details
             val projectDoc = projectsCollection.document(projectId).get().await()
@@ -300,34 +413,86 @@ class ChatRepository @Inject constructor(
         context: android.content.Context? = null
     ): Boolean {
         return try {
+            Log.d("ChatRepository", "🚀 ========== SEND MESSAGE START ==========")
+            Log.d("ChatRepository", "🚀 ProjectId: $projectId")
+            Log.d("ChatRepository", "🚀 ChatId: $chatId")
+            Log.d("ChatRepository", "🚀 SenderId: $senderId")
+            Log.d("ChatRepository", "🚀 SenderName: $senderName")
+            Log.d("ChatRepository", "🚀 SenderRole: $senderRole")
+            Log.d("ChatRepository", "🚀 Message: $message")
+            Log.d("ChatRepository", "🚀 Is Expense Chat: ${chatId.startsWith("expense_approval_")}")
+            
             val messagesCollection = getMessagesCollection(projectId, chatId)
             val chatsCollection = getChatsCollection(projectId)
             
             // Check if chat exists, if not create it
             val chatDoc = chatsCollection.document(chatId).get().await()
             if (!chatDoc.exists()) {
-                Log.d("ChatRepository", "Chat $chatId does not exist, creating it")
+                Log.d("ChatRepository", "🆕 Chat $chatId does not exist, creating it")
+                Log.d("ChatRepository", "🆕 ChatId starts with 'expense_approval_': ${chatId.startsWith("expense_approval_")}")
                 
-                // FOR EXPENSE APPROVAL CHATS: Include approvers in initial chat creation
+                // FOR EXPENSE APPROVAL CHATS: Include both user and approver in initial chat creation
                 val initialMembers = if (chatId.startsWith("expense_approval_")) {
                     Log.d("ChatRepository", "📋 Creating expense approval chat: $chatId")
+                    Log.d("ChatRepository", "📋 ProjectId: $projectId")
+                    Log.d("ChatRepository", "📋 SenderId: $senderId")
+                    Log.d("ChatRepository", "📋 SenderName: $senderName")
+                    
                     try {
-                        // Get all approvers for this project
-                        val allApprovers = getApproversForExpenseChat(projectId)
-                        Log.d("ChatRepository", "📋 Found ${allApprovers.size} approvers for project: $projectId")
+                        val members = mutableSetOf<String>()
                         
-                        // Combine sender and approvers
-                        val members = mutableSetOf(senderId)
-                        members.addAll(allApprovers)
-                        Log.d("ChatRepository", "📋 Creating chat with members: $members")
+                        // Add the current sender
+                        members.add(senderId)
+                        Log.d("ChatRepository", "📋 Added sender to members: $senderId")
+                        
+                        // Get expense details to find the user who submitted it
+                        val expense = getExpenseFromChatId(projectId, chatId)
+                        if (expense != null) {
+                            // If sender is not the submitter, add submitter to members
+                            if (expense.userId != senderId) {
+                                members.add(expense.userId)
+                                Log.d("ChatRepository", "📋 Added expense submitter to members: ${expense.userId}")
+                            }
+                            
+                            // Get project details to find approvers/manager
+                            val projectDoc = projectsCollection.document(projectId).get().await()
+                            if (projectDoc.exists()) {
+                                // Add manager if exists and not already in members
+                                val managerId = projectDoc.get("managerId") as? String
+                                if (!managerId.isNullOrEmpty() && managerId != senderId) {
+                                    members.add(managerId)
+                                    Log.d("ChatRepository", "📋 Added project manager to members: $managerId")
+                                }
+                                
+                                // Get approvers for this project
+                                val allApprovers = getApproversForExpenseChat(projectId, chatId)
+                                Log.d("ChatRepository", "📋 Found ${allApprovers.size} approvers for project: $projectId")
+                                Log.d("ChatRepository", "📋 Approvers list: $allApprovers")
+                                
+                                // Add all approvers to members
+                                members.addAll(allApprovers)
+                            }
+                        } else {
+                            // Fallback: Get all approvers if expense not found
+                            val allApprovers = getApproversForExpenseChat(projectId, chatId)
+                            members.addAll(allApprovers)
+                            Log.d("ChatRepository", "⚠️ Expense not found, using all approvers as fallback")
+                        }
+                        
+                        Log.d("ChatRepository", "📋 Creating chat with ${members.size} members: $members")
                         members.toList()
                     } catch (e: Exception) {
-                        Log.e("ChatRepository", "❌ Error getting approvers, creating chat with sender only: ${e.message}")
+                        Log.e("ChatRepository", "❌ Error creating expense chat members: ${e.message}")
+                        e.printStackTrace()
+                        // Fallback to sender only
                         listOf(senderId)
                     }
                 } else {
+                    Log.d("ChatRepository", "📋 Creating regular chat with sender only: $senderId")
                     listOf(senderId)
                 }
+                
+                Log.d("ChatRepository", "📋 Final initial members list: $initialMembers (size: ${initialMembers.size})")
                 
                 // Create unread count map for all members
                 val initialUnreadCount = initialMembers.associateWith { 0 }
@@ -344,35 +509,57 @@ class ChatRepository @Inject constructor(
                 chatsCollection.document(chatId).set(chatData).await()
                 Log.d("ChatRepository", "Created chat: $chatId with ${initialMembers.size} members")
             } else {
-                // Chat exists - FOR EXPENSE APPROVAL CHATS: Ensure all approvers are still members (in case new ones were added)
+                Log.d("ChatRepository", "✅ Chat $chatId already exists")
+                
+                // Get current chat members for logging
+                val existingMembers = (chatDoc.get("members") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+                Log.d("ChatRepository", "✅ Existing chat members: $existingMembers (size: ${existingMembers.size})")
+                
+                // Chat exists - FOR EXPENSE APPROVAL CHATS: Ensure both user and approver are members
                 if (chatId.startsWith("expense_approval_")) {
                     Log.d("ChatRepository", "📋 Updating existing expense approval chat: $chatId")
                     try {
-                        // Get all approvers for this project
-                        val allApprovers = getApproversForExpenseChat(projectId)
-                        Log.d("ChatRepository", "📋 Found ${allApprovers.size} approvers for project: $projectId")
-                        
                         // Get current chat members
                         val currentMembers = (chatDoc.get("members") as? List<*>)?.filterIsInstance<String>()?.toMutableSet() ?: mutableSetOf()
                         Log.d("ChatRepository", "📋 Current chat members: $currentMembers")
                         
-                        // Add sender if not already in members
-                        currentMembers.add(senderId)
+                        var membersUpdated = false
                         
-                        // Add all approvers to members if not already present
-                        var addedNewMembers = false
-                        allApprovers.forEach { approverId ->
-                            if (!currentMembers.contains(approverId)) {
-                                currentMembers.add(approverId)
-                                addedNewMembers = true
-                                Log.d("ChatRepository", "📋 Adding approver to existing chat: $approverId")
+                        // Always add sender if not already in members
+                        if (!currentMembers.contains(senderId)) {
+                            currentMembers.add(senderId)
+                            Log.d("ChatRepository", "📋 Added sender to chat members: $senderId")
+                            membersUpdated = true
+                        }
+                        
+                        // For expense chats, ensure both submitter and approver are included
+                        val expense = getExpenseFromChatId(projectId, chatId)
+                        if (expense != null) {
+                            // Add expense submitter if not already in members
+                            if (!currentMembers.contains(expense.userId)) {
+                                currentMembers.add(expense.userId)
+                                Log.d("ChatRepository", "📋 Added expense submitter to members: ${expense.userId}")
+                                membersUpdated = true
+                            }
+                            
+                            // Get project details to find manager
+                            val projectDoc = projectsCollection.document(projectId).get().await()
+                            if (projectDoc.exists()) {
+                                // Add manager if exists and not already in members
+                                val managerId = projectDoc.get("managerId") as? String
+                                if (!managerId.isNullOrEmpty() && !currentMembers.contains(managerId)) {
+                                    currentMembers.add(managerId)
+                                    Log.d("ChatRepository", "📋 Added project manager to members: $managerId")
+                                    membersUpdated = true
+                                }
                             }
                         }
                         
-                        // Update chat members and unread counts if new members were added
-                        if (addedNewMembers) {
+                        // Update chat members and unread counts if needed
+                        if (membersUpdated) {
                             val unreadCount = (chatDoc.get("unreadCount") as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value }?.toMutableMap() ?: mutableMapOf()
-                            // Initialize unread count for new members
+                            
+                            // Initialize unread count for all members
                             currentMembers.forEach { memberId ->
                                 if (!unreadCount.containsKey(memberId)) {
                                     unreadCount[memberId] = 0
@@ -385,12 +572,17 @@ class ChatRepository @Inject constructor(
                                     "unreadCount" to unreadCount
                                 )
                             ).await()
-                            Log.d("ChatRepository", "📋 Updated chat members to: $currentMembers")
+                            Log.d("ChatRepository", "📋 Updated chat members: ${currentMembers.toList()}")
+                        } else {
+                            Log.d("ChatRepository", "📋 No member updates needed")
                         }
                     } catch (e: Exception) {
-                        Log.e("ChatRepository", "❌ Error adding approvers to existing expense chat: ${e.message}")
+                        Log.e("ChatRepository", "❌ Error updating expense chat members: ${e.message}")
+                        e.printStackTrace()
                         // Continue with sending message even if this fails
                     }
+                } else {
+                    Log.d("ChatRepository", "📋 Regular chat, no member updates needed")
                 }
             }
             
@@ -421,8 +613,11 @@ class ChatRepository @Inject constructor(
             ).await()
             
             // Increment unread count for other members
+            Log.d("ChatRepository", "📊 Fetching chat to update unread counts...")
             val chat = chatsCollection.document(chatId).get().await()
             val members = (chat.get("members") as? List<*>)?.filterIsInstance<String>() ?: emptyList()
+            Log.d("ChatRepository", "📊 Retrieved members from chat: $members (size: ${members.size})")
+            
             val unreadCount = (chat.get("unreadCount") as? Map<*, *>)?.mapKeys { it.key.toString() }?.mapValues { it.value } ?: emptyMap()
             val updatedUnreadCount = mutableMapOf<String, Any>()
             unreadCount.forEach { (k, v) -> updatedUnreadCount[k] = v ?: 0 }
@@ -431,18 +626,27 @@ class ChatRepository @Inject constructor(
                 if (memberId != senderId) {
                     val currentCount = (updatedUnreadCount[memberId] as? Number)?.toInt() ?: 0
                     updatedUnreadCount[memberId] = currentCount + 1
+                    Log.d("ChatRepository", "📊 Incremented unread count for $memberId: $currentCount -> ${currentCount + 1}")
                 }
             }
             
             chatsCollection.document(chatId).update("unreadCount", updatedUnreadCount).await()
+            Log.d("ChatRepository", "📊 Updated unread counts in Firestore")
             
             // Send notifications to other members
-            Log.d("ChatRepository", "💬 Preparing to send notifications...")
-            Log.d("ChatRepository", "   - All members: $members")
-            Log.d("ChatRepository", "   - SenderId: $senderId")
+            Log.d("ChatRepository", "💬 ========== NOTIFICATION PREPARATION ==========")
+            Log.d("ChatRepository", "💬 All members: $members")
+            Log.d("ChatRepository", "💬 SenderId: $senderId")
+            Log.d("ChatRepository", "💬 SenderId type: ${senderId.javaClass.simpleName}")
+            
             val otherMembers = members.filter { it != senderId }
-            Log.d("ChatRepository", "   - Other members (after filtering): $otherMembers")
-            Log.d("ChatRepository", "   - Other members count: ${otherMembers.size}")
+            Log.d("ChatRepository", "💬 Other members (after filtering sender): $otherMembers")
+            Log.d("ChatRepository", "💬 Other members count: ${otherMembers.size}")
+            
+            // Check if senderId matches any member
+            members.forEachIndexed { index, memberId ->
+                Log.d("ChatRepository", "💬 Member[$index]: '$memberId' (equals senderId: ${memberId == senderId})")
+            }
             
             if (otherMembers.isNotEmpty()) {
                 Log.d("ChatRepository", "✅ Creating notifications for ${otherMembers.size} members")
@@ -522,16 +726,22 @@ class ChatRepository @Inject constructor(
                     Log.w("ChatRepository", "Context not provided, message sent without notifications")
                 }
             } else {
+                Log.w("ChatRepository", "⚠️ ========== NO NOTIFICATIONS SENT ==========")
                 Log.w("ChatRepository", "⚠️ No other members to notify! otherMembers is empty.")
                 Log.w("ChatRepository", "⚠️ This means either:")
                 Log.w("ChatRepository", "⚠️   1. Chat has no members")
                 Log.w("ChatRepository", "⚠️   2. Sender ID doesn't match any member (ID format mismatch)")
                 Log.w("ChatRepository", "⚠️   3. Chat only has 1 member (the sender)")
+                Log.w("ChatRepository", "⚠️ Chat members: $members")
+                Log.w("ChatRepository", "⚠️ SenderId: $senderId")
             }
             
+            Log.d("ChatRepository", "🎉 ========== SEND MESSAGE SUCCESS ==========")
             true
         } catch (e: Exception) {
-            Log.e("ChatRepository", "Error sending message: ${e.message}")
+            Log.e("ChatRepository", "❌ ========== SEND MESSAGE FAILED ==========")
+            Log.e("ChatRepository", "❌ Error sending message: ${e.message}")
+            e.printStackTrace()
             false
         }
     }

@@ -20,6 +20,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -328,33 +329,29 @@ fun ApproverProjectSelectionScreen(
                         .padding(16.dp)
                 ) {
                     Text(
-                        text = "Choose a project to continue:",
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium,
+                        text = "Your Projects",
+                        fontSize = 24.sp,
+                        fontWeight = FontWeight.Bold,
                         color = Color.Black,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        modifier = Modifier.padding(bottom = 8.dp)
                     )
                     
                     Text(
-                        text = "Found ${projects.size} projects:",
-                        fontSize = 14.sp,
+                        text = "${projects.size} projects",
+                        fontSize = 16.sp,
                         color = Color.Gray,
                         modifier = Modifier.padding(bottom = 16.dp)
                     )
                     
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         items(projects) { project ->
-                            ProjectCard(
+                            ApproverProjectCard(
                                 project = project,
                                 onProjectClick = { onProjectSelected(project.id) },
                                 projectNotifications = notifications.filter { it.projectId == project.id }
                             )
-                        }
-                        
-                        item {
-                            Spacer(modifier = Modifier.height(16.dp))
                         }
                     }
                 }
@@ -364,156 +361,196 @@ fun ApproverProjectSelectionScreen(
 }
 
 @Composable
-private fun ProjectCard(
+private fun ApproverProjectCard(
     project: Project,
     onProjectClick: () -> Unit,
     projectNotifications: List<com.deeksha.avr.model.Notification> = emptyList()
 ) {
     // Calculate project-specific notification counts
     val projectNotificationCount = projectNotifications.count { !it.isRead }
-    val projectChangedCount = projectNotifications.count { 
-        it.type == com.deeksha.avr.model.NotificationType.PROJECT_CHANGED && !it.isRead 
-    }
-    val projectAssignmentCount = projectNotifications.count { 
-        it.type == com.deeksha.avr.model.NotificationType.PROJECT_ASSIGNMENT && !it.isRead 
-    }
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onProjectClick() },
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(16.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(20.dp),
+                .padding(12.dp)
+        ) {
+            // Project name and code
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Row(
             verticalAlignment = Alignment.CenterVertically
         ) {
-            // Project Initial Circle with notification indicator
+                    // Project Initial Circle
             Box(
                 modifier = Modifier
-                    .size(56.dp)
-                    .background(
-                        color = Color(0xFFE3F2FD),
-                        shape = CircleShape
-                    ),
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF4285F4).copy(alpha = 0.1f)),
                 contentAlignment = Alignment.Center
             ) {
                 Text(
-                    text = project.code.ifEmpty { getProjectInitials(project.name) },
-                    fontSize = 18.sp,
+                            text = project.code.ifEmpty { project.name.take(2).uppercase() },
+                            fontSize = 12.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF4285F4)
                 )
-                
-                // Notification badge for this project
+                        // Notification badge
                 if (projectNotificationCount > 0) {
                     Box(
                         modifier = Modifier
-                            .align(Alignment.TopEnd)
-                            .size(20.dp)
-                            .background(
-                                color = Color(0xFFF44336),
-                                shape = CircleShape
-                            ),
+                                    .size(16.dp)
+                                    .clip(CircleShape)
+                                    .background(Color.Red)
+                                    .align(Alignment.TopEnd),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                            text = if (projectNotificationCount > 9) "9+" else projectNotificationCount.toString(),
-                            fontSize = 10.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color.White
-                        )
-                    }
-                }
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Project Details
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = project.name,
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.Black
-                    )
-                    
-                    // Project notification status indicators
-                    if (projectNotificationCount > 0) {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(4.dp)
-                        ) {
-                            if (projectChangedCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .background(
-                                            color = Color(0xFF9C27B0),
-                                            shape = CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "✏",
-                                        fontSize = 8.sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
-                            }
-                            
-                            if (projectAssignmentCount > 0) {
-                                Box(
-                                    modifier = Modifier
-                                        .size(16.dp)
-                                        .background(
-                                            color = Color(0xFF4CAF50),
-                                            shape = CircleShape
-                                        ),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = "✓",
-                                        fontSize = 8.sp,
-                                        color = Color.White,
-                                        fontWeight = FontWeight.Bold
-                                    )
-                                }
+                                    text = projectNotificationCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 8.sp,
+                                    fontWeight = FontWeight.Bold
+                                )
                             }
                         }
                     }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
+                    Text(
+                        text = project.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.DarkGray
+                    )
                 }
-                
+            }
+            
+            // Project description
+            if (project.description.isNotEmpty()) {
                 Spacer(modifier = Modifier.height(4.dp))
-                
                 Text(
-                    text = "Budget: ${FormatUtils.formatCurrency(project.budget)}",
-                    fontSize = 14.sp,
-                    color = Color.Gray
+                    text = project.description,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
-                
-                // Show temporary approver indicator
-                if (project.temporaryApproverPhone.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(2.dp))
+            }
+            
+            // Budget
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "₹",
+                    fontSize = 14.sp,
+                                            color = Color(0xFF4CAF50),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(end = 2.dp)
+                )
+                Text(
+                    text = FormatUtils.formatCurrency(project.budget),
+                    fontSize = 14.sp,
+                    color = Color.DarkGray,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            // Date range and team members in same row
+            if (project.startDate != null && project.endDate != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Date range
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📅",
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(end = 2.dp)
+                        )
+                        Text(
+                            text = "${FormatUtils.formatDate(project.startDate)} - ${FormatUtils.formatDate(project.endDate)}",
+                            fontSize = 12.sp,
+                            color = Color.DarkGray
+                        )
+                    }
+                    
+                    // Days left and team members
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(4.dp)
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Days left
+                        val daysLeft = FormatUtils.calculateDaysLeft(project.endDate.toDate().time)
+                        Text(
+                            text = "${daysLeft} days left",
+                            fontSize = 12.sp,
+                            color = if (daysLeft > 10) Color(0xFF4CAF50) else Color(0xFFF44336)
+                        )
+                        
+                        // Team members count
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "👥",
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(end = 2.dp)
+                            )
+                            Text(
+                                text = "${project.teamMembers.size} members",
+                                fontSize = 12.sp,
+                                color = Color.DarkGray
+                            )
+                        }
+                    }
+                }
+            } else {
+                // If no date range, show only team members
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "👥",
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(end = 2.dp)
+                    )
+                    Text(
+                        text = "${project.teamMembers.size} members",
+                        fontSize = 12.sp,
+                        color = Color.DarkGray
+                    )
+                }
+            }
+            
+            // Temporary approver indicator
+                if (project.temporaryApproverPhone.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                    Row(
+                    verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
                             text = "⏰",
                             fontSize = 12.sp,
-                            color = Color(0xFFFF9800)
+                        modifier = Modifier.padding(end = 2.dp)
                         )
                         Text(
                             text = "Temporary Assignment",
@@ -521,50 +558,6 @@ private fun ProjectCard(
                             color = Color(0xFFFF9800),
                             fontWeight = FontWeight.Medium
                         )
-                    }
-                }
-                
-                // Show project end date if available
-                project.endDate?.let { endDate ->
-                    Spacer(modifier = Modifier.height(2.dp))
-                    val daysLeft = FormatUtils.calculateDaysLeft(endDate.toDate().time)
-                    val formattedDate = FormatUtils.formatDate(endDate)
-                    val daysText = when {
-                        daysLeft > 0 -> "(${daysLeft} days left)"
-                        daysLeft == 0L -> "(Today)"
-                        else -> "(${kotlin.math.abs(daysLeft)} days overdue)"
-                    }
-                    Text(
-                        text = "📅 Ends: $formattedDate $daysText",
-                        fontSize = 12.sp,
-                        color = if (daysLeft >= 0) Color(0xFF4CAF50) else Color(0xFFF44336)
-                    )
-                }
-                
-                // Show project-specific notification summary
-                if (projectNotificationCount > 0) {
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Row(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        if (projectChangedCount > 0) {
-                            Text(
-                                text = "✏ $projectChangedCount changes",
-                                fontSize = 11.sp,
-                                color = Color(0xFF9C27B0),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                        
-                        if (projectAssignmentCount > 0) {
-                            Text(
-                                text = "✓ $projectAssignmentCount assignments",
-                                fontSize = 11.sp,
-                                color = Color(0xFF4CAF50),
-                                fontWeight = FontWeight.Medium
-                            )
-                        }
-                    }
                 }
             }
         }

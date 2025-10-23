@@ -22,6 +22,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -180,10 +181,17 @@ fun ProductionHeadProjectSelectionScreen(
                 .padding(16.dp)
         ) {
             Text(
-                text = "Choose a project to continue:",
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Medium,
+                text = "Your Projects",
+                fontSize = 24.sp,
+                fontWeight = FontWeight.Bold,
                 color = Color.Black,
+                modifier = Modifier.padding(bottom = 8.dp)
+            )
+            
+            Text(
+                text = "${projects.size} projects",
+                fontSize = 16.sp,
+                color = Color.Gray,
                 modifier = Modifier.padding(bottom = 16.dp)
             )
             
@@ -205,15 +213,15 @@ fun ProductionHeadProjectSelectionScreen(
                 }
             } else {
                 LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
                     modifier = Modifier.fillMaxSize()
                 ) {
                     items(projects) { project ->
-                            ProjectCard(
-                                project = project,
-                                onClick = { onProjectSelected(project.id) },
-                                onEditClick = { onEditProject(project.id) }
-                            )
+                        ProductionHeadProjectCard(
+                            project = project,
+                            onClick = { onProjectSelected(project.id) },
+                            onEditClick = { onEditProject(project.id) }
+                        )
                     }
                     
                     // Add bottom spacing for FABs
@@ -227,7 +235,7 @@ fun ProductionHeadProjectSelectionScreen(
 }
 
 @Composable
-fun ProjectCard(
+fun ProductionHeadProjectCard(
     project: Project,
     onClick: () -> Unit,
     onEditClick: () -> Unit = {}
@@ -236,83 +244,167 @@ fun ProjectCard(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onClick() },
-        shape = RoundedCornerShape(12.dp),
+        shape = RoundedCornerShape(8.dp),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Row(
+        Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp),
-            verticalAlignment = Alignment.CenterVertically
+                .padding(12.dp)
         ) {
-            // Project Code Circle
-            Box(
-                modifier = Modifier
-                    .size(60.dp)
-                    .clip(CircleShape)
-                    .background(Color(0xFFE3F2FD)),
-                contentAlignment = Alignment.Center
+            // Project name and code
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = project.code.ifEmpty { 
-                        project.name.take(2).uppercase() 
-                    },
-                    fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4285F4)
-                )
-            }
-            
-            Spacer(modifier = Modifier.width(16.dp))
-            
-            // Project Details
-            Column(
-                modifier = Modifier.weight(1f)
-            ) {
-                Text(
-                    text = project.name,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black
-                )
-                
-                Text(
-                    text = "Budget: ${FormatUtils.formatCurrency(project.budget)}",
-                    fontSize = 14.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(top = 4.dp)
-                )
-                
-                // Show end date if available
-                project.endDate?.let { endDate ->
-                    val daysLeft = FormatUtils.calculateDaysLeft(endDate.toDate().time)
-                    val formattedDate = FormatUtils.formatDate(endDate)
-                    val daysText = when {
-                        daysLeft > 0 -> "(${daysLeft} days left)"
-                        daysLeft == 0L -> "(Today)"
-                        else -> "(${kotlin.math.abs(daysLeft)} days overdue)"
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Project Initial Circle
+                    Box(
+                        modifier = Modifier
+                            .size(32.dp)
+                            .clip(CircleShape)
+                            .background(Color(0xFF4285F4).copy(alpha = 0.1f)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Text(
+                            text = project.code.ifEmpty { project.name.take(2).uppercase() },
+                            fontSize = 12.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF4285F4)
+                        )
                     }
+                    
+                    Spacer(modifier = Modifier.width(8.dp))
+                    
                     Text(
-                        text = "📅 Ends: $formattedDate $daysText",
-                        fontSize = 12.sp,
-                        color = if (daysLeft >= 0) Color(0xFF4CAF50) else Color(0xFFF44336),
-                        modifier = Modifier.padding(top = 2.dp)
+                        text = project.name,
+                        fontSize = 14.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.DarkGray
+                    )
+                }
+                
+                // Edit Button
+                IconButton(
+                    onClick = { onEditClick() },
+                    modifier = Modifier.size(32.dp)
+                ) {
+                    Icon(
+                        Icons.Default.Edit,
+                        contentDescription = "Edit Project",
+                        tint = Color(0xFF4285F4),
+                        modifier = Modifier.size(18.dp)
                     )
                 }
             }
             
-            // Edit Button
-            IconButton(
-                onClick = { onEditClick() },
-                modifier = Modifier.size(40.dp)
-            ) {
-                Icon(
-                    Icons.Default.Edit,
-                    contentDescription = "Edit Project",
-                    tint = Color(0xFF4285F4),
-                    modifier = Modifier.size(20.dp)
+            // Project description
+            if (project.description.isNotEmpty()) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = project.description,
+                    fontSize = 12.sp,
+                    color = Color.Gray,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis
                 )
+            }
+            
+            // Budget
+            Spacer(modifier = Modifier.height(6.dp))
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "₹",
+                    fontSize = 14.sp,
+                    color = Color(0xFF4CAF50),
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier.padding(end = 2.dp)
+                )
+                Text(
+                    text = FormatUtils.formatCurrency(project.budget),
+                    fontSize = 14.sp,
+                    color = Color.DarkGray,
+                    fontWeight = FontWeight.Medium
+                )
+            }
+            
+            // Date range and team members in same row
+            if (project.startDate != null && project.endDate != null) {
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Date range
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "📅",
+                            fontSize = 12.sp,
+                            modifier = Modifier.padding(end = 2.dp)
+                        )
+                        Text(
+                            text = "${FormatUtils.formatDate(project.startDate)} - ${FormatUtils.formatDate(project.endDate)}",
+                            fontSize = 12.sp,
+                            color = Color.DarkGray
+                        )
+                    }
+                    
+                    // Days left and team members
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Days left
+                        val daysLeft = FormatUtils.calculateDaysLeft(project.endDate.toDate().time)
+                        Text(
+                            text = "${daysLeft} days left",
+                            fontSize = 12.sp,
+                            color = if (daysLeft > 10) Color(0xFF4CAF50) else Color(0xFFF44336)
+                        )
+                        
+                        // Team members count
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = "👥",
+                                fontSize = 12.sp,
+                                modifier = Modifier.padding(end = 2.dp)
+                            )
+                            Text(
+                                text = "${project.teamMembers.size} members",
+                                fontSize = 12.sp,
+                                color = Color.DarkGray
+                            )
+                        }
+                    }
+                }
+            } else {
+                // If no date range, show only team members
+                Spacer(modifier = Modifier.height(4.dp))
+                Row(
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = "👥",
+                        fontSize = 12.sp,
+                        modifier = Modifier.padding(end = 2.dp)
+                    )
+                    Text(
+                        text = "${project.teamMembers.size} members",
+                        fontSize = 12.sp,
+                        color = Color.DarkGray
+                    )
+                }
             }
         }
     }
