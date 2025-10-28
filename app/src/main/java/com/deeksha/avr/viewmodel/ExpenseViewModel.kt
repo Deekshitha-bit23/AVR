@@ -152,24 +152,25 @@ class ExpenseViewModel @Inject constructor(
                 val project = projectRepository.getProjectById(projectId)
                 _selectedProject.value = project
                 
-                // Load project expenses
+                // Load project expenses using first() to get initial snapshot
                 expenseRepository.getProjectExpenses(projectId)
                     .onEach { expenseList ->
                         _expenses.value = expenseList
                         _filteredExpenses.value = expenseList
                         calculateProjectSummary(expenseList)
                         Log.d("ExpenseViewModel", "✅ Loaded ${expenseList.size} expenses for project")
+                        _isLoading.value = false // Set loading to false after first emission
                     }
                     .catch { exception ->
                         _error.value = "Failed to load project expenses: ${exception.message}"
                         Log.e("ExpenseViewModel", "❌ Error loading project expenses: ${exception.message}")
+                        _isLoading.value = false
                     }
-                    .collect()
+                    .first() // Use first() to get the initial snapshot
                 
             } catch (e: Exception) {
                 _error.value = "Failed to load project: ${e.message}"
                 Log.e("ExpenseViewModel", "❌ Error in loadProjectExpenses: ${e.message}")
-            } finally {
                 _isLoading.value = false
             }
         }

@@ -238,3 +238,4 @@ Fixed the "Job was cancelled" error when creating expense chat notifications by 
 
 The fix is production-ready and solves the root cause of the notification creation failures.
 
+

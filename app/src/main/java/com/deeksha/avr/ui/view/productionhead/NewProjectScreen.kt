@@ -254,38 +254,96 @@ fun NewProjectScreen(
             Column(
                 modifier = Modifier.padding(16.dp)
             ) {
-                // PROJECT DETAILS Section
-                SectionHeader(
-                    icon = Icons.Default.Create,
-                    title = "PROJECT DETAILS"
-                )
+                // PROJECT DETAILS Section - iOS White Card
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Section Header
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Create,
+                                contentDescription = null,
+                                tint = Color(0xFF007AFF),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "PROJECT DETAILS",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8E8E93)
+                            )
+                        }
                 
                 OutlinedTextField(
                     value = projectName,
                     onValueChange = { projectName = it },
-                    label = { Text("Project Name *") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 16.dp),
-                    shape = RoundedCornerShape(8.dp)
+                            label = { Text("Project Name") },
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF007AFF),
+                                unfocusedBorderColor = Color(0xFFE0E0E0)
+                            )
                 )
                 
                 OutlinedTextField(
                     value = description,
                     onValueChange = { description = it },
                     label = { Text("Description") },
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(bottom = 24.dp),
+                            modifier = Modifier.fillMaxWidth(),
                     shape = RoundedCornerShape(8.dp),
-                    minLines = 3
-                )
+                            minLines = 3,
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF007AFF),
+                                unfocusedBorderColor = Color(0xFFE0E0E0)
+                            )
+                        )
+                    }
+                }
                 
-                // TIMELINE Section
-                SectionHeader(
-                    icon = Icons.Default.DateRange,
-                    title = "TIMELINE"
-                )
+                // TIMELINE Section - iOS White Card
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Section Header
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = Color(0xFF007AFF),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "TIMELINE",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8E8E93)
+                            )
+                        }
                 
                 // Start Date
                 OutlinedTextField(
@@ -297,14 +355,18 @@ fun NewProjectScreen(
                         Icon(
                             Icons.Default.DateRange,
                             contentDescription = "Select Date",
+                                    tint = Color(0xFF007AFF),
                             modifier = Modifier.clickable { showStartDatePicker = true }
                         )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 16.dp)
                         .clickable { showStartDatePicker = true },
-                    shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF007AFF),
+                                unfocusedBorderColor = Color(0xFFE0E0E0)
+                            )
                 )
                 
                 // End Date
@@ -317,88 +379,101 @@ fun NewProjectScreen(
                         Icon(
                             Icons.Default.DateRange,
                             contentDescription = "Select Date",
+                                    tint = Color(0xFF007AFF),
                             modifier = Modifier.clickable { showEndDatePicker = true }
                         )
                     },
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp)
                         .clickable { showEndDatePicker = true },
-                    shape = RoundedCornerShape(8.dp)
+                            shape = RoundedCornerShape(8.dp),
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF007AFF),
+                                unfocusedBorderColor = Color(0xFFE0E0E0)
+                            )
                 )
                 
                 Text(
                     text = "Start date is mandatory. End date is optional.",
                     fontSize = 12.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 24.dp)
-                )
+                            color = Color(0xFF8E8E93),
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
+                }
                 
-                // TEAM ASSIGNMENT Section
-                SectionHeader(
-                    icon = Icons.Default.Person,
-                    title = "TEAM ASSIGNMENT"
-                )
-                
-                // Project Manager (Approver)
-                Text(
-                    text = "Project Manager (Approver) *",
-                    fontSize = 14.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color(0xFF4285F4),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                // Approver availability info
-                Text(
-                    text = "${availableApprovers.size} approvers available",
-                    fontSize = 12.sp,
-                    color = Color(0xFF4285F4),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                
-                // Select Approver label
-                Text(
-                    text = "Select Approver",
-                    fontSize = 14.sp,
-                    color = Color(0xFF757575),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                // Selected Approver Display
-                selectedApprover?.let { approver ->
-                    Card(
+                // TEAM ASSIGNMENT Section - iOS White Card
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
-                        shape = RoundedCornerShape(12.dp)
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        // Section Header
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(16.dp),
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
                                 Icons.Default.Person,
-                                contentDescription = "Approver",
-                                tint = Color(0xFF2E7D32),
-                                modifier = Modifier.size(24.dp)
+                                contentDescription = null,
+                                tint = Color(0xFF007AFF),
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(12.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                Text(
+                                text = "TEAM ASSIGNMENT",
+                                fontSize = 13.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8E8E93)
+                            )
+                        }
+                        
+                        // Project Manager (Approver)
+                        Column(modifier = Modifier.fillMaxWidth()) {
+                Text(
+                                text = "Project Manager (Approver)",
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Medium,
+                                color = Color.Black
+                )
+                            Spacer(modifier = Modifier.height(8.dp))
+                
+                            // Show selected approver if exists
+                selectedApprover?.let { approver ->
+                    Card(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                    shape = RoundedCornerShape(8.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                            .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                            Icons.Default.Check,
+                                            contentDescription = null,
+                                            tint = Color(0xFF34A853),
+                                            modifier = Modifier.size(20.dp)
+                                        )
+                                        Spacer(modifier = Modifier.width(8.dp))
                             Column(modifier = Modifier.weight(1f)) {
                                 Text(
                                     text = approver.name,
                                     fontWeight = FontWeight.Medium,
-                                    color = Color(0xFF2E7D32)
+                                                color = Color.Black
                                 )
                                 Text(
-                                    text = "+91${approver.phone}",
+                                                text = approver.phone,
                                     fontSize = 12.sp,
-                                    color = Color(0xFF2E7D32).copy(alpha = 0.7f)
+                                                color = Color(0xFF8E8E93)
                                 )
                             }
                             IconButton(
@@ -408,25 +483,17 @@ fun NewProjectScreen(
                                 Icon(
                                     Icons.Default.Close,
                                     contentDescription = "Remove",
-                                    tint = Color(0xFF2E7D32),
-                                    modifier = Modifier.size(20.dp)
+                                                tint = Color(0xFF8E8E93),
+                                                modifier = Modifier.size(18.dp)
                                 )
                             }
                         }
                     }
+                                Spacer(modifier = Modifier.height(8.dp))
                 }
 
-                                // Approver Search (only show if no approver selected)
+                            // Search field (only show if no approver selected)
                 if (selectedApprover == null) {
-                    Card(
-                        modifier = Modifier.fillMaxWidth(),
-                        colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                        shape = RoundedCornerShape(12.dp)
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(16.dp)
-                        ) {
                             ExposedDropdownMenuBox(
                                 expanded = showApproverSearch,
                                 onExpandedChange = { 
@@ -435,49 +502,86 @@ fun NewProjectScreen(
                                 }
                             ) {
                                 OutlinedTextField(
-                                    value = "",
-                                    onValueChange = { },
-                                    readOnly = true,
-                                    label = { Text("Search Approver by name or phone") },
+                                        value = approverSearchQuery,
+                                        onValueChange = { 
+                                            approverSearchQuery = it
+                                            showApproverSearch = true  // Auto-open dropdown when typing
+                                        },
+                                        placeholder = { Text("Search name or phone number...") },
                                     leadingIcon = {
                                         Icon(
                                             Icons.Default.Search, 
                                             contentDescription = "Search",
-                                            tint = Color(0xFF4285F4)
+                                                tint = Color(0xFF007AFF),
+                                                modifier = Modifier.clickable { 
+                                                    showApproverSearch = !showApproverSearch 
+                                                }
                                         )
                                     },
-                                    trailingIcon = {
-                                        Icon(
-                                            Icons.Default.KeyboardArrowDown,
-                                            contentDescription = "Dropdown",
-                                            tint = Color(0xFF4285F4)
-                                        )
-                                    },
+                                        trailingIcon = {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                if (approverSearchQuery.isNotEmpty()) {
+                                                    IconButton(
+                                                        onClick = { 
+                                                            approverSearchQuery = ""
+                                                            showApproverSearch = false
+                                                        },
+                                                        modifier = Modifier.size(24.dp)
+                                                    ) {
+                                                        Icon(
+                                                            Icons.Default.Close,
+                                                            contentDescription = "Clear",
+                                                            tint = Color(0xFF8E8E93),
+                                                            modifier = Modifier.size(16.dp)
+                                                        )
+                                                    }
+                                                }
+                                                Icon(
+                                                    Icons.Default.KeyboardArrowDown,
+                                                    contentDescription = "Dropdown",
+                                                    tint = Color(0xFF007AFF),
+                                                    modifier = Modifier.clickable { 
+                                                        showApproverSearch = !showApproverSearch 
+                                                    }
+                                                )
+                                            }
+                                        },
                                     modifier = Modifier
                                         .fillMaxWidth()
-                                        .menuAnchor(),
+                                            .menuAnchor()
+                                            .clickable { showApproverSearch = true },
                                     shape = RoundedCornerShape(8.dp),
                                     colors = OutlinedTextFieldDefaults.colors(
-                                        focusedBorderColor = Color(0xFF4285F4),
+                                            focusedBorderColor = Color(0xFF007AFF),
                                         unfocusedBorderColor = Color(0xFFE0E0E0)
                                     )
                                 )
+                                    
+                                    val filteredApprovers = if (approverSearchQuery.isEmpty()) {
+                                        availableApprovers
+                                    } else {
+                                        availableApprovers.filter { 
+                                            it.name.contains(approverSearchQuery, ignoreCase = true) || 
+                                            it.phone.contains(approverSearchQuery, ignoreCase = true)
+                                        }
+                                    }
                                 
                                 ExposedDropdownMenu(
                                     expanded = showApproverSearch,
                                     onDismissRequest = { 
                                         android.util.Log.d("ApproverSearch", "Dropdown dismissed")
                                         showApproverSearch = false 
+                                            // Don't clear search query on dismiss - keep it for continued typing
                                     }
                                 ) {
-                                    android.util.Log.d("ApproverSearch", "Available approvers count: ${availableApprovers.size}")
-                                    if (availableApprovers.isEmpty()) {
+                                        android.util.Log.d("ApproverSearch", "Filtered approvers count: ${filteredApprovers.size}")
+                                        if (filteredApprovers.isEmpty()) {
                                         DropdownMenuItem(
-                                            text = { Text("No approvers available") },
+                                                text = { Text("No approvers found") },
                                             onClick = { }
                                         )
                                     } else {
-                                        availableApprovers.forEach { item ->
+                                            filteredApprovers.forEach { item ->
                                             android.util.Log.d("ApproverSearch", "Rendering approver: ${item.name} (${item.uid})")
                                             DropdownMenuItem(
                                                 text = { 
@@ -504,9 +608,10 @@ fun NewProjectScreen(
                                                             return@DropdownMenuItem
                                                         }
                                                         
-                                                        selectedApprover = item
-                                                        showApproverSearch = false
-                                                        android.util.Log.d("ApproverSearch", "Approver selected and dropdown closed")
+                                                            selectedApprover = item
+                                                            showApproverSearch = false
+                                                            approverSearchQuery = "" // Clear only on selection
+                                                            android.util.Log.d("ApproverSearch", "Approver selected and dropdown closed")
                                                     } catch (e: Exception) {
                                                         android.util.Log.e("ApproverSearch", "Error selecting approver: ${e.message}", e)
                                                         Toast.makeText(context, "Error selecting approver: ${e.message}", Toast.LENGTH_SHORT).show()
@@ -516,7 +621,7 @@ fun NewProjectScreen(
                                                     Icon(
                                                         Icons.Default.Person,
                                                         contentDescription = "User",
-                                                        tint = Color(0xFF4285F4)
+                                                            tint = Color(0xFF007AFF)
                                                     )
                                                 }
                                             )
@@ -525,66 +630,74 @@ fun NewProjectScreen(
                                 }
                             }
                         }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
                 }
-                
-                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Team Members
+                        Column(modifier = Modifier.fillMaxWidth()) {
                 Text(
-                    text = "Team Members (Users) *",
+                                text = "Team Members (Users)",
                     fontSize = 14.sp,
                     fontWeight = FontWeight.Medium,
-                    color = Color(0xFF4285F4),
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                // Team members availability info
-                Text(
-                    text = "${availableUsers.size} team members available",
-                    fontSize = 12.sp,
-                    color = Color(0xFF4285F4),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 4.dp)
-                )
-                
-                // Select Team Members label
-                Text(
-                    text = "Select Team Members",
-                    fontSize = 14.sp,
-                    color = Color(0xFF757575),
-                    fontWeight = FontWeight.Medium,
-                    modifier = Modifier.padding(bottom = 8.dp)
-                )
-                
-                // Selected Team Members Display
-                if (selectedTeamMembers.isNotEmpty()) {
-                    LazyRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        modifier = Modifier.padding(bottom = 16.dp)
-                    ) {
-                        items(selectedTeamMembers) { user ->
-                            TeamMemberChip(
-                                user = user,
-                                onRemove = { 
-                                    removeTeamMember(user)
-                                }
+                                color = Color.Black
                             )
-                        }
-                    }
-                }
-
-                // Team Member Search
-                Card(
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-                    shape = RoundedCornerShape(12.dp)
-                ) {
-                    Column(
-                        modifier = Modifier.padding(16.dp)
-                    ) {
+                            Spacer(modifier = Modifier.height(8.dp))
+                            
+                            // Show selected team members if any
+                            if (selectedTeamMembers.isNotEmpty()) {
+                                Column(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                                ) {
+                                    selectedTeamMembers.forEach { member ->
+                                        Card(
+                                            modifier = Modifier.fillMaxWidth(),
+                                            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E9)),
+                                            shape = RoundedCornerShape(8.dp)
+                                        ) {
+                                            Row(
+                                                modifier = Modifier
+                                                    .fillMaxWidth()
+                                                    .padding(12.dp),
+                                                verticalAlignment = Alignment.CenterVertically
+                                            ) {
+                                                Icon(
+                                                    Icons.Default.Check,
+                                                    contentDescription = null,
+                                                    tint = Color(0xFF34A853),
+                                                    modifier = Modifier.size(20.dp)
+                                                )
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                Column(modifier = Modifier.weight(1f)) {
+                Text(
+                                                        text = member.name,
+                    fontWeight = FontWeight.Medium,
+                                                        color = Color.Black
+                )
+                Text(
+                                                        text = member.phone,
+                                                        fontSize = 12.sp,
+                                                        color = Color(0xFF8E8E93)
+                                                    )
+                                                }
+                                                IconButton(
+                                                    onClick = { removeTeamMember(member) },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Close,
+                                                        contentDescription = "Remove",
+                                                        tint = Color(0xFF8E8E93),
+                                                        modifier = Modifier.size(18.dp)
+                                                    )
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                                Spacer(modifier = Modifier.height(8.dp))
+                            }
+                            
+                            // Search field (always visible for adding multiple)
                         ExposedDropdownMenuBox(
                             expanded = showTeamMemberSearch,
                             onExpandedChange = { 
@@ -593,49 +706,86 @@ fun NewProjectScreen(
                             }
                         ) {
                             OutlinedTextField(
-                                value = "",
-                                onValueChange = { },
-                                readOnly = true,
-                                label = { Text("Search Team Member by name or phone") },
+                                    value = teamMemberSearchQuery,
+                                    onValueChange = { 
+                                        teamMemberSearchQuery = it
+                                        showTeamMemberSearch = true  // Auto-open dropdown when typing
+                                    },
+                                    placeholder = { Text("Search name or phone number...") },
                                 leadingIcon = {
                                     Icon(
                                         Icons.Default.Search, 
                                         contentDescription = "Search",
-                                        tint = Color(0xFF4285F4)
+                                            tint = Color(0xFF007AFF),
+                                            modifier = Modifier.clickable { 
+                                                showTeamMemberSearch = !showTeamMemberSearch 
+                                            }
                                     )
                                 },
-                                trailingIcon = {
-                                    Icon(
-                                        Icons.Default.KeyboardArrowDown,
-                                        contentDescription = "Dropdown",
-                                        tint = Color(0xFF4285F4)
-                                    )
-                                },
+                                    trailingIcon = {
+                                        Row(verticalAlignment = Alignment.CenterVertically) {
+                                            if (teamMemberSearchQuery.isNotEmpty()) {
+                                                IconButton(
+                                                    onClick = { 
+                                                        teamMemberSearchQuery = ""
+                                                        showTeamMemberSearch = false
+                                                    },
+                                                    modifier = Modifier.size(24.dp)
+                                                ) {
+                                                    Icon(
+                                                        Icons.Default.Close,
+                                                        contentDescription = "Clear",
+                                                        tint = Color(0xFF8E8E93),
+                                                        modifier = Modifier.size(16.dp)
+                                                    )
+                                                }
+                                            }
+                                            Icon(
+                                                Icons.Default.KeyboardArrowDown,
+                                                contentDescription = "Dropdown",
+                                                tint = Color(0xFF007AFF),
+                                                modifier = Modifier.clickable { 
+                                                    showTeamMemberSearch = !showTeamMemberSearch 
+                                                }
+                                            )
+                                        }
+                                    },
                                 modifier = Modifier
                                     .fillMaxWidth()
-                                    .menuAnchor(),
+                                        .menuAnchor()
+                                        .clickable { showTeamMemberSearch = true },
                                 shape = RoundedCornerShape(8.dp),
                                 colors = OutlinedTextFieldDefaults.colors(
-                                    focusedBorderColor = Color(0xFF4285F4),
+                                        focusedBorderColor = Color(0xFF007AFF),
                                     unfocusedBorderColor = Color(0xFFE0E0E0)
                                 )
                             )
+                                
+                                val filteredUsers = if (teamMemberSearchQuery.isEmpty()) {
+                                    availableUsers
+                                } else {
+                                    availableUsers.filter { 
+                                        it.name.contains(teamMemberSearchQuery, ignoreCase = true) || 
+                                        it.phone.contains(teamMemberSearchQuery, ignoreCase = true)
+                                    }
+                                }
                             
                             ExposedDropdownMenu(
                                 expanded = showTeamMemberSearch,
                                 onDismissRequest = { 
                                     android.util.Log.d("TeamMemberSearch", "Dropdown dismissed")
                                     showTeamMemberSearch = false 
+                                        // Don't clear search query on dismiss - keep it for continued typing
                                 }
                             ) {
-                                android.util.Log.d("TeamMemberSearch", "Available users count: ${availableUsers.size}")
-                                if (availableUsers.isEmpty()) {
+                                    android.util.Log.d("TeamMemberSearch", "Filtered users count: ${filteredUsers.size}")
+                                    if (filteredUsers.isEmpty()) {
                                     DropdownMenuItem(
-                                        text = { Text("No users available") },
+                                            text = { Text("No users found") },
                                         onClick = { }
                                     )
                                 } else {
-                                    availableUsers.forEach { item ->
+                                        filteredUsers.forEach { item ->
                                         android.util.Log.d("TeamMemberSearch", "Rendering user: ${item.name} (${item.uid})")
                                         DropdownMenuItem(
                                             text = { 
@@ -678,17 +828,19 @@ fun NewProjectScreen(
                                                     Toast.makeText(context, "${item.name} is already selected", Toast.LENGTH_SHORT).show()
                                                 }
                                                 
-                                                showTeamMemberSearch = false
-                                                android.util.Log.d("TeamMemberSearch", "Dropdown closed")
+                                                    showTeamMemberSearch = false
+                                                    teamMemberSearchQuery = "" // Clear only on selection
+                                                    android.util.Log.d("TeamMemberSearch", "Dropdown closed")
                                             },
                                             leadingIcon = {
                                                 Icon(
                                                     Icons.Default.Person,
                                                     contentDescription = "User",
-                                                    tint = Color(0xFF4285F4)
+                                                        tint = Color(0xFF007AFF)
                                                 )
                                             }
                                         )
+                                        }
                                     }
                                 }
                             }
@@ -696,78 +848,69 @@ fun NewProjectScreen(
                     }
                 }
                 
-                // DEPARTMENTS Section
-                Spacer(modifier = Modifier.height(24.dp))
-                SectionHeader(
-                    icon = Icons.Default.Build,
-                    title = "DEPARTMENTS"
-                )
-                
-                // Total Budget
-                OutlinedTextField(
-                    value = totalBudget,
-                    onValueChange = { totalBudget = it },
-                    label = { Text("Total Budget *") },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                // DEPARTMENTS Section - iOS White Card
+                Card(
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    shape = RoundedCornerShape(12.dp),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                    modifier = Modifier.padding(bottom = 16.dp)
+                ) {
+                    Column(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .padding(bottom = 8.dp),
-                    shape = RoundedCornerShape(8.dp),
-                    prefix = { Text("₹") }
-                )
-                
-                // Remaining Budget Indicator
-                val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
-                val remainingBudget = totalBudgetValue - totalAllocated
-                if (totalBudgetValue > 0) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(bottom = 16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
+                        // Section Header
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Icon(
-                                Icons.Default.Info,
-                                contentDescription = "Info",
-                                tint = if (remainingBudget >= 0) Color(0xFF4CAF50) else Color(0xFFD32F2F),
-                                modifier = Modifier.size(16.dp)
+                                Icons.Default.Build,
+                                contentDescription = null,
+                                tint = Color(0xFF007AFF),
+                                modifier = Modifier.size(20.dp)
                             )
-                            Spacer(modifier = Modifier.width(4.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
                             Text(
-                                text = if (remainingBudget >= 0) "Remaining for allocation:" else "Over-allocated:",
-                                fontSize = 12.sp,
-                                color = if (remainingBudget >= 0) Color(0xFF4CAF50) else Color(0xFFD32F2F),
-                                fontWeight = FontWeight.Medium
+                                text = "DEPARTMENTS",
+                                fontSize = 13.sp,
+                            fontWeight = FontWeight.Bold,
+                                color = Color(0xFF8E8E93)
                             )
                         }
-                        Text(
-                            text = "₹${String.format("%.2f", remainingBudget)}",
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = if (remainingBudget >= 0) Color(0xFF4CAF50) else Color(0xFFD32F2F)
+                        
+                        // Total Budget
+                        OutlinedTextField(
+                            value = totalBudget,
+                            onValueChange = { totalBudget = it },
+                            label = { Text("Total Budget *") },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            modifier = Modifier.fillMaxWidth(),
+                            shape = RoundedCornerShape(8.dp),
+                            prefix = { Text("₹") },
+                            colors = OutlinedTextFieldDefaults.colors(
+                                focusedBorderColor = Color(0xFF007AFF),
+                                unfocusedBorderColor = Color(0xFFE0E0E0)
+                            )
                         )
-                    }
-                }
                 
                 // Department Budget Entry
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Department input field - users can type any department name
+                            // Department input field
                     OutlinedTextField(
                         value = departmentName,
                         onValueChange = { departmentName = it },
-                        label = { Text("Department Name") },
-                        placeholder = { Text("Enter department name...") },
+                                label = { Text("DEPARTMENT") },
+                                placeholder = { Text("e.g., Marketing") },
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
                         colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4285F4),
+                                    focusedBorderColor = Color(0xFF007AFF),
                             unfocusedBorderColor = Color(0xFFE0E0E0)
                         ),
                         singleLine = true
@@ -776,12 +919,20 @@ fun NewProjectScreen(
                     OutlinedTextField(
                         value = departmentBudgetAmount,
                         onValueChange = { departmentBudgetAmount = it },
-                        label = { Text("Budget") },
+                                label = { Text("BUDGET") },
+                                placeholder = { Text("₹0") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
                         modifier = Modifier.weight(1f),
                         shape = RoundedCornerShape(8.dp),
-                        prefix = { Text("₹") }
-                    )
+                                prefix = { Text("₹") },
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF007AFF),
+                                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                                )
+                            )
+                            
+                            val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
+                            val remainingBudget = totalBudgetValue - totalAllocated
                     
                     IconButton(
                         onClick = {
@@ -796,46 +947,56 @@ fun NewProjectScreen(
                         },
                         enabled = remainingBudget > 0,
                         modifier = Modifier
-                            .size(56.dp)
+                                    .size(48.dp)
                             .background(
-                                if (remainingBudget > 0) Color(0xFF4285F4) else Color(0xFFE0E0E0),
+                                        if (remainingBudget > 0) Color(0xFFE3F2FD) else Color(0xFFE0E0E0),
                                 RoundedCornerShape(8.dp)
                             )
                     ) {
                         Icon(
                             Icons.Default.Add,
                             contentDescription = "Add Department",
-                            tint = if (remainingBudget > 0) Color.White else Color(0xFF9E9E9E)
-                        )
-                    }
-                }
-                
-                // Message when no remaining budget
-                if (totalBudgetValue > 0 && remainingBudget <= 0) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(
+                                    tint = if (remainingBudget > 0) Color(0xFF007AFF) else Color(0xFF9E9E9E)
+                                )
+                            }
+                        }
+                        
+                        // Add Department Button
+                        Button(
+                            onClick = {
+                                if (departmentName.isNotEmpty() && departmentBudgetAmount.isNotEmpty()) {
+                                    val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
+                                    val remainingBudget = totalBudgetValue - totalAllocated
+                                    val budget = departmentBudgetAmount.toDoubleOrNull() ?: 0.0
+                                    if (validateBudgetAllocation(budget)) {
+                                        viewModel.addDepartmentBudget(departmentName, budget)
+                                        departmentName = ""
+                                        departmentBudgetAmount = ""
+                                    }
+                                }
+                            },
                         modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFE3F2FD),
+                                contentColor = Color(0xFF007AFF)
+                            ),
+                            shape = RoundedCornerShape(8.dp)
                     ) {
                         Icon(
-                            Icons.Default.Info,
-                            contentDescription = "Info",
-                            tint = Color(0xFF2196F3),
-                            modifier = Modifier.size(16.dp)
-                        )
-                        Spacer(modifier = Modifier.width(4.dp))
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                         Text(
-                            text = "All budget has been allocated. Remove some departments to add more.",
-                            fontSize = 12.sp,
-                            color = Color(0xFF2196F3),
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
+                                text = "Add Department",
+                                fontSize = 15.sp,
+                                fontWeight = FontWeight.SemiBold
+                            )
                 }
                 
                 // Department Budget List
                 if (departmentBudgets.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(16.dp))
                     departmentBudgets.forEach { dept ->
                         DepartmentBudgetItem(
                             department = dept,
@@ -844,83 +1005,44 @@ fun NewProjectScreen(
                     }
                 }
                 
-                // CATEGORIES Section
-                Spacer(modifier = Modifier.height(24.dp))
-                SectionHeader(
-                    icon = Icons.Default.List,
-                    title = "CATEGORIES (OPTIONAL)"
-                )
-                
-                Text(
-                    text = "Add custom expense categories for this project. If none are added, default categories will be used.",
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    modifier = Modifier.padding(bottom = 16.dp)
-                )
-                
-                // Category Entry
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
-                ) {
-                    OutlinedTextField(
-                        value = categoryName,
-                        onValueChange = { categoryName = it },
-                        label = { Text("Category Name") },
-                        placeholder = { Text("Enter category name...") },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4285F4),
-                            unfocusedBorderColor = Color(0xFFE0E0E0)
-                        ),
-                        singleLine = true
-                    )
-                    
-                    IconButton(
-                        onClick = {
-                            if (categoryName.isNotEmpty()) {
-                                projectCategories = projectCategories + categoryName
-                                categoryName = ""
-                            }
-                        },
+                        // Total Budget Display
+                        val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
+                        Row(
                         modifier = Modifier
-                            .size(56.dp)
-                            .background(
-                                Color(0xFF4285F4),
-                                RoundedCornerShape(8.dp)
-                            )
-                    ) {
+                                .fillMaxWidth()
+                                .background(Color(0xFFE8F5E9), RoundedCornerShape(8.dp))
+                                .padding(12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
                         Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add Category",
-                            tint = Color.White
-                        )
-                    }
-                }
-                
-                // Category List
-                if (projectCategories.isNotEmpty()) {
-                    Spacer(modifier = Modifier.height(16.dp))
-                    projectCategories.forEach { category ->
-                        CategoryItem(
-                            category = category,
-                            onRemove = { 
-                                projectCategories = projectCategories.filter { it != category }
+                                    Icons.Default.Info,
+                                    contentDescription = null,
+                                    tint = Color(0xFF34A853),
+                                    modifier = Modifier.size(18.dp)
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text(
+                                    text = "Total Budget:",
+                                    fontSize = 14.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Black
+                                )
                             }
-                        )
+                            Text(
+                                text = "₹${String.format("%.2f", totalBudgetValue)}",
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Bold,
+                                color = Color.Black
+                            )
+                        }
                     }
                 }
                 
-                // Budget Summary
-                Spacer(modifier = Modifier.height(16.dp))
-                BudgetSummaryCard(
-                    totalBudget = totalBudget.toDoubleOrNull() ?: 0.0,
-                    totalAllocated = totalAllocated
-                )
+                // Categories section removed as per user request
                 
-                // Create Project Button
-                Spacer(modifier = Modifier.height(32.dp))
+                // Create Project Button - iOS Style
                 Button(
                     onClick = {
                         try {
@@ -955,11 +1077,12 @@ fun NewProjectScreen(
                     enabled = !isLoading && isFormValid(projectName, startDate, selectedApprover, selectedTeamMembers),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(48.dp),
+                        .height(56.dp),  // iOS button height
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFF4285F4)
+                        containerColor = Color(0xFF007AFF),  // iOS blue
+                        disabledContainerColor = Color(0xFF8E8E93)  // iOS gray when disabled
                     ),
-                    shape = RoundedCornerShape(8.dp)
+                    shape = RoundedCornerShape(12.dp)  // iOS rounded corners
                 ) {
                     if (isLoading) {
                         CircularProgressIndicator(
@@ -967,11 +1090,24 @@ fun NewProjectScreen(
                             modifier = Modifier.size(20.dp)
                         )
                     } else {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Add,
+                                contentDescription = null,
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
                         Text(
                             text = "Create Project",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
+                                fontSize = 17.sp,  // iOS button text size
+                                fontWeight = FontWeight.SemiBold,
+                                color = Color.White
                         )
+                        }
                     }
                 }
                 

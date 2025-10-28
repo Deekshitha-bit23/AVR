@@ -76,6 +76,105 @@ fun LoginScreen(
             .padding(horizontal = 24.dp),
         horizontalAlignment = Alignment.CenterHorizontally
     ) {
+        // Logout button at the top (for clearing cached sessions during development)
+        // Always show logout button if there's a cached session
+        LaunchedEffect(authState.isAuthenticated) {
+            if (authState.isAuthenticated) {
+                android.util.Log.d("LoginScreen", "⚠️ Cached session detected - User: ${authState.user?.name}, Role: ${authState.user?.role}")
+            }
+        }
+        
+        if (authState.isAuthenticated) {
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(top = 16.dp, bottom = 8.dp),
+                colors = CardDefaults.cardColors(
+                    containerColor = Color(0xFFFFF3E0)  // Light orange warning background
+                ),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "⚠️ Existing Session",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFFE65100)
+                        )
+                        Text(
+                            text = "Click LOGOUT to test different roles",
+                            fontSize = 10.sp,
+                            color = Color(0xFF757575)
+                        )
+                    }
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "${authState.user?.name} • ${authState.user?.role}",
+                        fontSize = 13.sp,
+                        fontWeight = FontWeight.Medium,
+                        color = Color.Black
+                    )
+                    Text(
+                        text = "Phone: ${authState.user?.phone}",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                    
+                    Spacer(modifier = Modifier.height(12.dp))
+                    
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Continue button - navigates with cached role
+                        Button(
+                            onClick = {
+                                android.util.Log.d("LoginScreen", "➡️ Continuing with cached session: ${authState.user?.name} (${authState.user?.role})")
+                                android.util.Log.d("LoginScreen", "⚠️ NOTE: Use LOGOUT to login as a different user!")
+                                when (authState.user?.role) {
+                                    com.deeksha.avr.model.UserRole.USER -> onNavigateToRole(com.deeksha.avr.model.UserRole.USER)
+                                    com.deeksha.avr.model.UserRole.APPROVER -> onNavigateToRole(com.deeksha.avr.model.UserRole.APPROVER)
+                                    com.deeksha.avr.model.UserRole.PRODUCTION_HEAD -> onNavigateToRole(com.deeksha.avr.model.UserRole.PRODUCTION_HEAD)
+                                    com.deeksha.avr.model.UserRole.ADMIN -> onNavigateToRole(com.deeksha.avr.model.UserRole.ADMIN)
+                                    else -> {}
+                                }
+                            },
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFF4285F4)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("CONTINUE", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                        
+                        // Logout button
+                        OutlinedButton(
+                            onClick = {
+                                android.util.Log.d("LoginScreen", "🔄 Logging out cached session")
+                                android.util.Log.d("LoginScreen", "💡 After logout, you can login as any role")
+                                authViewModel.logout()
+                            },
+                            colors = ButtonDefaults.outlinedButtonColors(
+                                contentColor = Color(0xFFD32F2F)
+                            ),
+                            modifier = Modifier.weight(1f)
+                        ) {
+                            Text("LOGOUT", fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+        
         Spacer(modifier = Modifier.height(100.dp))
         
         // App Logo/Title

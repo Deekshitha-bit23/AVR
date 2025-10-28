@@ -55,6 +55,7 @@ import com.deeksha.avr.ui.view.common.ChatScreen
 import com.deeksha.avr.ui.view.user.AddExpenseScreen
 import com.deeksha.avr.ui.view.user.ExpenseChatScreen
 import com.deeksha.avr.ui.view.user.ExpenseListScreen
+import com.deeksha.avr.ui.view.user.AllExpensesScreen
 import com.deeksha.avr.ui.view.user.TrackSubmissionsScreen
 import com.deeksha.avr.ui.view.user.UserDashboardScreen
 import com.deeksha.avr.ui.view.user.UserExpenseChatScreen
@@ -62,6 +63,9 @@ import com.deeksha.avr.ui.view.productionhead.ProductionHeadProjectSelectionScre
 import com.deeksha.avr.ui.view.productionhead.CreateUserScreen
 import com.deeksha.avr.ui.view.productionhead.NewProjectScreen
 import com.deeksha.avr.ui.view.productionhead.EditProjectScreen
+import com.deeksha.avr.ui.view.productionhead.ProductionHeadMainScreen
+import com.deeksha.avr.ui.view.productionhead.ViewAllUsersScreen
+import com.deeksha.avr.ui.view.productionhead.RoleManagementScreen
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadDashboard
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadPendingApprovals
 import com.deeksha.avr.ui.view.productionhead.ProductionHeadProjectDashboard
@@ -89,44 +93,65 @@ fun AppNavHost(
     val authViewModel: AuthViewModel = hiltViewModel()
     val authState by authViewModel.authState.collectAsState()
     
+    // Track if this is a cached session restoration (not a fresh login)
+    var isCachedSessionRestoration by remember { mutableStateOf(true) }
+    
     // Auto-navigate authenticated users (for both existing sessions and OTP-based authentication)
     LaunchedEffect(authState.isAuthenticated, authState.user) {
         if (authState.isAuthenticated && authState.user != null) {
             val user = authState.user!!
             val currentRoute = navController.currentDestination?.route
             
-            android.util.Log.d("AppNavHost", "🎯 Auth state changed - isAuthenticated: ${authState.isAuthenticated}, user: ${user.name}, role: ${user.role}")
+            android.util.Log.d("AppNavHost", "🎯 Auth state changed - isAuthenticated: ${authState.isAuthenticated}, user: ${user.name} (${user.phone}), role: ${user.role}")
             android.util.Log.d("AppNavHost", "🎯 Current route: $currentRoute")
+            android.util.Log.d("AppNavHost", "🔍 Is cached restoration: $isCachedSessionRestoration")
+            
+            // Check if this is from OTP verification (fresh login)
+            val isFromOTP = currentRoute?.startsWith("otp_verification/") == true
+            val isDevelopmentSkip = user.uid.startsWith("dev_test_user_")
+            
+            // If on login screen and this is initial cached session (not a new login), DON'T auto-navigate
+            // This allows user to see the logout button
+            if (currentRoute == Screen.Login.route && isCachedSessionRestoration && !isFromOTP && !isDevelopmentSkip) {
+                android.util.Log.d("AppNavHost", "⚠️ Cached session on login screen - NOT auto-navigating to allow logout")
+                return@LaunchedEffect
+            }
             
             // Only navigate if we're on the login screen or OTP verification screen
-            if (currentRoute == Screen.Login.route || currentRoute?.startsWith("otp_verification/") == true) {
-                android.util.Log.d("AppNavHost", "🎯 Authenticated user detected - User: ${user.name}, Role: ${user.role}")
+            if (currentRoute == Screen.Login.route || isFromOTP) {
+                android.util.Log.d("AppNavHost", "🎯 Authenticated user detected - User: ${user.name}, Phone: ${user.phone}, Role: ${user.role}")
                 
                 // Add a small delay to ensure authentication state is fully synchronized
                 kotlinx.coroutines.delay(200)
                 
-                when (user.role) {
+                // Mark that we've handled the initial restoration
+                isCachedSessionRestoration = false
+                
+                val role = user.role
+                android.util.Log.d("AppNavHost", "🎯 Processing role navigation for role: $role")
+                
+                when (role) {
                     UserRole.USER -> {
-                        android.util.Log.d("AppNavHost", "🎯 Navigating to USER flow")
+                        android.util.Log.d("AppNavHost", "🎯 Navigating USER to ProjectSelection route: ${Screen.ProjectSelection.route}")
                         navController.navigate(Screen.ProjectSelection.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                         }
                     }
                     UserRole.APPROVER -> {
-                        android.util.Log.d("AppNavHost", "🎯 Navigating to APPROVER flow")
+                        android.util.Log.d("AppNavHost", "🎯 Navigating APPROVER to ApproverProjectSelection route: ${Screen.ApproverProjectSelection.route}")
                         navController.navigate(Screen.ApproverProjectSelection.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                         }
                     }
                     UserRole.ADMIN -> {
-                        android.util.Log.d("AppNavHost", "🎯 Navigating to ADMIN flow")
+                        android.util.Log.d("AppNavHost", "🎯 Navigating ADMIN to AdminDashboard route: ${Screen.AdminDashboard.route}")
                         navController.navigate(Screen.AdminDashboard.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                         }
                     }
                     UserRole.PRODUCTION_HEAD -> {
-                        android.util.Log.d("AppNavHost", "🎯 Navigating to PRODUCTION_HEAD flow")
-                        navController.navigate(Screen.ProductionHeadProjectSelection.route) {
+                        android.util.Log.d("AppNavHost", "🎯 Navigating PRODUCTION_HEAD to ProductionHeadDashboard route: ${Screen.ProductionHeadDashboard.route}")
+                        navController.navigate(Screen.ProductionHeadDashboard.route) {
                             popUpTo(Screen.Login.route) { inclusive = true }
                         }
                     }
@@ -190,9 +215,9 @@ fun AppNavHost(
                             }
                         }
                         UserRole.PRODUCTION_HEAD -> {
-                            android.util.Log.d("Navigation", "🎯 Navigating to PRODUCTION_HEAD flow (ProductionHeadProjectSelection)")
-                            android.util.Log.d("Navigation", "🚀 Route: ${Screen.ProductionHeadProjectSelection.route}")
-                            navController.navigate(Screen.ProductionHeadProjectSelection.route) {
+                            android.util.Log.d("Navigation", "🎯 Navigating to PRODUCTION_HEAD flow (ProductionHeadDashboard)")
+                            android.util.Log.d("Navigation", "🚀 Route: ${Screen.ProductionHeadDashboard.route}")
+                            navController.navigate(Screen.ProductionHeadDashboard.route) {
                                 popUpTo(Screen.Login.route) { inclusive = true }
                             }
                         }
@@ -266,8 +291,8 @@ fun AppNavHost(
                                 }
                             }
                             UserRole.PRODUCTION_HEAD -> {
-                                android.util.Log.d("Navigation", "🎯 Routing PRODUCTION_HEAD to Project Selection")
-                                navController.navigate(Screen.ProductionHeadProjectSelection.route) {
+                                android.util.Log.d("Navigation", "🎯 Routing PRODUCTION_HEAD to Dashboard")
+                                navController.navigate(Screen.ProductionHeadDashboard.route) {
                                     popUpTo(Screen.Login.route) { inclusive = true }
                                 }
                             }
@@ -492,6 +517,9 @@ fun AppNavHost(
                         },
                         onNavigateToNotifications = { projectId ->
                             navController.navigate(Screen.ProjectNotifications.createRoute(projectId))
+                        },
+                        onShowAllExpenses = {
+                            navController.navigate(Screen.AllExpenses.createRoute(projectId))
                         }
                     )
                 }
@@ -826,6 +854,17 @@ fun AppNavHost(
                 onNavigateBack = { navController.popBackStack() }
             )
         }
+        
+        composable(
+            route = Screen.AllExpenses.route,
+            arguments = listOf(navArgument("projectId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
+            AllExpensesScreen(
+                projectId = projectId,
+                onNavigateBack = { navController.popBackStack() }
+            )
+        }
 
         // User Dashboard (Alternative entry point)
         composable(Screen.UserDashboard.route) {
@@ -1138,21 +1177,24 @@ fun AppNavHost(
         }
         
         composable(Screen.ProductionHeadDashboard.route) {
-            ProductionHeadDashboard(
-                onNavigateToProjectSelection = {
-                    navController.navigate(Screen.ProductionHeadProjectSelection.route)
-                },
-                onNavigateToPendingApprovals = {
-                    navController.navigate(Screen.ProductionHeadPendingApprovals.route)
-                },
-                onNavigateToOverallReports = {
-                    navController.navigate(Screen.ProductionHeadOverallReports.route)
+            ProductionHeadMainScreen(
+                onNavigateToProject = { projectId ->
+                    navController.navigate(Screen.ProductionHeadProjectDashboard.createRoute(projectId))
                 },
                 onNavigateToCreateUser = {
                     navController.navigate(Screen.CreateUser.route)
                 },
+                onNavigateToViewAllUsers = {
+                    navController.navigate(Screen.ViewAllUsers.route)
+                },
+                onNavigateToRoleManagement = {
+                    navController.navigate(Screen.RoleManagement.route)
+                },
                 onNavigateToNewProject = {
                     navController.navigate(Screen.NewProject.route)
+                },
+                onNavigateToEditProject = { projectId ->
+                    navController.navigate(Screen.EditProject.createRoute(projectId))
                 },
                 onLogout = {
                     navController.navigate(Screen.Login.route) {
@@ -1295,8 +1337,34 @@ fun AppNavHost(
         
         composable(Screen.CreateUser.route) {
             CreateUserScreen(
-                onNavigateBack = { navController.popBackStack() },
-                onUserCreated = { navController.popBackStack() }
+                onNavigateBack = { 
+                    // Simply pop back to previous screen
+                    navController.popBackStack()
+                },
+                onUserCreated = { 
+                    // Navigate back to Production Head Dashboard after creating user
+                    navController.navigate(Screen.ProductionHeadDashboard.route) {
+                        popUpTo(Screen.ProductionHeadDashboard.route) { inclusive = false }
+                    }
+                }
+            )
+        }
+        
+        composable(Screen.ViewAllUsers.route) {
+            ViewAllUsersScreen(
+                onNavigateBack = { 
+                    // Simply pop back to previous screen
+                    navController.popBackStack()
+                }
+            )
+        }
+        
+        composable(Screen.RoleManagement.route) {
+            RoleManagementScreen(
+                onNavigateBack = { 
+                    // Simply pop back to previous screen
+                    navController.popBackStack()
+                }
             )
         }
         

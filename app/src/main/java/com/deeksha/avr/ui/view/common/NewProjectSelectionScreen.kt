@@ -12,6 +12,9 @@ import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.ExitToApp
+import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Person
+import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -268,100 +271,48 @@ fun NewProjectSelectionScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(Color(0xFFF8F8F8))
     ) {
-        // Top Bar
-        TopAppBar(
-            title = {
-                Column {
-                    Text(
-                        text = "AVR ENTERTAINMENT",
-                        fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4285F4)
-                    )
-                    Text(
-                        text = "Select Project",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                }
-            },
-            actions = {
-                // Refresh button
-                IconButton(onClick = { 
-                    println("🔄 Refresh button clicked")
-                    if (effectiveUserId.isNotEmpty()) {
-                        projectViewModel.loadProjects(effectiveUserId)
-                    } else {
-                        projectViewModel.loadProjects() 
-                    }
-                    notificationViewModel.forceLoadNotifications(effectiveUserId)
-                    println("🔄 Refresh completed - projects and notifications updated")
-                }) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "Refresh Projects",
-                        tint = Color(0xFF4285F4)
-                    )
-                }
-                
-                Box {
-                    IconButton(onClick = { onNotificationClick(effectiveUserId) }) {
-                        if (isNotificationsLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = Color(0xFF4285F4)
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = "View Notifications",
-                                tint = Color(0xFF4285F4)
-                            )
-                        }
-                    }
-                    
-                    // Notification badge - only show when not loading
-                    if (!isNotificationsLoading) {
-                        NotificationBadgeComponent(
-                            badge = notificationBadge,
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        )
-                    }
-                }
-                
-                // Logout button
-                IconButton(onClick = { 
-                    println("🚪 Logout button clicked")
-                    authViewModel.logout()
-                    onLogout()
-                }) {
-                    Icon(
-                        Icons.Default.ExitToApp,
-                        contentDescription = "Logout",
-                        tint = Color(0xFF4285F4)
-                    )
-                }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color.White
-            )
-        )
+        // Top Bar - iOS style
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(16.dp)
+        ) {
+            // Hamburger menu on the right
+            IconButton(
+                onClick = { /* TODO: Open menu */ },
+                modifier = Modifier.align(Alignment.CenterEnd)
+            ) {
+                Icon(
+                    Icons.Default.Menu,
+                    contentDescription = "Menu",
+                    tint = Color.Black
+                )
+            }
+        }
         
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp)
+                .padding(horizontal = 24.dp, vertical = 16.dp)
         ) {
-            Text(
-                text = "Your Projects",
-                fontSize = 24.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.DarkGray,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
+            // Title - iOS style
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(bottom = 8.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Your Projects",
+                    fontSize = 28.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+            }
             
             when {
                 isLoading -> {
@@ -477,14 +428,14 @@ fun NewProjectSelectionScreen(
                 }
                 else -> {
                     Text(
-                        text = "${projects.size} projects",
-                        fontSize = 16.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        text = "${projects.size} ${if (projects.size == 1) "project" else "projects"}",
+                        fontSize = 15.sp,
+                        color = Color(0xFF666666),
+                        modifier = Modifier.padding(bottom = 20.dp)
                     )
                     
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(projects) { project ->
                             NewProjectCard(
@@ -508,173 +459,182 @@ fun NewProjectCard(
     onChatClick: () -> Unit = {},
     projectNotifications: List<com.deeksha.avr.model.Notification> = emptyList()
 ) {
-    // Calculate project-specific notification counts
-    val projectNotificationCount = projectNotifications.count { !it.isRead }
+    // Calculate days left
+    val daysLeft = if (project.endDate != null) {
+        FormatUtils.calculateDaysLeft(project.endDate.toDate().time)
+    } else 0
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onProjectClick() },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(16.dp)
         ) {
-            // Project name and code
+            // Title row with project name and category
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
+                Column(
+                    modifier = Modifier.weight(1f)
+                ) {
+                    Text(
+                        text = project.name,
+                        fontSize = 18.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    if (project.description.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = project.description,
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            maxLines = 1
+                        )
+                    }
+                }
+                
                 Row(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Project Initial Circle
+                    // Status badge with green dot
+                    Surface(
+                        color = Color(0xFFE8F5E9),
+                        shape = RoundedCornerShape(20.dp)
+                    ) {
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                        ) {
+                            Box(
+                                modifier = Modifier
+                                    .size(8.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFF4CAF50))
+                            )
+                            Spacer(modifier = Modifier.width(6.dp))
+                            Text(
+                                text = "Active",
+                                fontSize = 12.sp,
+                                fontWeight = FontWeight.Medium,
+                                color = Color(0xFF4CAF50)
+                            )
+                        }
+                    }
+                    
+                    // Chat button - circular with chat icon
                     Box(
                         modifier = Modifier
                             .size(32.dp)
                             .clip(CircleShape)
-                            .background(Color(0xFF4285F4).copy(alpha = 0.1f)),
+                            .clickable(onClick = onChatClick)
+                            .background(Color(0xFFE3F2FD)),
                         contentAlignment = Alignment.Center
                     ) {
-                        Text(
-                            text = project.code.ifEmpty { project.name.take(2).uppercase() },
-                            fontSize = 12.sp,
-                            fontWeight = FontWeight.Bold,
-                            color = Color(0xFF4285F4)
+                        Icon(
+                            Icons.Default.Chat,
+                            contentDescription = "Chat",
+                            tint = Color(0xFF1976D2),
+                            modifier = Modifier.size(16.dp)
                         )
                     }
-                    
-                    Spacer(modifier = Modifier.width(8.dp))
-                    
-                    Text(
-                        text = project.name,
-                        fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.DarkGray
-                    )
-                }
-                
-                // Chat icon from first image
-                IconButton(
-                    onClick = onChatClick,
-                    modifier = Modifier.size(32.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Chat,
-                        contentDescription = "Chat",
-                        tint = Color(0xFF4285F4),
-                        modifier = Modifier.size(18.dp)
-                    )
                 }
             }
             
-            // Project description
-            if (project.description.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = project.description,
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Spacer(modifier = Modifier.height(12.dp))
             
-            // Budget
-            Spacer(modifier = Modifier.height(6.dp))
+            // Bottom details row - Amount and Members in left column, Date and days in right column
             Row(
-                verticalAlignment = Alignment.CenterVertically
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                Text(
-                    text = "₹",
-                    fontSize = 14.sp,
-                    color = Color(0xFF4CAF50),
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(end = 2.dp)
-                )
-                Text(
-                    text = FormatUtils.formatCurrency(project.budget),
-                    fontSize = 14.sp,
-                    color = Color.DarkGray,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            
-            // Date range and team members in same row
-            if (project.startDate != null && project.endDate != null) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                // Left column
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
-                    // Date range
+                    // Amount
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Text(
-                            text = "📅",
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(end = 2.dp)
+                            text = "₹",
+                            fontSize = 14.sp,
+                            color = Color(0xFF4CAF50),
+                            fontWeight = FontWeight.Bold
                         )
                         Text(
-                            text = "${FormatUtils.formatDate(project.startDate)} - ${FormatUtils.formatDate(project.endDate)}",
-                            fontSize = 12.sp,
-                            color = Color.DarkGray
+                            text = FormatUtils.formatCurrency(project.budget),
+                            fontSize = 14.sp,
+                            color = Color.Black,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                     
-                    // Days left and team members
+                    // Members
                     Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        // Days left
-                        val daysLeft = FormatUtils.calculateDaysLeft(project.endDate.toDate().time)
-                        Text(
-                            text = "${daysLeft} days left",
-                            fontSize = 12.sp,
-                            color = if (daysLeft > 10) Color(0xFF4CAF50) else Color(0xFFF44336)
+                        Icon(
+                            Icons.Default.Person,
+                            contentDescription = null,
+                            tint = Color(0xFF9C27B0),
+                            modifier = Modifier.size(16.dp)
                         )
-                        
-                        // Team members count
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = "${project.teamMembers.size} member${if (project.teamMembers.size != 1) "s" else ""}",
+                            fontSize = 14.sp,
+                            color = Color.Black
+                        )
+                    }
+                }
+                
+                // Right column
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                    horizontalAlignment = Alignment.End
+                ) {
+                    // Date range
+                    if (project.startDate != null && project.endDate != null) {
                         Row(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text(
-                                text = "👥",
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(end = 2.dp)
+                            Icon(
+                                Icons.Default.DateRange,
+                                contentDescription = null,
+                                tint = Color(0xFF42A5F5),
+                                modifier = Modifier.size(16.dp)
                             )
+                            Spacer(modifier = Modifier.width(4.dp))
                             Text(
-                                text = "${project.teamMembers.size} members",
-                                fontSize = 12.sp,
-                                color = Color.DarkGray
+                                text = "${FormatUtils.formatDateShort(project.startDate)} - ${FormatUtils.formatDateShort(project.endDate)}",
+                                fontSize = 14.sp,
+                                color = Color.Black
                             )
                         }
+                        
+                        // Days left
+                        Text(
+                            text = if (daysLeft >= 0) "$daysLeft days left" else "Overdue by ${-daysLeft} days",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (daysLeft >= 0) Color(0xFF4CAF50) else Color.Red
+                        )
                     }
-                }
-            } else {
-                // If no date range, show only team members
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "👥",
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(end = 2.dp)
-                    )
-                    Text(
-                        text = "${project.teamMembers.size} members",
-                        fontSize = 12.sp,
-                        color = Color.DarkGray
-                    )
                 }
             }
         }

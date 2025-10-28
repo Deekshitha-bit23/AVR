@@ -301,3 +301,4 @@ Wrapped the entire `sendMessage()` function in `withContext(NonCancellable)` to 
 
 **Result**: Expense chat notifications will now work reliably regardless of user navigation patterns.
 
+

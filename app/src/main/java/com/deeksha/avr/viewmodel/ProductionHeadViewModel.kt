@@ -97,6 +97,44 @@ class ProductionHeadViewModel @Inject constructor(
         }
     }
     
+    fun updateUserActiveStatus(phoneNumber: String, isActive: Boolean) {
+        viewModelScope.launch {
+            // Update local state immediately without showing loading
+            try {
+                android.util.Log.d("ProductionHeadViewModel", "🔄 Updating user active status: $phoneNumber to $isActive")
+                
+                // Update the user in the local lists immediately
+                val updatedUsers = _availableUsers.value.map { user ->
+                    if (user.phone == phoneNumber) user.copy(isActive = isActive) else user
+                }
+                val updatedApprovers = _availableApprovers.value.map { user ->
+                    if (user.phone == phoneNumber) user.copy(isActive = isActive) else user
+                }
+                
+                _availableUsers.value = updatedUsers
+                _availableApprovers.value = updatedApprovers
+                
+                // Update Firebase in the background
+                val result = authRepository.updateUserActiveStatus(phoneNumber, isActive)
+                if (result.isSuccess) {
+                    android.util.Log.d("ProductionHeadViewModel", "✅ User active status updated successfully in Firebase")
+                } else {
+                    val errorMsg = result.exceptionOrNull()?.message ?: "Failed to update user status"
+                    android.util.Log.e("ProductionHeadViewModel", "❌ User active status update failed: $errorMsg")
+                    
+                    // Revert the local changes on error
+                    loadUsers()
+                    _error.value = errorMsg
+                }
+            } catch (e: Exception) {
+                android.util.Log.e("ProductionHeadViewModel", "❌ Error updating user active status: ${e.message}", e)
+                // Revert the local changes on error
+                loadUsers()
+                _error.value = "Error updating user status: ${e.message}"
+            }
+        }
+    }
+    
     fun createUser(phoneNumber: String, fullName: String, role: UserRole) {
         viewModelScope.launch {
             _isLoading.value = true

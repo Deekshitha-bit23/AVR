@@ -121,19 +121,32 @@ class AuthViewModel @Inject constructor(
     
     /**
      * Initialize authentication state - checks for both Firebase and development skip sessions
+     * NOTE: This can cause issues during testing if an old session exists
      */
     private fun initializeAuthState() {
         viewModelScope.launch {
             Log.d("AuthViewModel", "🔄 Initializing authentication state...")
+            
+            // Check if we're in the middle of an OTP flow
+            if (_otpSent.value) {
+                Log.d("AuthViewModel", "⚠️ OTP flow in progress, skipping auto-login")
+                setUnauthenticatedState()
+                return@launch
+            }
+            
             _authState.value = _authState.value.copy(isLoading = true)
             
             // First check for Firebase authentication
             val firebaseUser = firebaseAuth.currentUser
             if (firebaseUser != null) {
                 Log.d("AuthViewModel", "✅ Firebase user found: ${firebaseUser.uid}")
+                Log.d("AuthViewModel", "⚠️ WARNING: Cached Firebase session detected!")
+                Log.d("AuthViewModel", "⚠️ If testing different roles, please LOGOUT first!")
+                
                 val user = authRepository.getCurrentUserFromFirebase()
                 if (user != null) {
                     Log.d("AuthViewModel", "✅ Firebase user authenticated: ${user.name}")
+                    Log.d("AuthViewModel", "📱 Cached user - Name: ${user.name}, Role: ${user.role}, Phone: ${user.phone}")
                     setAuthenticatedUser(user, isDevelopmentSkip = false)
                     return@launch
                 } else {
@@ -509,8 +522,22 @@ class AuthViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch {
             Log.d("AuthViewModel", "🔄 Logging out user...")
+            
+            // Sign out from Firebase Auth (this is what caches the session!)
+            try {
+                firebaseAuth.signOut()
+                Log.d("AuthViewModel", "✅ Firebase Auth signout completed")
+            } catch (e: Exception) {
+                Log.e("AuthViewModel", "❌ Error signing out from Firebase: ${e.message}")
+            }
+            
+            // Clear the repository
             authRepository.signOut()
+            
+            // Clear all state
             setUnauthenticatedState()
+            
+            Log.d("AuthViewModel", "✅ Logout complete - all state cleared")
         }
     }
     
@@ -605,6 +632,22 @@ class AuthViewModel @Inject constructor(
             Log.d("AuthViewModel", "🔄 Development skip authentication started")
             Log.d("AuthViewModel", "📱 Phone number: $phoneNumber")
             
+            // IMPORTANT: Clear any previous authentication state first
+            Log.d("AuthViewModel", "🧹 Clearing previous authentication state")
+            
+            // Sign out from Firebase to clear any cached authentication
+            try {
+                authRepository.signOut()
+                Log.d("AuthViewModel", "✅ Firebase auth cleared")
+            } catch (e: Exception) {
+                Log.w("AuthViewModel", "⚠️ Failed to clear Firebase auth: ${e.message}")
+            }
+            
+            _authState.value = _authState.value.copy(isAuthenticated = false, user = null, isLoading = false, error = null)
+            _currentUser.value = null
+            _isDevelopmentSkipUser.value = false
+            _hasCompletedVerification.value = false
+            
             _authState.value = _authState.value.copy(isLoading = true, error = null)
             
             try {
@@ -615,12 +658,20 @@ class AuthViewModel @Inject constructor(
                 val actualUser = authRepository.getUserByPhoneNumber(phoneNumber)
                 
                 val testUser = if (actualUser != null) {
-                    Log.d("AuthViewModel", "✅ Found actual user in database: ${actualUser.name} (${actualUser.role})")
+                    Log.d("AuthViewModel", "✅ Found actual user in database")
+                    Log.d("AuthViewModel", "   Name: ${actualUser.name}")
+                    Log.d("AuthViewModel", "   Phone: ${actualUser.phone}")
+                    Log.d("AuthViewModel", "   Role from DB: ${actualUser.role}")
+                    Log.d("AuthViewModel", "   Role type: ${actualUser.role.javaClass.simpleName}")
+                    Log.d("AuthViewModel", "   Role value: ${actualUser.role.name}")
+                    
                     // Use the actual user data but with a development UID
-                    actualUser.copy(
+                    val user = actualUser.copy(
                         uid = "dev_test_user_${phoneNumber}",
                         phone = phoneNumber
                     )
+                    Log.d("AuthViewModel", "   Final user role: ${user.role}")
+                    user
                 } else {
                     Log.d("AuthViewModel", "❌ No user found for phone: $phoneNumber")
                     Log.d("AuthViewModel", "🔄 Creating default test user")

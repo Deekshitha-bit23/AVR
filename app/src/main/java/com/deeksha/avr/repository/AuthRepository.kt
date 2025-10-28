@@ -636,4 +636,29 @@ class AuthRepository @Inject constructor(
             Result.failure(e)
         }
     }
+    
+    suspend fun updateUserActiveStatus(phoneNumber: String, isActive: Boolean): Result<Unit> {
+        return try {
+            val querySnapshot = firestore.collection("users")
+                .whereEqualTo("phoneNumber", phoneNumber)
+                .get()
+                .await()
+            
+            if (!querySnapshot.isEmpty) {
+                val document = querySnapshot.documents.first()
+                firestore.collection("users")
+                    .document(document.id)
+                    .update("isActive", isActive)
+                    .await()
+                Log.d("AuthRepository", "✅ Updated isActive status for user: $phoneNumber to $isActive")
+                Result.success(Unit)
+            } else {
+                Log.e("AuthRepository", "❌ User not found for isActive update: $phoneNumber")
+                Result.failure(Exception("User not found"))
+            }
+        } catch (e: Exception) {
+            Log.e("AuthRepository", "❌ Error updating isActive status: ${e.message}")
+            Result.failure(e)
+        }
+    }
 } 
