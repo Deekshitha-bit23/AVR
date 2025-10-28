@@ -3,6 +3,7 @@ package com.deeksha.avr.ui.view.productionhead
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
@@ -14,6 +15,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -58,14 +60,18 @@ fun CreateUserScreen(
                     Text(
                         text = "Create User",
                         fontSize = 18.sp,
-                        fontWeight = FontWeight.Bold
+                        fontWeight = FontWeight.Bold,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
                 },
                 navigationIcon = {
-                    IconButton(onClick = onNavigateBack) {
-                        Icon(
-                            Icons.Default.ArrowBack,
-                            contentDescription = "Back"
+                    TextButton(onClick = onNavigateBack) {
+                        Text(
+                            text = "Cancel",
+                            color = Color(0xFF4285F4),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 },
@@ -85,6 +91,7 @@ fun CreateUserScreen(
                             } else {
                                 Color.Gray
                             },
+                            fontSize = 16.sp,
                             fontWeight = FontWeight.Medium
                         )
                     }
@@ -231,6 +238,78 @@ fun CreateUserScreen(
                             showRoleDropdown = false
                         }
                     )
+                }
+            }
+            
+            Spacer(modifier = Modifier.height(24.dp))
+            
+            // Role Permissions Section
+            Text(
+                text = "ROLE PERMISSIONS",
+                fontSize = 12.sp,
+                fontWeight = FontWeight.Medium,
+                color = Color.Gray,
+                modifier = Modifier.padding(bottom = 16.dp)
+            )
+            
+            // Role Permissions Card
+            Card(
+                modifier = Modifier.fillMaxWidth(),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    // Blue circular icon with white person silhouette
+                    Box(
+                        modifier = Modifier
+                            .size(40.dp)
+                            .background(
+                                Color(0xFF4285F4),
+                                CircleShape
+                            ),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.Person,
+                            contentDescription = "Role Icon",
+                            tint = Color.White,
+                            modifier = Modifier.size(24.dp)
+                        )
+                    }
+                    
+                    Spacer(modifier = Modifier.width(16.dp))
+                    
+                    // Role information
+                    Column {
+                        Text(
+                            text = when (selectedRole) {
+                                UserRole.USER -> "User"
+                                UserRole.APPROVER -> "Approver"
+                                UserRole.ADMIN -> "Admin"
+                                UserRole.PRODUCTION_HEAD -> "Production Head"
+                            },
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                        Text(
+                            text = when (selectedRole) {
+                                UserRole.USER -> "Can submit expenses and view project details"
+                                UserRole.APPROVER -> "Can approve/reject expenses and manage budgets"
+                                UserRole.ADMIN -> "Full system access and user management"
+                                UserRole.PRODUCTION_HEAD -> "Can manage projects and oversee operations"
+                            },
+                            fontSize = 14.sp,
+                            color = Color.Gray,
+                            modifier = Modifier.padding(top = 4.dp)
+                        )
+                    }
                 }
             }
             

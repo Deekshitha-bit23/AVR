@@ -12,6 +12,10 @@ import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Refresh
+import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.DateRange
+import androidx.compose.material.icons.filled.Person
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -29,6 +33,7 @@ import com.deeksha.avr.viewmodel.ApproverProjectViewModel
 import com.deeksha.avr.viewmodel.NotificationViewModel
 import com.deeksha.avr.ui.common.NotificationBadgeComponent
 import com.deeksha.avr.ui.common.ProjectNotificationSummaryCard
+import com.deeksha.avr.ui.view.common.NewProjectCard
 import com.deeksha.avr.utils.FormatUtils
 import android.util.Log
 import java.util.*
@@ -129,73 +134,129 @@ fun ApproverProjectSelectionScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .background(Color(0xFFF5F5F5))
+            .background(Color(0xFFF8F8F8))
     ) {
-        // Top Bar
-        TopAppBar(
-            title = {
-                Column {
-                    Text(
-                        text = "AVR ENTERTAINMENT",
-                        fontSize = 22.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color(0xFF4285F4)
-                    )
-                    Text(
-                        text = "Select Project",
-                        fontSize = 14.sp,
-                        color = Color.Gray
-                    )
-                }
-            },
-            actions = {
-                IconButton(onClick = onNavigateToOverallReports) {
-                    Icon(
-                        Icons.Default.Info,
-                        contentDescription = "Overall Reports",
-                        tint = Color(0xFF4285F4)
-                    )
-                }
-                IconButton(onClick = { refreshProjects() }) {
-                    Icon(
-                        Icons.Default.Refresh,
-                        contentDescription = "Refresh Projects",
-                        tint = Color(0xFF4285F4)
-                    )
-                }
+        // Top Bar - iOS style
+        Box(
+            modifier = Modifier
+                .fillMaxWidth()
+                .background(Color.White)
+                .padding(horizontal = 16.dp, vertical = 20.dp)
+        ) {
+            // Notification, Overall Reports icon and hamburger menu on the right
+            var showMenu by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                // Notification icon with badge
                 Box {
-                    IconButton(onClick = onNavigateToNotifications) {
+                    IconButton(
+                        onClick = onNavigateToNotifications
+                    ) {
                         Icon(
                             Icons.Default.Notifications,
                             contentDescription = "Notifications",
-                            tint = Color(0xFF4285F4)
+                            tint = Color.Black
                         )
                     }
-                    
                     // Notification badge
-                    NotificationBadgeComponent(
-                        badge = notificationBadge,
+                    if (notificationBadge.hasUnread && notificationBadge.count > 0) {
+                        Badge(
                         modifier = Modifier.align(Alignment.TopEnd)
+                        ) {
+                            Text(
+                                text = if (notificationBadge.count > 99) "99+" else notificationBadge.count.toString(),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+                
+                // Overall Reports icon
+                IconButton(
+                    onClick = onNavigateToOverallReports
+                ) {
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = "Overall Reports",
+                        tint = Color.Black
                     )
                 }
                 
-                // Logout button
-                IconButton(onClick = { 
-                    println("🚪 Logout button clicked")
-                    authViewModel.logout()
-                    onLogout()
-                }) {
+                // Hamburger menu
+                IconButton(
+                    onClick = { showMenu = true }
+                ) {
                     Icon(
                         Icons.Default.ExitToApp,
-                        contentDescription = "Logout",
-                        tint = Color(0xFF4285F4)
+                        contentDescription = "Menu",
+                        tint = Color.Black
                     )
                 }
-            },
-            colors = TopAppBarDefaults.topAppBarColors(
+            }
+
+            if (showMenu) {
+                ModalBottomSheet(
+                    onDismissRequest = { showMenu = false },
                 containerColor = Color.White
-            )
-        )
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Menu",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                                Text(
+                                    text = "Settings & Account",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                            IconButton(onClick = { showMenu = false }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = Color.Gray
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // Sign Out
+                        ApproverMenuItem(
+                            icon = Icons.Default.ExitToApp,
+                            iconColor = Color.White,
+                            iconBackgroundColor = Color.Red,
+                            title = "Sign Out",
+                            subtitle = "Logout from your account",
+                            onClick = {
+                                showMenu = false
+                                authViewModel.logout()
+                                onLogout()
+                            },
+                            titleColor = Color.Red,
+                            subtitleColor = Color.Red,
+                            containerColor = Color(0xFFFFEBEE)
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
+            }
+        }
         
         when {
             isLoading -> {
@@ -326,31 +387,41 @@ fun ApproverProjectSelectionScreen(
                 Column(
                     modifier = Modifier
                         .fillMaxSize()
-                        .padding(16.dp)
+                        .padding(horizontal = 24.dp, vertical = 12.dp)
+                ) {
+                    // Title - iOS style
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(bottom = 8.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                 ) {
                     Text(
                         text = "Your Projects",
-                        fontSize = 24.sp,
+                            fontSize = 28.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.Black,
-                        modifier = Modifier.padding(bottom = 8.dp)
+                            color = Color.Black
                     )
+                    }
                     
                     Text(
-                        text = "${projects.size} projects",
-                        fontSize = 16.sp,
-                        color = Color.Gray,
-                        modifier = Modifier.padding(bottom = 16.dp)
+                        text = "${projects.size} ${if (projects.size == 1) "project" else "projects"}",
+                        fontSize = 15.sp,
+                        color = Color(0xFF666666),
+                        modifier = Modifier.padding(bottom = 20.dp)
                     )
                     
                     LazyColumn(
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(projects) { project ->
-                            ApproverProjectCard(
+                            NewProjectCard(
                                 project = project,
                                 onProjectClick = { onProjectSelected(project.id) },
-                                projectNotifications = notifications.filter { it.projectId == project.id }
+                                onChatClick = {},
+                                projectNotifications = notifications.filter { it.projectId == project.id },
+                                showChatIcon = false
                             )
                         }
                     }
@@ -366,195 +437,154 @@ private fun ApproverProjectCard(
     onProjectClick: () -> Unit,
     projectNotifications: List<com.deeksha.avr.model.Notification> = emptyList()
 ) {
-    // Calculate project-specific notification counts
-    val projectNotificationCount = projectNotifications.count { !it.isRead }
+    // Calculate days left
+    val daysLeft = if (project.endDate != null) {
+        FormatUtils.calculateDaysLeft(project.endDate.toDate().time)
+    } else 0
+    
+    // Get project initials for badge
+    val projectInitials = project.code.ifEmpty { project.name.split(" ").take(2).map { it.firstOrNull()?.uppercaseChar() ?: "" }.joinToString("").ifEmpty { project.name.take(2).uppercase() } }
     
     Card(
         modifier = Modifier
             .fillMaxWidth()
             .clickable { onProjectClick() },
-        shape = RoundedCornerShape(8.dp),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+        colors = CardDefaults.cardColors(
+            containerColor = Color.White
+        ),
+        shape = RoundedCornerShape(12.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(12.dp)
+                .padding(16.dp)
         ) {
-            // Project name and code
+            // Title row with project name
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.SpaceBetween
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
             ) {
                 Row(
+                    modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically
         ) {
-                    // Project Initial Circle
-            Box(
-                modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .background(Color(0xFF4285F4).copy(alpha = 0.1f)),
-                contentAlignment = Alignment.Center
-            ) {
-                Text(
-                            text = project.code.ifEmpty { project.name.take(2).uppercase() },
-                            fontSize = 12.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color(0xFF4285F4)
-                )
-                        // Notification badge
-                if (projectNotificationCount > 0) {
+                    // Project Initial Badge
                     Box(
                         modifier = Modifier
-                                    .size(16.dp)
+                            .size(40.dp)
                                     .clip(CircleShape)
-                                    .background(Color.Red)
-                                    .align(Alignment.TopEnd),
+                            .background(Color(0xFF42A5F5).copy(alpha = 0.1f)),
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
-                                    text = projectNotificationCount.toString(),
-                                    color = Color.White,
-                                    fontSize = 8.sp,
-                                    fontWeight = FontWeight.Bold
-                                )
-                            }
-                        }
+                            text = projectInitials,
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color(0xFF42A5F5)
+                        )
                     }
                     
-                    Spacer(modifier = Modifier.width(8.dp))
+                    Spacer(modifier = Modifier.width(12.dp))
                     
+                    Column {
                     Text(
                         text = project.name,
+                            fontSize = 18.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black
+                        )
+                        Spacer(modifier = Modifier.height(4.dp))
+                        Text(
+                            text = "₹" + FormatUtils.formatCurrency(project.budget),
                         fontSize = 14.sp,
-                        fontWeight = FontWeight.Bold,
-                        color = Color.DarkGray
-                    )
+                            color = Color(0xFF4CAF50),
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
                 }
             }
             
-            // Project description
-            if (project.description.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
-                Text(
-                    text = project.description,
-                    fontSize = 12.sp,
-                    color = Color.Gray,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis
-                )
-            }
+            Spacer(modifier = Modifier.height(12.dp))
             
-            // Budget
-            Spacer(modifier = Modifier.height(6.dp))
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "₹",
-                    fontSize = 14.sp,
-                                            color = Color(0xFF4CAF50),
-                    fontWeight = FontWeight.Bold,
-                    modifier = Modifier.padding(end = 2.dp)
-                )
-                Text(
-                    text = FormatUtils.formatCurrency(project.budget),
-                    fontSize = 14.sp,
-                    color = Color.DarkGray,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            
-            // Date range and team members in same row
+            // Right column - Date, Days Left, Members
             if (project.startDate != null && project.endDate != null) {
-                Spacer(modifier = Modifier.height(4.dp))
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    // Date range
+                    // Left column - Date range
+                    Column {
                     Row(
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "📅",
-                            fontSize = 12.sp,
-                            modifier = Modifier.padding(end = 2.dp)
-                        )
-                        Text(
-                            text = "${FormatUtils.formatDate(project.startDate)} - ${FormatUtils.formatDate(project.endDate)}",
-                            fontSize = 12.sp,
-                            color = Color.DarkGray
-                        )
-                    }
-                    
-                    // Days left and team members
-                    Row(
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        // Days left
-                        val daysLeft = FormatUtils.calculateDaysLeft(project.endDate.toDate().time)
-                        Text(
-                            text = "${daysLeft} days left",
-                            fontSize = 12.sp,
-                            color = if (daysLeft > 10) Color(0xFF4CAF50) else Color(0xFFF44336)
-                        )
-                        
-                        // Team members count
-                        Row(
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(
-                                text = "👥",
-                                fontSize = 12.sp,
-                                modifier = Modifier.padding(end = 2.dp)
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = null,
+                                tint = Color(0xFF42A5F5),
+                                modifier = Modifier.size(16.dp)
                             )
-                            Text(
-                                text = "${project.teamMembers.size} members",
-                                fontSize = 12.sp,
-                                color = Color.DarkGray
+                            Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                                text = "${FormatUtils.formatDateShort(project.startDate)} - ${FormatUtils.formatDateShort(project.endDate)}",
+                                fontSize = 14.sp,
+                                color = Color.Black
                             )
                         }
                     }
-                }
-            } else {
-                // If no date range, show only team members
-                Spacer(modifier = Modifier.height(4.dp))
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Text(
-                        text = "👥",
-                        fontSize = 12.sp,
-                        modifier = Modifier.padding(end = 2.dp)
-                    )
-                    Text(
-                        text = "${project.teamMembers.size} members",
-                        fontSize = 12.sp,
-                        color = Color.DarkGray
-                    )
+                    
+                    // Right column
+                    Column(
+                        verticalArrangement = Arrangement.spacedBy(8.dp),
+                        horizontalAlignment = Alignment.End
+                    ) {
+                        // Days left
+                        Text(
+                            text = if (daysLeft >= 0) "$daysLeft days left" else "Overdue by ${-daysLeft} days",
+                            fontSize = 14.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = if (daysLeft >= 0) Color(0xFF4CAF50) else Color.Red
+                        )
+                        
+                        // Members
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.Info,
+                                contentDescription = null,
+                                tint = Color(0xFF42A5F5),
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text(
+                                text = "${project.teamMembers.size} members",
+                                fontSize = 14.sp,
+                                color = Color.Black
+                            )
+                        }
+                    }
                 }
             }
             
             // Temporary approver indicator
                 if (project.temporaryApproverPhone.isNotEmpty()) {
-                Spacer(modifier = Modifier.height(4.dp))
+                Spacer(modifier = Modifier.height(8.dp))
                     Row(
                     verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text(
-                            text = "⏰",
-                            fontSize = 12.sp,
-                        modifier = Modifier.padding(end = 2.dp)
-                        )
+                    Icon(
+                        Icons.Default.Info,
+                        contentDescription = null,
+                        tint = Color(0xFFFF9800),
+                        modifier = Modifier.size(16.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
                         Text(
                             text = "Temporary Assignment",
-                            fontSize = 12.sp,
+                        fontSize = 13.sp,
                             color = Color(0xFFFF9800),
                             fontWeight = FontWeight.Medium
                         )
@@ -564,11 +594,64 @@ private fun ApproverProjectCard(
     }
 }
 
-private fun getProjectInitials(projectName: String): String {
-    return projectName
-        .split(" ")
-        .take(2)
-        .map { it.firstOrNull()?.uppercaseChar() ?: "" }
-        .joinToString("")
-        .ifEmpty { projectName.take(2).uppercase() }
+@Composable
+private fun ApproverMenuItem(
+    icon: androidx.compose.ui.graphics.vector.ImageVector,
+    iconColor: Color,
+    iconBackgroundColor: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    titleColor: Color = Color.Black,
+    subtitleColor: Color = Color.Gray,
+    containerColor: Color = Color.White
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconBackgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = iconColor
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = titleColor
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = subtitleColor
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color.Gray
+            )
+        }
+    }
 } 

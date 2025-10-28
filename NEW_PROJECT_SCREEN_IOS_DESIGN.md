@@ -206,3 +206,4 @@ The remaining sections (TIMELINE, TEAM ASSIGNMENT, DEPARTMENTS) still need to be
 - Ensure all sections have iOS blue icons and gray headers
 - Add total budget display with iOS styling
 
+

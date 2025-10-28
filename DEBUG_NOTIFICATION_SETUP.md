@@ -117,7 +117,7 @@ adb logcat | grep "com.deeksha.avr"
 ```
 ExpenseViewModel: 🔄 Sending expense submission notifications for expense: expense_id
 ExpenseViewModel: 📋 Project ID: project_id
-ExpenseViewModel: 📋 Expense details: User Name - ₹1000.00 - Category
+ExpenseViewModel: 📋 Expense details: User Name - ₹1000 - Category
 NotificationService: 🔄 Sending expense submission notification for project: project_id
 NotificationService: 📋 Project: AVR 2
 NotificationService: 📋 Project approverIds: [approver_uid]

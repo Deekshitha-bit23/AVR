@@ -202,3 +202,4 @@ adb logcat -s AuthViewModel AppNavHost -d | findstr "Role value\|Navigating\|Rou
 
 **If logout doesn't work, use: Settings → Apps → AVR → Clear Data**
 
+

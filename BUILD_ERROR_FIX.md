@@ -106,3 +106,4 @@ ProjectCard(
 2. Edit button on project cards should now navigate to EditProject screen when clicked
 3. Edit button calls `onNavigateToEditProject(projectId)` which navigates to `Screen.EditProject` route
 
+

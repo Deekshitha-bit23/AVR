@@ -24,7 +24,11 @@ import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.KeyboardArrowUp
+import androidx.compose.material.icons.filled.Folder
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material3.*
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +42,9 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material.icons.automirrored.filled.KeyboardArrowRight
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.deeksha.avr.viewmodel.ApproverProjectViewModel
 import com.deeksha.avr.viewmodel.NotificationViewModel
@@ -52,6 +59,7 @@ import com.deeksha.avr.model.User
 import com.deeksha.avr.model.TemporaryApprover
 import com.deeksha.avr.repository.AuthRepository
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.compose.runtime.remember
@@ -66,6 +74,14 @@ import androidx.compose.material3.DrawerState
 
 
 @OptIn(ExperimentalMaterial3Api::class)
+// Helper function to format currency without decimals
+private fun formatCurrencyWithoutDecimals(amount: Double): String {
+    val formatter = java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "IN"))
+    formatter.maximumFractionDigits = 0
+    return formatter.format(amount)
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ApproverProjectDashboardScreen(
     projectId: String,
@@ -78,6 +94,7 @@ fun ApproverProjectDashboardScreen(
     onNavigateToProjectNotifications: (String) -> Unit = {},
     onNavigateToDelegation: () -> Unit = {},
     onNavigateToChat: (String, String) -> Unit = { _, _ -> },
+    onNavigateToEditProject: (String) -> Unit = {},
     approverProjectViewModel: ApproverProjectViewModel = hiltViewModel(),
     notificationViewModel: NotificationViewModel = hiltViewModel(),
     authViewModel: AuthViewModel = hiltViewModel(),
@@ -269,21 +286,36 @@ fun ApproverProjectDashboardScreen(
                     }
                 },
                 actions = {
-                    // Notifications button
-                    Box {
-                        IconButton(onClick = { onNavigateToProjectNotifications(projectId) }) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Edit project button
+                        IconButton(onClick = { onNavigateToEditProject(projectId) }) {
                             Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = "Project Notifications",
-                                tint = Color.Black
+                                imageVector = Icons.Default.Edit,
+                                contentDescription = "Edit Project",
+                                tint = Color(0xFF4285F4),
+                                modifier = Modifier.size(20.dp)
                             )
                         }
+                        
+                        // Notifications button
+                        Box {
+                            IconButton(onClick = { onNavigateToProjectNotifications(projectId) }) {
+                                Icon(
+                                    Icons.Default.Notifications,
+                                    contentDescription = "Project Notifications",
+                                    tint = Color.Black
+                                )
+                            }
                         
                         // Project-specific notification badge
                         NotificationBadgeComponent(
                             badge = projectNotificationBadge,
                             modifier = Modifier.align(Alignment.TopEnd)
                         )
+                        }
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
@@ -884,9 +916,10 @@ private fun ProjectOverviewSection(
             modifier = Modifier.weight(1f),
             icon = Icons.Default.Home,
             iconColor = Color(0xFFFF9800),
-            value = FormatUtils.formatCurrency(projectBudgetSummary.totalBudget),
+            value = formatCurrencyWithoutDecimals(projectBudgetSummary.totalBudget),
             label = "Total Budget",
-            subtitle = "Remaining: ${FormatUtils.formatCurrency(projectBudgetSummary.totalRemaining)}"
+            subtitle = "Remaining: ${formatCurrencyWithoutDecimals(projectBudgetSummary.totalRemaining)}",
+            subtitleColor = Color(0xFF66BB6A)
         )
     }
     
@@ -898,16 +931,89 @@ private fun ProjectOverviewSection(
     ) {
         // Team Members Card - Dynamic count
         var showTeamMembersDialog by remember { mutableStateOf(false) }
+        val authViewModel: AuthViewModel = hiltViewModel()
+        var activeTeamMembersCount by remember { mutableStateOf(0) }
         
-        DynamicOverviewCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Person,
-            iconColor = Color(0xFF4285F4),
-            value = projectBudgetSummary.project?.teamMembers?.size?.toString() ?: "0",
-            label = "Team Members",
-            subtitle = null,
-            onClick = { showTeamMembersDialog = true }
-        )
+        // Update active team members count when team members change
+        LaunchedEffect(projectBudgetSummary.project?.teamMembers) {
+            activeTeamMembersCount = 0
+            val phoneNumbers = projectBudgetSummary.project?.teamMembers ?: emptyList()
+            
+            phoneNumbers.forEach { phoneNumber ->
+                try {
+                    val user = authViewModel.getUserByPhoneNumber(phoneNumber)
+                    if (user != null && user.isActive) {
+                        activeTeamMembersCount++
+                    }
+                } catch (e: Exception) {
+                    // Ignore errors
+                }
+            }
+        }
+        
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .height(110.dp)
+                .clickable { showTeamMembersDialog = true },
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp)
+            ) {
+                // Navigation arrow in top-right
+                Icon(
+                    imageVector = Icons.Default.KeyboardArrowRight,
+                    contentDescription = "View Team Members",
+                    tint = Color.Gray,
+                    modifier = Modifier
+                        .align(Alignment.TopEnd)
+                        .size(16.dp)
+                )
+                
+                Column(
+modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.SpaceBetween
+                ) {
+                    // Icon at the top
+                    Icon(
+                        imageVector = Icons.Default.Group,
+                        contentDescription = "Team Members",
+                        tint = Color(0xFF4285F4),
+                        modifier = Modifier.size(24.dp)
+                    )
+                    
+                    // Bottom section - Number and Label
+                    Column {
+                        // Number
+                        Text(
+                            text = activeTeamMembersCount.toString(),
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                            color = Color.Black,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                        
+                        Spacer(modifier = Modifier.height(4.dp))
+                        
+                        // Label
+                        Text(
+                            text = "Team Members",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Normal,
+                            color = Color.Gray,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                }
+            }
+        }
         
         // Team Members Dialog
         if (showTeamMembersDialog) {
@@ -918,14 +1024,54 @@ private fun ProjectOverviewSection(
         }
         
         // Departments Card - Dynamic count (only departments with allocated budgets)
-        DynamicOverviewCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Settings,
-            iconColor = Color(0xFF9C27B0),
-            value = projectBudgetSummary.departmentBreakdown.count { it.budgetAllocated > 0 }.toString(),
-            label = "Departments",
-            subtitle = null
-        )
+        Card(
+            modifier = Modifier
+                .weight(1f)
+                .height(110.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
+            shape = RoundedCornerShape(16.dp)
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.SpaceBetween
+            ) {
+                // Icon at the top
+                Icon(
+                    imageVector = Icons.Default.Folder,
+                    contentDescription = "Departments",
+                    tint = Color(0xFF9C27B0),
+                    modifier = Modifier.size(24.dp)
+                )
+                
+                // Bottom section - Number and Label
+                Column {
+                    // Number
+                    Text(
+                        text = projectBudgetSummary.departmentBreakdown.count { it.budgetAllocated > 0 }.toString(),
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    // Label
+                    Text(
+                        text = "Departments",
+                        fontSize = 16.sp,
+                        fontWeight = FontWeight.Normal,
+                        color = Color.Gray,
+                        maxLines = 1,
+                        overflow = TextOverflow.Ellipsis
+                    )
+                }
+            }
+        }
     }
 }
 
@@ -937,7 +1083,8 @@ private fun DynamicOverviewCard(
     value: String,
     label: String,
     subtitle: String?,
-    onClick: (() -> Unit)? = null
+    onClick: (() -> Unit)? = null,
+    subtitleColor: Color = Color.Gray
 ) {
     Card(
         modifier = modifier
@@ -951,56 +1098,41 @@ private fun DynamicOverviewCard(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(16.dp),
-            verticalArrangement = Arrangement.SpaceBetween
+            verticalArrangement = Arrangement.Center
         ) {
-            // Top section - Icon and Label
-            Row(
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(28.dp)
-                        .background(
-                            iconColor.copy(alpha = 0.12f),
-                            RoundedCornerShape(8.dp)
-                        ),
-                    contentAlignment = Alignment.Center
-                ) {
-                    Icon(
-                        imageVector = icon,
-                        contentDescription = label,
-                        tint = iconColor,
-                        modifier = Modifier.size(16.dp)
-                    )
-                }
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = label,
-                    fontSize = 13.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Gray
-                )
-            }
+            // Main amount at the top
+            Text(
+                text = value,
+                fontSize = 28.sp,
+                fontWeight = FontWeight.Bold,
+                color = Color.Black,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
             
-            // Bottom section - Value and Subtitle
-            Column {
+            Spacer(modifier = Modifier.height(4.dp))
+            
+            // Label in the middle
+            Text(
+                text = label,
+                fontSize = 16.sp,
+                fontWeight = FontWeight.Normal,
+                color = Color.Gray,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            
+            // Remaining amount at the bottom
+            if (subtitle != null) {
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
-                    text = value,
-                    fontSize = 20.sp,
-                    fontWeight = FontWeight.Bold,
-                    color = Color.Black,
+                    text = subtitle,
+                    fontSize = 14.sp,
+                    fontWeight = FontWeight.Normal,
+                    color = subtitleColor,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis
                 )
-                if (subtitle != null) {
-                    Text(
-                        text = subtitle,
-                        fontSize = 11.sp,
-                        color = Color.Gray,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                }
             }
         }
     }
@@ -1093,13 +1225,13 @@ private fun DepartmentBudgetsSection(
         )
         
         Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
+            colors = CardDefaults.cardColors(containerColor = Color(0xFFE0E0E0)),
             shape = RoundedCornerShape(16.dp)
         ) {
             Text(
-                text = "Across the Project",
+                text = "Across All Projects",
                 fontSize = 14.sp,
-                color = Color(0xFF2E7D32),
+                color = Color(0xFF757575),
                 modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
             )
         }
@@ -1155,7 +1287,7 @@ private fun DepartmentBudgetCard(
         modifier = modifier
             .width(170.dp)
             .clickable { onClick() },
-        colors = CardDefaults.cardColors(containerColor = Color.White),
+        colors = CardDefaults.cardColors(containerColor = Color(0xFFF5F5F5)),
         elevation = CardDefaults.cardElevation(defaultElevation = 4.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
@@ -1164,84 +1296,85 @@ private fun DepartmentBudgetCard(
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            Text(
-                text = department.department,
-                fontSize = 16.sp,
-                fontWeight = FontWeight.Bold,
-                color = Color.Black,
-                modifier = Modifier.padding(bottom = 12.dp)
-            )
+            // Header with title and info icon
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = department.department,
+                    fontSize = 18.sp,
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black
+                )
+                Icon(
+                    imageVector = Icons.Default.Info,
+                    contentDescription = "Info",
+                    tint = Color.Gray,
+                    modifier = Modifier.size(16.dp)
+                )
+            }
             
+            Spacer(modifier = Modifier.height(12.dp))
+            
+            // Budget row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = "Budget:",
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     color = Color.Gray
                 )
                 Text(
-                    text = FormatUtils.formatCurrency(department.budgetAllocated),
-                    fontSize = 12.sp,
+                    text = formatCurrencyWithoutDecimals(department.budgetAllocated),
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
             }
             
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
+            // Spent row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = "Spent:",
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     color = Color.Gray
                 )
                 Text(
-                    text = FormatUtils.formatCurrency(department.spent),
-                    fontSize = 12.sp,
+                    text = formatCurrencyWithoutDecimals(department.spent),
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
             }
             
-            Spacer(modifier = Modifier.height(4.dp))
+            Spacer(modifier = Modifier.height(8.dp))
             
+            // Remaining row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
                 Text(
                     text = "Remaining:",
-                    fontSize = 12.sp,
+                    fontSize = 14.sp,
                     color = Color.Gray
                 )
                 Text(
-                    text = FormatUtils.formatCurrency(department.remaining),
-                    fontSize = 12.sp,
+                    text = formatCurrencyWithoutDecimals(department.remaining),
+                    fontSize = 16.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color(0xFF4CAF50)
                 )
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Progress Bar
-            val progress = if (department.budgetAllocated > 0) {
-                (department.spent / department.budgetAllocated).toFloat()
-            } else 0f
-            
-            LinearProgressIndicator(
-                progress = progress,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(4.dp),
-                color = Color(0xFF4285F4),
-                trackColor = Color(0xFFE0E0E0)
-            )
         }
     }
 }
@@ -1493,12 +1626,12 @@ private fun TeamMembersDialog(
         teamMemberIds.forEach { phoneNumber ->
             try {
                 val user = authViewModel.getUserByPhoneNumber(phoneNumber)
-                if (user != null) {
+                // Only add if user exists and is active
+                if (user != null && user.isActive) {
                     members.add(user)
                 }
             } catch (e: Exception) {
-                // If user not found, create a placeholder with phone number
-                members.add(User(uid = phoneNumber, name = "Unknown User", phone = phoneNumber))
+                // Ignore disabled or not found users
             }
         }
         

@@ -55,7 +55,7 @@ fun ProductionHeadUserManagementTab(
         ) {
             Spacer(modifier = Modifier.height(40.dp))
             
-            // Large icon below the title - iOS style with gradient effect
+            // Large icon below the title - Three person silhouettes
             Box(
                 modifier = Modifier
                     .size(120.dp)
@@ -63,35 +63,33 @@ fun ProductionHeadUserManagementTab(
                     .background(Color(0xFFE3F2FD)),
                 contentAlignment = Alignment.Center
             ) {
-                // Three stylized users - line art style
+                // Three person silhouettes - one solid, two outlined
                 Row(
                     horizontalArrangement = Arrangement.Center,
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     // First user (solid blue)
                     Icon(
-                        imageVector = Icons.Default.AccountCircle,
+                        imageVector = Icons.Default.Person,
                         contentDescription = null,
                         tint = Color(0xFF1976D2),
-                        modifier = Modifier.size(40.dp)
+                        modifier = Modifier.size(32.dp)
                     )
-                    // Second user (solid blue, slightly offset)
+                    Spacer(modifier = Modifier.width(4.dp))
+                    // Second user (lighter blue outline)
                     Icon(
-                        imageVector = Icons.Default.AccountCircle,
-                        contentDescription = null,
-                        tint = Color(0xFF1976D2),
-                        modifier = Modifier
-                            .size(40.dp)
-                            .offset(x = (-8).dp)
-                    )
-                    // Third user (lighter blue, outlined effect)
-                    Icon(
-                        imageVector = Icons.Default.AccountCircle,
+                        imageVector = Icons.Default.Person,
                         contentDescription = null,
                         tint = Color(0xFF90CAF9),
-                        modifier = Modifier
-                            .size(40.dp)
-                            .offset(x = (-16).dp)
+                        modifier = Modifier.size(28.dp)
+                    )
+                    Spacer(modifier = Modifier.width(4.dp))
+                    // Third user (lighter blue outline)
+                    Icon(
+                        imageVector = Icons.Default.Person,
+                        contentDescription = null,
+                        tint = Color(0xFF90CAF9),
+                        modifier = Modifier.size(28.dp)
                     )
                 }
             }

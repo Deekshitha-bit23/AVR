@@ -520,7 +520,8 @@ fun AppNavHost(
                         },
                         onShowAllExpenses = {
                             navController.navigate(Screen.AllExpenses.createRoute(projectId))
-                        }
+                        },
+                        navController = navController
                     )
                 }
                 else -> {
@@ -862,7 +863,10 @@ fun AppNavHost(
             val projectId = backStackEntry.arguments?.getString("projectId") ?: ""
             AllExpensesScreen(
                 projectId = projectId,
-                onNavigateBack = { navController.popBackStack() }
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToExpenseChat = { expenseId ->
+                    navController.navigate(Screen.UserExpenseChat.createRoute(expenseId))
+                }
             )
         }
 
@@ -969,6 +973,9 @@ fun AppNavHost(
                 },
                 onNavigateToProjectNotifications = { projectId ->
                     navController.navigate(Screen.ProjectNotifications.createRoute(projectId))
+                },
+                onNavigateToEditProject = { projectId ->
+                    navController.navigate(Screen.EditProject.createRoute(projectId))
                 },
                 onNavigateToChat = { projectId, projectName ->
                     navController.navigate(Screen.ChatList.createRoute(projectId, projectName))
@@ -1232,6 +1239,9 @@ fun AppNavHost(
                 },
                 onNavigateToDelegation = {
                     navController.navigate(Screen.Delegation.createRoute(projectId))
+                },
+                onNavigateToEditProject = { projectId ->
+                    navController.navigate(Screen.EditProject.createRoute(projectId))
                 },
                 onNavigateToChat = { projectId, projectName ->
                     navController.navigate(Screen.ChatList.createRoute(projectId, projectName))

@@ -27,6 +27,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.navigation.NavController
 import com.deeksha.avr.model.Project
 import com.deeksha.avr.model.Expense
 import com.deeksha.avr.model.ExpenseStatus
@@ -35,6 +36,7 @@ import com.deeksha.avr.viewmodel.NotificationViewModel
 import com.deeksha.avr.viewmodel.AuthViewModel
 import com.deeksha.avr.ui.common.NotificationBadgeComponent
 import com.deeksha.avr.model.ExpenseNotificationSummary
+import com.deeksha.avr.navigation.Screen
 import java.text.NumberFormat
 import java.util.*
 import com.deeksha.avr.utils.FormatUtils
@@ -51,7 +53,8 @@ fun ExpenseListScreen(
     onShowAllExpenses: () -> Unit = {},
     expenseViewModel: ExpenseViewModel = hiltViewModel(),
     notificationViewModel: NotificationViewModel = hiltViewModel(),
-    authViewModel: AuthViewModel = hiltViewModel()
+    authViewModel: AuthViewModel = hiltViewModel(),
+    navController: NavController
 ) {
     val expenseSummary by expenseViewModel.expenseSummary.collectAsState()
     val expenses by expenseViewModel.expenses.collectAsState()
@@ -111,7 +114,7 @@ fun ExpenseListScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(16.dp),
+                .padding(horizontal = 16.dp, vertical = 20.dp),
             verticalAlignment = Alignment.CenterVertically,
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
@@ -138,8 +141,8 @@ fun ExpenseListScreen(
                 }
             }) {
                 Icon(
-                    Icons.Default.Chat,
-                    contentDescription = "Chat",
+                    Icons.Default.Notifications,
+                    contentDescription = "Notifications",
                     tint = Color.Black
                 )
             }
@@ -179,7 +182,10 @@ fun ExpenseListScreen(
             item {
                 RecentExpensesCard(
                     expenses = expenses.take(4),
-                    onShowAll = onShowAllExpenses
+                    onShowAll = onShowAllExpenses,
+                    onNavigateToExpenseChat = { expenseId ->
+                        navController.navigate(Screen.UserExpenseChat.createRoute(expenseId))
+                    }
                 )
             }
             
@@ -751,7 +757,8 @@ fun DepartmentBudgetCard(
 @Composable
 fun RecentExpensesCard(
     expenses: List<Expense>,
-    onShowAll: () -> Unit
+    onShowAll: () -> Unit,
+    onNavigateToExpenseChat: (String) -> Unit = {}
 ) {
     Card(
         modifier = Modifier.fillMaxWidth(),
@@ -799,7 +806,10 @@ fun RecentExpensesCard(
                 )
             } else {
                 expenses.forEach { expense ->
-                    ExpenseRow(expense = expense)
+                    ExpenseRow(
+                        expense = expense,
+                        onNavigateToChat = { onNavigateToExpenseChat(expense.id) }
+                    )
                     if (expense != expenses.last()) {
                         Spacer(modifier = Modifier.height(16.dp))
                     }
@@ -810,7 +820,10 @@ fun RecentExpensesCard(
 }
 
 @Composable
-fun ExpenseRow(expense: Expense) {
+fun ExpenseRow(
+    expense: Expense,
+    onNavigateToChat: () -> Unit = {}
+) {
     val statusColor = when (expense.status) {
         ExpenseStatus.APPROVED -> Color(0xFF34C759)
         ExpenseStatus.PENDING -> Color(0xFFFFCC00)
@@ -823,9 +836,13 @@ fun ExpenseRow(expense: Expense) {
     
     Row(
         modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically
     ) {
-        Row(modifier = Modifier.weight(1f)) {
+        Row(
+            modifier = Modifier.weight(1f),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
             // Status dot
             Box(
                 modifier = Modifier
@@ -875,7 +892,9 @@ fun ExpenseRow(expense: Expense) {
                     Icon(
                         Icons.Default.Chat,
                         contentDescription = "Chat",
-                        modifier = Modifier.size(20.dp),
+                        modifier = Modifier
+                            .size(20.dp)
+                            .clickable { onNavigateToChat() },
                         tint = Color(0xFF007AFF)
                     )
                 }

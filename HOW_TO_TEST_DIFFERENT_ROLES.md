@@ -193,3 +193,4 @@ If you're still seeing the wrong screen after logout:
 2. Share the Logcat output after clicking "Development Skip"
 3. Check Firebase Console for the user data
 
+

@@ -41,6 +41,9 @@ class ProductionHeadViewModel @Inject constructor(
     private val _availableApprovers = MutableStateFlow<List<User>>(emptyList())
     val availableApprovers: StateFlow<List<User>> = _availableApprovers.asStateFlow()
     
+    private val _allUsersForManagement = MutableStateFlow<List<User>>(emptyList())
+    val allUsersForManagement: StateFlow<List<User>> = _allUsersForManagement.asStateFlow()
+    
     // Project Creation States
     private val _departmentBudgets = MutableStateFlow<List<DepartmentBudget>>(emptyList())
     val departmentBudgets: StateFlow<List<DepartmentBudget>> = _departmentBudgets.asStateFlow()
@@ -70,8 +73,9 @@ class ProductionHeadViewModel @Inject constructor(
                 val users = authRepository.getAllUsers()
                 android.util.Log.d("ProductionHeadViewModel", "📊 Found ${users.size} total users")
                 
-                val regularUsers = users.filter { it.role == UserRole.USER }
-                val approvers = users.filter { it.role == UserRole.APPROVER }
+                // Only expose ACTIVE users to the UI for selection
+                val regularUsers = users.filter { it.role == UserRole.USER && (it.isActive == true || it.isActive) }
+                val approvers = users.filter { it.role == UserRole.APPROVER && (it.isActive == true || it.isActive) }
                 
                 android.util.Log.d("ProductionHeadViewModel", "👥 Regular users: ${regularUsers.size}")
                 android.util.Log.d("ProductionHeadViewModel", "✅ Approvers: ${approvers.size}")
@@ -86,6 +90,11 @@ class ProductionHeadViewModel @Inject constructor(
                 
                 _availableUsers.value = regularUsers
                 _availableApprovers.value = approvers
+                
+                // Also store ALL users (including disabled) for the management screen
+                val allRegularUsers = users.filter { it.role == UserRole.USER }
+                val allApprovers = users.filter { it.role == UserRole.APPROVER }
+                _allUsersForManagement.value = allRegularUsers + allApprovers
                 
                 android.util.Log.d("ProductionHeadViewModel", "✅ Successfully loaded users")
             } catch (e: Exception) {
@@ -103,21 +112,41 @@ class ProductionHeadViewModel @Inject constructor(
             try {
                 android.util.Log.d("ProductionHeadViewModel", "🔄 Updating user active status: $phoneNumber to $isActive")
                 
-                // Update the user in the local lists immediately
+                // Get user's UID before updating
+                val userToUpdate = _allUsersForManagement.value.find { it.phone == phoneNumber }
+                val userId = userToUpdate?.uid ?: ""
+                
+                // Update the user in ALL lists immediately
                 val updatedUsers = _availableUsers.value.map { user ->
                     if (user.phone == phoneNumber) user.copy(isActive = isActive) else user
                 }
                 val updatedApprovers = _availableApprovers.value.map { user ->
                     if (user.phone == phoneNumber) user.copy(isActive = isActive) else user
                 }
+                val updatedAllUsers = _allUsersForManagement.value.map { user ->
+                    if (user.phone == phoneNumber) user.copy(isActive = isActive) else user
+                }
                 
                 _availableUsers.value = updatedUsers
                 _availableApprovers.value = updatedApprovers
+                _allUsersForManagement.value = updatedAllUsers
                 
                 // Update Firebase in the background
                 val result = authRepository.updateUserActiveStatus(phoneNumber, isActive)
                 if (result.isSuccess) {
                     android.util.Log.d("ProductionHeadViewModel", "✅ User active status updated successfully in Firebase")
+                    
+                    // If disabling the user, remove them from all projects
+                    if (!isActive && userId.isNotEmpty()) {
+                        android.util.Log.d("ProductionHeadViewModel", "🔄 Removing user from all projects")
+                        val removeResult = projectRepository.removeUserFromAllProjects(userId)
+                        if (removeResult.isSuccess) {
+                            val removedCount = removeResult.getOrNull() ?: 0
+                            android.util.Log.d("ProductionHeadViewModel", "✅ Successfully removed user from $removedCount project(s)")
+                        } else {
+                            android.util.Log.e("ProductionHeadViewModel", "❌ Failed to remove user from projects")
+                        }
+                    }
                 } else {
                     val errorMsg = result.exceptionOrNull()?.message ?: "Failed to update user status"
                     android.util.Log.e("ProductionHeadViewModel", "❌ User active status update failed: $errorMsg")

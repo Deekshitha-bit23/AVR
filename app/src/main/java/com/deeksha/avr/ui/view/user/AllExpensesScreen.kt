@@ -1,6 +1,7 @@
 package com.deeksha.avr.ui.view.user
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -34,6 +35,7 @@ import kotlinx.coroutines.delay
 fun AllExpensesScreen(
     projectId: String,
     onNavigateBack: () -> Unit,
+    onNavigateToExpenseChat: (String) -> Unit = {},
     expenseViewModel: ExpenseViewModel = hiltViewModel()
 ) {
     val expenses by expenseViewModel.expenses.collectAsState()
@@ -179,7 +181,10 @@ fun AllExpensesScreen(
                 verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 items(expenses) { expense ->
-                    ExpenseRowAllExpenses(expense = expense)
+                    ExpenseRowAllExpenses(
+                        expense = expense,
+                        onNavigateToChat = { onNavigateToExpenseChat(expense.id) }
+                    )
                 }
             }
         }
@@ -187,7 +192,10 @@ fun AllExpensesScreen(
 }
 
 @Composable
-private fun ExpenseRowAllExpenses(expense: Expense) {
+private fun ExpenseRowAllExpenses(
+    expense: Expense,
+    onNavigateToChat: () -> Unit = {}
+) {
     val statusColor = when (expense.status) {
         ExpenseStatus.APPROVED -> Color(0xFF34C759)
         ExpenseStatus.PENDING -> Color(0xFFFFCC00)
@@ -260,7 +268,9 @@ private fun ExpenseRowAllExpenses(expense: Expense) {
                         Icon(
                             Icons.Default.Chat,
                             contentDescription = "Chat",
-                            modifier = Modifier.size(20.dp),
+                            modifier = Modifier
+                                .size(20.dp)
+                                .clickable { onNavigateToChat() },
                             tint = Color(0xFF007AFF)
                         )
                     }

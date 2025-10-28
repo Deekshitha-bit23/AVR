@@ -9,7 +9,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Add
+import androidx.compose.material.icons.filled.AttachMoney
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Check
@@ -43,6 +43,7 @@ import java.text.NumberFormat
 import java.text.SimpleDateFormat
 import java.util.*
 import android.widget.Toast
+import androidx.compose.material.icons.filled.Add
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -127,7 +128,6 @@ fun NewProjectScreen(
     }
     
     // Department Budgets
-    var totalBudget by remember { mutableStateOf("") }
     var departmentName by remember { mutableStateOf("") }
     var departmentBudgetAmount by remember { mutableStateOf("") }
     
@@ -168,30 +168,10 @@ fun NewProjectScreen(
         }
     }
     
-    // Update total budget in viewmodel
-    LaunchedEffect(totalBudget) {
-        val budget = totalBudget.toDoubleOrNull() ?: 0.0
-        viewModel.updateTotalBudget(budget)
-    }
     
     // Date formatters
     val dateFormatter = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
     
-    // Budget validation
-    fun validateBudgetAllocation(newBudget: Double): Boolean {
-        val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
-        val newTotalAllocated = totalAllocated + newBudget
-        
-        if (newTotalAllocated > totalBudgetValue) {
-            Toast.makeText(
-                context,
-                "⚠️ Budget allocation (₹${NumberFormat.getNumberInstance(Locale("en", "IN")).format(newTotalAllocated)}) exceeds total budget (₹${NumberFormat.getNumberInstance(Locale("en", "IN")).format(totalBudgetValue)})",
-                Toast.LENGTH_LONG
-            ).show()
-            return false
-        }
-        return true
-    }
     
     LazyColumn(
         modifier = Modifier
@@ -558,9 +538,9 @@ fun NewProjectScreen(
                                 )
                                     
                                     val filteredApprovers = if (approverSearchQuery.isEmpty()) {
-                                        availableApprovers
+                                        availableApprovers.filter { it.isActive }
                                     } else {
-                                        availableApprovers.filter { 
+                                        availableApprovers.filter { it.isActive }.filter { 
                                             it.name.contains(approverSearchQuery, ignoreCase = true) || 
                                             it.phone.contains(approverSearchQuery, ignoreCase = true)
                                         }
@@ -762,9 +742,9 @@ fun NewProjectScreen(
                             )
                                 
                                 val filteredUsers = if (teamMemberSearchQuery.isEmpty()) {
-                                    availableUsers
+                                    availableUsers.filter { it.isActive }
                                 } else {
-                                    availableUsers.filter { 
+                                    availableUsers.filter { it.isActive }.filter { 
                                         it.name.contains(teamMemberSearchQuery, ignoreCase = true) || 
                                         it.phone.contains(teamMemberSearchQuery, ignoreCase = true)
                                     }
@@ -880,135 +860,94 @@ fun NewProjectScreen(
                             )
                         }
                         
-                        // Total Budget
-                        OutlinedTextField(
-                            value = totalBudget,
-                            onValueChange = { totalBudget = it },
-                            label = { Text("Total Budget *") },
-                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                        // Department Budget Entry
+                        Row(
                             modifier = Modifier.fillMaxWidth(),
-                            shape = RoundedCornerShape(8.dp),
-                            prefix = { Text("₹") },
-                            colors = OutlinedTextFieldDefaults.colors(
-                                focusedBorderColor = Color(0xFF007AFF),
-                                unfocusedBorderColor = Color(0xFFE0E0E0)
-                            )
-                        )
-                
-                // Department Budget Entry
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
-                ) {
+                        ) {
                             // Department input field
-                    OutlinedTextField(
-                        value = departmentName,
-                        onValueChange = { departmentName = it },
+                            OutlinedTextField(
+                                value = departmentName,
+                                onValueChange = { departmentName = it },
                                 label = { Text("DEPARTMENT") },
                                 placeholder = { Text("e.g., Marketing") },
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
-                        colors = OutlinedTextFieldDefaults.colors(
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
+                                colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color(0xFF007AFF),
-                            unfocusedBorderColor = Color(0xFFE0E0E0)
-                        ),
-                        singleLine = true
-                    )
-                    
-                    OutlinedTextField(
-                        value = departmentBudgetAmount,
-                        onValueChange = { departmentBudgetAmount = it },
+                                    unfocusedBorderColor = Color(0xFFE0E0E0)
+                                ),
+                                singleLine = true
+                            )
+                            
+                            // Budget display field (read-only)
+                            OutlinedTextField(
+                                value = departmentBudgetAmount,
+                                onValueChange = { departmentBudgetAmount = it },
                                 label = { Text("BUDGET") },
                                 placeholder = { Text("₹0") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.weight(1f),
-                        shape = RoundedCornerShape(8.dp),
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                modifier = Modifier.weight(1f),
+                                shape = RoundedCornerShape(8.dp),
                                 prefix = { Text("₹") },
                                 colors = OutlinedTextFieldDefaults.colors(
                                     focusedBorderColor = Color(0xFF007AFF),
                                     unfocusedBorderColor = Color(0xFFE0E0E0)
                                 )
                             )
-                            
-                            val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
-                            val remainingBudget = totalBudgetValue - totalAllocated
-                    
-                    IconButton(
-                        onClick = {
-                            if (departmentName.isNotEmpty() && departmentBudgetAmount.isNotEmpty()) {
-                                val budget = departmentBudgetAmount.toDoubleOrNull() ?: 0.0
-                                if (validateBudgetAllocation(budget)) {
-                                    viewModel.addDepartmentBudget(departmentName, budget)
-                                    departmentName = ""
-                                    departmentBudgetAmount = ""
-                                }
-                            }
-                        },
-                        enabled = remainingBudget > 0,
-                        modifier = Modifier
-                                    .size(48.dp)
-                            .background(
-                                        if (remainingBudget > 0) Color(0xFFE3F2FD) else Color(0xFFE0E0E0),
-                                RoundedCornerShape(8.dp)
-                            )
-                    ) {
-                        Icon(
-                            Icons.Default.Add,
-                            contentDescription = "Add Department",
-                                    tint = if (remainingBudget > 0) Color(0xFF007AFF) else Color(0xFF9E9E9E)
-                                )
-                            }
                         }
                         
                         // Add Department Button
                         Button(
                             onClick = {
                                 if (departmentName.isNotEmpty() && departmentBudgetAmount.isNotEmpty()) {
-                                    val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
-                                    val remainingBudget = totalBudgetValue - totalAllocated
                                     val budget = departmentBudgetAmount.toDoubleOrNull() ?: 0.0
-                                    if (validateBudgetAllocation(budget)) {
+                                    if (budget > 0) {
                                         viewModel.addDepartmentBudget(departmentName, budget)
                                         departmentName = ""
                                         departmentBudgetAmount = ""
+                                    } else {
+                                        Toast.makeText(context, "Please enter a valid budget amount", Toast.LENGTH_SHORT).show()
                                     }
+                                } else {
+                                    Toast.makeText(context, "Please enter both department name and budget", Toast.LENGTH_SHORT).show()
                                 }
                             },
-                        modifier = Modifier.fillMaxWidth(),
+                            modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.buttonColors(
-                                containerColor = Color(0xFFE3F2FD),
-                                contentColor = Color(0xFF007AFF)
+                                containerColor = Color(0xFF007AFF),
+                                contentColor = Color.White
                             ),
                             shape = RoundedCornerShape(8.dp)
-                    ) {
-                        Icon(
+                        ) {
+                            Icon(
                                 Icons.Default.Add,
                                 contentDescription = null,
                                 modifier = Modifier.size(20.dp)
                             )
                             Spacer(modifier = Modifier.width(8.dp))
-                        Text(
+                            Text(
                                 text = "Add Department",
                                 fontSize = 15.sp,
                                 fontWeight = FontWeight.SemiBold
                             )
-                }
-                
-                // Department Budget List
-                if (departmentBudgets.isNotEmpty()) {
-                    departmentBudgets.forEach { dept ->
-                        DepartmentBudgetItem(
-                            department = dept,
-                            onRemove = { viewModel.removeDepartmentBudget(dept.departmentName) }
-                        )
-                    }
-                }
-                
+                        }
+                        
+                        // Department Budget List
+                        if (departmentBudgets.isNotEmpty()) {
+                            departmentBudgets.forEach { dept ->
+                                DepartmentBudgetItem(
+                                    department = dept,
+                                    onRemove = { viewModel.removeDepartmentBudget(dept.departmentName) }
+                                )
+                            }
+                        }
+                        
                         // Total Budget Display
-                        val totalBudgetValue = totalBudget.toDoubleOrNull() ?: 0.0
+                        val totalBudgetValue = totalAllocated
                         Row(
-                        modifier = Modifier
+                            modifier = Modifier
                                 .fillMaxWidth()
                                 .background(Color(0xFFE8F5E9), RoundedCornerShape(8.dp))
                                 .padding(12.dp),
@@ -1016,8 +955,8 @@ fun NewProjectScreen(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(
-                                    Icons.Default.Info,
+                                Icon(
+                                    Icons.Default.AttachMoney,
                                     contentDescription = null,
                                     tint = Color(0xFF34A853),
                                     modifier = Modifier.size(18.dp)
@@ -1046,27 +985,27 @@ fun NewProjectScreen(
                 Button(
                     onClick = {
                         try {
-                            if (isFormValid(projectName, startDate, selectedApprover, selectedTeamMembers)) {
+                            if (isFormValid(projectName, startDate, selectedApprover, selectedTeamMembers, departmentBudgets)) {
                                 android.util.Log.d("NewProjectScreen", "🚀 Creating project with:")
                                 android.util.Log.d("NewProjectScreen", "  📋 Name: $projectName")
                                 android.util.Log.d("NewProjectScreen", "  📅 Start Date: $startDate")
                                 android.util.Log.d("NewProjectScreen", "  👤 Manager: ${selectedApprover?.name} (${selectedApprover?.uid})")
                                 android.util.Log.d("NewProjectScreen", "  👥 Team Members: ${selectedTeamMembers.size}")
-                                android.util.Log.d("NewProjectScreen", "  💰 Budget: $totalBudget")
+                                android.util.Log.d("NewProjectScreen", "  💰 Budget: $totalAllocated")
                                 
                                 viewModel.createProject(
                                     projectName = projectName,
                                     description = description,
                                     startDate = Timestamp(startDate!!),
                                     endDate = endDate?.let { Timestamp(it) },
-                                    totalBudget = totalBudget.toDoubleOrNull() ?: 0.0,
+                                    totalBudget = totalAllocated,
                                     managerId = selectedApprover!!.phone,
                                     teamMemberIds = selectedTeamMembers.map { it.phone },
                                     departmentBudgets = departmentBudgets,
                                     categories = projectCategories
                                 )
                             } else {
-                                val validationError = getFormValidationError(projectName, startDate, selectedApprover, selectedTeamMembers)
+                                val validationError = getFormValidationError(projectName, startDate, selectedApprover, selectedTeamMembers, departmentBudgets)
                                 Toast.makeText(context, validationError, Toast.LENGTH_LONG).show()
                             }
                         } catch (e: Exception) {
@@ -1074,7 +1013,7 @@ fun NewProjectScreen(
                             Toast.makeText(context, "Error creating project: ${e.message}", Toast.LENGTH_LONG).show()
                         }
                     },
-                    enabled = !isLoading && isFormValid(projectName, startDate, selectedApprover, selectedTeamMembers),
+                    enabled = !isLoading && isFormValid(projectName, startDate, selectedApprover, selectedTeamMembers, departmentBudgets),
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp),  // iOS button height
@@ -1697,25 +1636,29 @@ fun isFormValid(
     projectName: String,
     startDate: Date?,
     selectedApprover: User?,
-    selectedTeamMembers: List<User>
+    selectedTeamMembers: List<User>,
+    departmentBudgets: List<DepartmentBudget>
 ): Boolean {
     return projectName.isNotEmpty() &&
             startDate != null &&
             selectedApprover != null &&
-            selectedTeamMembers.isNotEmpty()
+            selectedTeamMembers.isNotEmpty() &&
+            departmentBudgets.isNotEmpty()
 }
 
 fun getFormValidationError(
     projectName: String,
     startDate: Date?,
     selectedApprover: User?,
-    selectedTeamMembers: List<User>
+    selectedTeamMembers: List<User>,
+    departmentBudgets: List<DepartmentBudget>
 ): String {
     return when {
         projectName.isEmpty() -> "Project name is required"
         startDate == null -> "Start date is required"
         selectedApprover == null -> "Please select a project manager (approver)"
         selectedTeamMembers.isEmpty() -> "Please select at least one team member"
+        departmentBudgets.isEmpty() -> "Please add at least one department with budget"
         else -> "Please fill in all required fields"
     }
 } 

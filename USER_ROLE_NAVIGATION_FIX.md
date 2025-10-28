@@ -108,3 +108,4 @@ adb logcat -s AppNavHost AuthRepository -d > role_check.log
 
 This will capture all navigation and authentication logs to help identify the issue.
 
+

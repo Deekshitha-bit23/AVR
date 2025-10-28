@@ -31,8 +31,7 @@ fun ViewAllUsersScreen(
     onNavigateBack: () -> Unit,
     viewModel: ProductionHeadViewModel = hiltViewModel()
 ) {
-    val availableUsers by viewModel.availableUsers.collectAsState()
-    val availableApprovers by viewModel.availableApprovers.collectAsState()
+    val allUsersForManagement by viewModel.allUsersForManagement.collectAsState()
     val isLoading by viewModel.isLoading.collectAsState()
     val error by viewModel.error.collectAsState()
     
@@ -41,8 +40,8 @@ fun ViewAllUsersScreen(
         viewModel.loadUsers()
     }
     
-    // Combine and sort all users
-    val allUsers = (availableUsers + availableApprovers).sortedBy { it.name }
+    // Use all users (including disabled) for the management screen
+    val allUsers = allUsersForManagement.sortedBy { it.name }
     val userCount = allUsers.size
     
     Scaffold(

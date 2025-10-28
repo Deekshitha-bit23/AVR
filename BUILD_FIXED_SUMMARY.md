@@ -76,3 +76,4 @@ Before attempting to redesign the New Project screen again:
 3. Count opening/closing braces
 4. Test incrementally
 
+

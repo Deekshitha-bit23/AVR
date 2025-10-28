@@ -11,8 +11,12 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Chat
+import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.ExitToApp
 import androidx.compose.material.icons.filled.Menu
+import androidx.compose.material.icons.filled.Info
+import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.DateRange
 import androidx.compose.material3.*
@@ -37,6 +41,8 @@ import java.text.NumberFormat
 import java.util.*
 import com.deeksha.avr.viewmodel.AuthViewModel
 import kotlinx.coroutines.delay
+import androidx.compose.ui.graphics.vector.ImageVector
+
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -278,25 +284,139 @@ fun NewProjectSelectionScreen(
             modifier = Modifier
                 .fillMaxWidth()
                 .background(Color.White)
-                .padding(16.dp)
+                .padding(horizontal = 16.dp, vertical = 20.dp)
         ) {
-            // Hamburger menu on the right
-            IconButton(
-                onClick = { /* TODO: Open menu */ },
-                modifier = Modifier.align(Alignment.CenterEnd)
+            // Notifications icon and hamburger menu on the right
+            var showMenu by remember { mutableStateOf(false) }
+            Row(
+                modifier = Modifier.align(Alignment.CenterEnd),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
-                Icon(
-                    Icons.Default.Menu,
-                    contentDescription = "Menu",
-                    tint = Color.Black
-                )
+                // Notification icon with badge
+                Box {
+                    IconButton(
+                        onClick = { onNotificationClick(effectiveUserId) }
+                    ) {
+                        Icon(
+                            Icons.Default.Notifications,
+                            contentDescription = "Notifications",
+                            tint = Color.Black
+                        )
+                    }
+                    // Notification badge
+                    if (notificationBadge.hasUnread && notificationBadge.count > 0) {
+                        Badge(
+                            modifier = Modifier.align(Alignment.TopEnd)
+                        ) {
+                            Text(
+                                text = if (notificationBadge.count > 99) "99+" else notificationBadge.count.toString(),
+                                fontSize = 10.sp
+                            )
+                        }
+                    }
+                }
+                
+                // Hamburger menu
+                IconButton(
+                    onClick = { showMenu = true }
+                ) {
+                    Icon(
+                        Icons.Default.Menu,
+                        contentDescription = "Menu",
+                        tint = Color.Black
+                    )
+                }
+            }
+
+            if (showMenu) {
+                ModalBottomSheet(
+                    onDismissRequest = { showMenu = false },
+                    containerColor = Color.White
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(24.dp)
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Column {
+                                Text(
+                                    text = "Menu",
+                                    fontSize = 20.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                                Text(
+                                    text = "Settings & Account",
+                                    fontSize = 14.sp,
+                                    color = Color.Gray
+                                )
+                            }
+                            IconButton(onClick = { showMenu = false }) {
+                                Icon(
+                                    Icons.Default.Close,
+                                    contentDescription = "Close",
+                                    tint = Color.Gray
+                                )
+                            }
+                        }
+
+                        Spacer(modifier = Modifier.height(24.dp))
+
+                        // About
+                        UserMenuItem(
+                            icon = Icons.Default.Info,
+                            iconColor = Color(0xFF42A5F5),
+                            iconBackgroundColor = Color(0xFFE3F2FD),
+                            title = "About",
+                            subtitle = "App information & version",
+                            onClick = { /* reserved for About navigation */ }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Settings
+                        UserMenuItem(
+                            icon = Icons.Default.Settings,
+                            iconColor = Color(0xFF42A5F5),
+                            iconBackgroundColor = Color(0xFFE3F2FD),
+                            title = "Settings",
+                            subtitle = "Preferences & configuration",
+                            onClick = { /* reserved for Settings navigation */ }
+                        )
+
+                        Spacer(modifier = Modifier.height(8.dp))
+
+                        // Sign Out
+                        UserMenuItem(
+                            icon = Icons.Default.ExitToApp,
+                            iconColor = Color.White,
+                            iconBackgroundColor = Color.Red,
+                            title = "Sign Out",
+                            subtitle = "Logout from your account",
+                            onClick = {
+                                showMenu = false
+                                onLogout()
+                            },
+                            titleColor = Color.Red,
+                            subtitleColor = Color.Red,
+                            containerColor = Color(0xFFFFEBEE)
+                        )
+
+                        Spacer(modifier = Modifier.height(16.dp))
+                    }
+                }
             }
         }
         
         Column(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(horizontal = 24.dp, vertical = 16.dp)
+                .padding(horizontal = 24.dp, vertical = 12.dp)
         ) {
             // Title - iOS style
             Row(
@@ -457,7 +577,8 @@ fun NewProjectCard(
     project: Project,
     onProjectClick: () -> Unit,
     onChatClick: () -> Unit = {},
-    projectNotifications: List<com.deeksha.avr.model.Notification> = emptyList()
+    projectNotifications: List<com.deeksha.avr.model.Notification> = emptyList(),
+    showChatIcon: Boolean = true
 ) {
     // Calculate days left
     val daysLeft = if (project.endDate != null) {
@@ -534,21 +655,23 @@ fun NewProjectCard(
                         }
                     }
                     
-                    // Chat button - circular with chat icon
-                    Box(
-                        modifier = Modifier
-                            .size(32.dp)
-                            .clip(CircleShape)
-                            .clickable(onClick = onChatClick)
-                            .background(Color(0xFFE3F2FD)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            Icons.Default.Chat,
-                            contentDescription = "Chat",
-                            tint = Color(0xFF1976D2),
-                            modifier = Modifier.size(16.dp)
-                        )
+                    // Optional Chat button - circular with chat icon
+                    if (showChatIcon) {
+                        Box(
+                            modifier = Modifier
+                                .size(32.dp)
+                                .clip(CircleShape)
+                                .clickable(onClick = onChatClick)
+                                .background(Color(0xFFE3F2FD)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                Icons.Default.Chat,
+                                contentDescription = "Chat",
+                                tint = Color(0xFF1976D2),
+                                modifier = Modifier.size(16.dp)
+                            )
+                        }
                     }
                 }
             }
@@ -637,6 +760,68 @@ fun NewProjectCard(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun UserMenuItem(
+    icon: ImageVector,
+    iconColor: Color,
+    iconBackgroundColor: Color,
+    title: String,
+    subtitle: String,
+    onClick: () -> Unit,
+    titleColor: Color = Color.Black,
+    subtitleColor: Color = Color.Gray,
+    containerColor: Color = Color.White
+) {
+    Surface(
+        onClick = onClick,
+        shape = RoundedCornerShape(12.dp),
+        color = containerColor,
+        modifier = Modifier
+            .fillMaxWidth()
+            .padding(vertical = 4.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier
+                    .size(40.dp)
+                    .clip(CircleShape)
+                    .background(iconBackgroundColor),
+                contentAlignment = Alignment.Center
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = null,
+                    tint = iconColor
+                )
+            }
+            Spacer(modifier = Modifier.width(12.dp))
+            Column(modifier = Modifier.weight(1f)) {
+                Text(
+                    text = title,
+                    fontSize = 16.sp,
+                    fontWeight = FontWeight.Medium,
+                    color = titleColor
+                )
+                Text(
+                    text = subtitle,
+                    fontSize = 13.sp,
+                    color = subtitleColor
+                )
+            }
+            Icon(
+                imageVector = Icons.Default.ChevronRight,
+                contentDescription = null,
+                tint = Color.Gray
+            )
         }
     }
 }

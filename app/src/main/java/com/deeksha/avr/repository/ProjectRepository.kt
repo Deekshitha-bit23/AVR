@@ -452,6 +452,56 @@ class ProjectRepository @Inject constructor(
     }
     
     /**
+     * Remove a user from all projects where they are team members
+     * This is called when a user is disabled
+     */
+    suspend fun removeUserFromAllProjects(userId: String): Result<Int> {
+        return try {
+            Log.d("ProjectRepository", "🔄 Removing user $userId from all projects")
+            
+            // Get all projects where this user is a team member
+            val snapshot = firestore.collection("projects")
+                .whereArrayContains("teamMembers", userId)
+                .get()
+                .await()
+            
+            var removedCount = 0
+            
+            // Remove user from each project
+            snapshot.documents.forEach { doc ->
+                val projectData = doc.data ?: emptyMap()
+                val currentTeamMembers = projectData["teamMembers"] as? List<String> ?: emptyList()
+                
+                // Remove the user from the list
+                val updatedTeamMembers = currentTeamMembers.filter { it != userId }
+                
+                if (updatedTeamMembers.size < currentTeamMembers.size) {
+                    // Update the project with the new team members list
+                    firestore.collection("projects")
+                        .document(doc.id)
+                        .update(
+                            mapOf(
+                                "teamMembers" to updatedTeamMembers,
+                                "updatedAt" to com.google.firebase.Timestamp.now()
+                            )
+                        )
+                        .await()
+                    
+                    removedCount++
+                    Log.d("ProjectRepository", "✅ Removed user from project: ${doc.data?.get("name")}")
+                }
+            }
+            
+            Log.d("ProjectRepository", "✅ Successfully removed user from $removedCount project(s)")
+            Result.success(removedCount)
+            
+        } catch (e: Exception) {
+            Log.e("ProjectRepository", "❌ Error removing user from projects: ${e.message}", e)
+            Result.failure(e)
+        }
+    }
+    
+    /**
      * Check if delegation is still active for a user in a project
      * This method can be called from UI layer to filter expired delegations
      */
