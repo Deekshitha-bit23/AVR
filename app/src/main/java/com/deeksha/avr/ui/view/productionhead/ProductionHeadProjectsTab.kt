@@ -41,7 +41,7 @@ fun ProductionHeadProjectsTab(
     val isLoading by projectViewModel.isLoading.collectAsState()
     val error by projectViewModel.error.collectAsState()
     var showFilterMenu by remember { mutableStateOf(false) }
-    var selectedFilter by remember { mutableStateOf("All") }
+    var selectedFilter by remember { mutableStateOf("All Projects") }
     var showMainMenu by remember { mutableStateOf(false) }
     
     // Load projects when screen appears
@@ -52,6 +52,7 @@ fun ProductionHeadProjectsTab(
     // Filter projects based on selection
     val filteredProjects = when (selectedFilter) {
         "Active" -> projects.filter { it.status == "ACTIVE" }
+        "Inactive" -> projects.filter { it.status == "INACTIVE" }
         "Completed" -> projects.filter { it.status == "COMPLETED" }
         else -> projects
     }
@@ -81,7 +82,9 @@ fun ProductionHeadProjectsTab(
                 verticalAlignment = Alignment.CenterVertically
             ) {
                 // Filter dropdown - "All" button style
-                Box {
+                Box(
+                    modifier = Modifier.offset(x = (-8).dp)
+                ) {
                     Surface(
                         onClick = { showFilterMenu = true },
                         shape = RoundedCornerShape(20.dp),
@@ -93,7 +96,7 @@ fun ProductionHeadProjectsTab(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(
-                                text = selectedFilter,
+                                text = if (selectedFilter == "All Projects") "All" else selectedFilter,
                                 fontSize = 14.sp,
                                 color = Color(0xFF1976D2),
                                 fontWeight = FontWeight.Medium
@@ -110,16 +113,50 @@ fun ProductionHeadProjectsTab(
                     
                     DropdownMenu(
                         expanded = showFilterMenu,
-                        onDismissRequest = { showFilterMenu = false }
-                    ) {
-                        listOf("All", "Active", "Completed").forEach { filter ->
-                            DropdownMenuItem(
-                                text = { Text(filter) },
-                                onClick = {
-                                    selectedFilter = filter
-                                    showFilterMenu = false
-                                }
+                        onDismissRequest = { showFilterMenu = false },
+                        modifier = Modifier
+                            .background(
+                                color = Color.Transparent,
+                                shape = RoundedCornerShape(12.dp)
                             )
+                    ) {
+                        Card(
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(
+                                containerColor = Color(0xFFEEEEEE)
+                            ),
+                            shape = RoundedCornerShape(12.dp),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp)
+                        ) {
+                            Column(
+                                modifier = Modifier.padding(vertical = 4.dp)
+                            ) {
+                                listOf("All Projects", "Active", "Inactive", "Completed").forEachIndexed { index, filter ->
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .clickable {
+                                                selectedFilter = filter
+                                                showFilterMenu = false
+                                            }
+                                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                                    ) {
+                                        Text(
+                                            text = filter,
+                                            fontSize = 14.sp,
+                                            color = Color.Black,
+                                            fontWeight = if (filter == "All Projects") FontWeight.Medium else FontWeight.Normal
+                                        )
+                                    }
+                                    if (index < 3) {
+                                        Divider(
+                                            color = Color(0xFFE0E0E0),
+                                            thickness = 0.5.dp,
+                                            modifier = Modifier.padding(horizontal = 16.dp)
+                                        )
+                                    }
+                                }
+                            }
                         }
                     }
                 }

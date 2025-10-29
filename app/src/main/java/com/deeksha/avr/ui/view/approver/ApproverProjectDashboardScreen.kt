@@ -290,7 +290,7 @@ fun ApproverProjectDashboardScreen(
                         verticalAlignment = Alignment.CenterVertically,
                         horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        // Edit project button
+                        // Edit project button only (notification icon removed)
                         IconButton(onClick = { onNavigateToEditProject(projectId) }) {
                             Icon(
                                 imageVector = Icons.Default.Edit,
@@ -298,23 +298,6 @@ fun ApproverProjectDashboardScreen(
                                 tint = Color(0xFF4285F4),
                                 modifier = Modifier.size(20.dp)
                             )
-                        }
-                        
-                        // Notifications button
-                        Box {
-                            IconButton(onClick = { onNavigateToProjectNotifications(projectId) }) {
-                                Icon(
-                                    Icons.Default.Notifications,
-                                    contentDescription = "Project Notifications",
-                                    tint = Color.Black
-                                )
-                            }
-                        
-                        // Project-specific notification badge
-                        NotificationBadgeComponent(
-                            badge = projectNotificationBadge,
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        )
                         }
                     }
                 },
@@ -898,18 +881,59 @@ private fun ProjectOverviewSection(
         horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         // Temp Approver Card
-        DynamicOverviewCard(
-            modifier = Modifier.weight(1f),
-            icon = Icons.Default.Person,
-            iconColor = Color(0xFFFF9800),
-            value = temporaryApproverUser?.name ?: "N/A",
-            label = "Temp Approver",
-            subtitle = if (currentTemporaryApprover?.expiringDate != null) {
-                "Until: ${FormatUtils.formatDate(currentTemporaryApprover.expiringDate)}"
-            } else if (temporaryApproverUser != null) {
-                "Ongoing"
-            } else null
-        )
+        if (currentTemporaryApprover != null || temporaryApproverUser != null) {
+            // Show temp approver details when assigned
+            DynamicOverviewCard(
+                modifier = Modifier.weight(1f),
+                icon = Icons.Default.Person,
+                iconColor = Color(0xFFFF9800),
+                value = temporaryApproverUser?.name ?: "N/A",
+                label = "Temp Approver",
+                subtitle = if (currentTemporaryApprover?.expiringDate != null) {
+                    "Until: ${FormatUtils.formatDate(currentTemporaryApprover.expiringDate)}"
+                } else if (temporaryApproverUser != null) {
+                    "Ongoing"
+                } else null
+            )
+        } else {
+            // Show ACTIVE status card when no temp approver assigned
+            Card(
+                modifier = Modifier.weight(1f),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+                shape = RoundedCornerShape(12.dp)
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp)
+                ) {
+                    // Green circle indicator
+                    Box(
+                        modifier = Modifier
+                            .size(12.dp)
+                            .background(Color(0xFF4CAF50), CircleShape)
+                    )
+                    
+                    Spacer(modifier = Modifier.height(8.dp))
+                    
+                    // ACTIVE text - matching other cards' main value size
+                    Text(
+                        text = "ACTIVE",
+                        fontSize = 28.sp,
+                        fontWeight = FontWeight.Bold,
+                        color = Color.Black
+                    )
+                    
+                    Spacer(modifier = Modifier.height(4.dp))
+                    
+                    // Project Status text - matching other cards' label size
+                    Text(
+                        text = "Project Status",
+                        fontSize = 16.sp,
+                        color = Color.Gray
+                    )
+                }
+            }
+        }
         
         // Total Budget Card  
         DynamicOverviewCard(
@@ -1399,17 +1423,17 @@ private fun DepartmentDistributionSection(
             color = Color.Black
         )
         
-        Card(
-            colors = CardDefaults.cardColors(containerColor = Color(0xFFE8F5E8)),
-            shape = RoundedCornerShape(16.dp)
-        ) {
-            Text(
-                text = "Budget Allocation",
-                fontSize = 14.sp,
-                color = Color(0xFF2E7D32),
-                modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
-            )
-        }
+                    Card(
+                        colors = CardDefaults.cardColors(containerColor = Color(0xFFE0E0E0)),
+                        shape = RoundedCornerShape(16.dp)
+                    ) {
+                        Text(
+                            text = "Budget Allocation",
+                            fontSize = 14.sp,
+                            color = Color(0xFF757575),
+                            modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp)
+                        )
+                    }
     }
     
     Spacer(modifier = Modifier.height(16.dp))
@@ -1442,27 +1466,31 @@ private fun DepartmentDistributionSection(
                             modifier = Modifier.fillMaxSize()
                         )
                         
-                        // Center content
-                        Column(
-                            modifier = Modifier.align(Alignment.Center),
-                            horizontalAlignment = Alignment.CenterHorizontally
+                        // Center content - iOS-style pill card with Total Budget
+                        val totalBudget = departmentBreakdown.sumOf { it.budgetAllocated }
+                        Card(
+                            modifier = Modifier
+                                .align(Alignment.Center),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(defaultElevation = 6.dp),
+                            shape = RoundedCornerShape(12.dp)
                         ) {
-                            Text(
-                                text = "Total Spent",
-                                fontSize = 12.sp,
-                                color = Color.Gray
-                            )
-                            Text(
-                                text = FormatUtils.formatCurrency(departmentBreakdown.sumOf { it.spent }),
-                                fontSize = 18.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                            Text(
-                                text = "₹",
-                                fontSize = 14.sp,
-                                color = Color.Gray
-                            )
+                            Column(
+                                modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Text(
+                                    text = "Total Budget",
+                                    fontSize = 12.sp,
+                                    color = Color.Gray
+                                )
+                                Text(
+                                    text = FormatUtils.formatCurrency(totalBudget),
+                                    fontSize = 18.sp,
+                                    fontWeight = FontWeight.Bold,
+                                    color = Color.Black
+                                )
+                            }
                         }
                     }
                 }

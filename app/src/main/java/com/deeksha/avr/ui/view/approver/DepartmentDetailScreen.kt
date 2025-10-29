@@ -7,20 +7,25 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material.icons.filled.CheckCircle
+import androidx.compose.material.icons.filled.Edit
+import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Notifications
 import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Person
 import androidx.compose.material.icons.filled.Payment
+import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
@@ -39,6 +44,9 @@ fun DepartmentDetailScreen(
     projectId: String,
     departmentName: String,
     onNavigateBack: () -> Unit,
+    onNavigateToExpenseChat: (String) -> Unit = {},
+    onNavigateToReview: (String) -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {},
     reportsViewModel: ReportsViewModel = hiltViewModel(),
     projectViewModel: ProjectViewModel = hiltViewModel()
 ) {
@@ -116,20 +124,22 @@ fun DepartmentDetailScreen(
             .fillMaxSize()
             .background(Color(0xFFF5F5F5))
     ) {
-        // Top Bar
-        TopAppBar(
+        // Top Bar - Center aligned to match reference image
+        CenterAlignedTopAppBar(
             title = {
-                Column {
+                Column(
+                    horizontalAlignment = Alignment.CenterHorizontally
+                ) {
                     Text(
                         text = departmentName,
                         fontSize = 20.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = Color.Black
                     )
                     Text(
                         text = "Department Expenses",
                         fontSize = 14.sp,
-                        color = Color.White.copy(alpha = 0.8f)
+                        color = Color.Gray
                     )
                 }
             },
@@ -137,13 +147,13 @@ fun DepartmentDetailScreen(
                 TextButton(onClick = onNavigateBack) {
                     Text(
                         text = "Done",
-                        color = Color.White,
+                        color = Color(0xFF4285F4),
                         fontSize = 16.sp
                     )
                 }
             },
             colors = TopAppBarDefaults.topAppBarColors(
-                containerColor = Color(0xFF4285F4)
+                containerColor = Color.White
             )
         )
         
@@ -173,24 +183,27 @@ fun DepartmentDetailScreen(
                                 .fillMaxWidth()
                                 .padding(20.dp)
                         ) {
-                            Text(
-                                text = "Department Budget",
-                                fontSize = 16.sp,
-                                color = Color.Gray
-                            )
-                            Text(
-                                text = FormatUtils.formatCurrency(departmentBudget),
-                                fontSize = 24.sp,
-                                fontWeight = FontWeight.Bold,
-                                color = Color.Black
-                            )
-                            
-                            Spacer(modifier = Modifier.height(16.dp))
-                            
+                            // Budget Row - Total Budget, Spent, Remaining
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 horizontalArrangement = Arrangement.SpaceBetween
                             ) {
+                                // Total Budget Column
+                                Column {
+                                    Text(
+                                        text = "Total Budget",
+                                        fontSize = 14.sp,
+                                        color = Color.Gray
+                                    )
+                                    Text(
+                                        text = FormatUtils.formatCurrency(departmentBudget),
+                                        fontSize = 18.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        color = Color.Black
+                                    )
+                                }
+                                
+                                // Spent Column
                                 Column {
                                     Text(
                                         text = "Spent",
@@ -204,6 +217,8 @@ fun DepartmentDetailScreen(
                                         color = Color(0xFF4CAF50)
                                     )
                                 }
+                                
+                                // Remaining Column
                                 Column {
                                     Text(
                                         text = "Remaining",
@@ -214,19 +229,27 @@ fun DepartmentDetailScreen(
                                         text = FormatUtils.formatCurrency(remaining),
                                         fontSize = 18.sp,
                                         fontWeight = FontWeight.Bold,
-                                        color = Color(0xFF4285F4)
+                                        color = if (remaining < 0) Color(0xFFF44336) else Color(0xFF4285F4)
                                     )
                                 }
                             }
                             
-                            Spacer(modifier = Modifier.height(16.dp))
+                            Spacer(modifier = Modifier.height(20.dp))
                             
+                            // Budget Utilization Section
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
+                                Text(
+                                    text = "Budget Utilization",
+                                    fontSize = 16.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    color = Color.Black
+                                )
+                                Spacer(modifier = Modifier.width(12.dp))
                                 LinearProgressIndicator(
-                                    progress = budgetUtilization / 100f,
+                                    progress = minOf(budgetUtilization / 100f, 1f),
                                     modifier = Modifier
                                         .weight(1f)
                                         .height(8.dp),
@@ -315,7 +338,18 @@ fun DepartmentDetailScreen(
                 // Expenses List
                 if (filteredExpenses.isNotEmpty()) {
                     items(filteredExpenses) { expense ->
-                        ModernExpenseCard(expense = expense)
+                        ModernExpenseCard(
+                            expense = expense,
+                            onNavigateToExpenseChat = { expenseId ->
+                                onNavigateToExpenseChat(expenseId)
+                            },
+                            onNavigateToReview = { expenseId ->
+                                onNavigateToReview(expenseId)
+                            },
+                            onNavigateToDetail = { expenseId ->
+                                onNavigateToDetail(expenseId)
+                            }
+                        )
                     }
                 } else {
                     item {
@@ -353,9 +387,22 @@ fun DepartmentDetailScreen(
 }
 
 @Composable
-private fun ModernExpenseCard(expense: DetailedExpense) {
+private fun ModernExpenseCard(
+    expense: DetailedExpense,
+    onNavigateToExpenseChat: (String) -> Unit = {},
+    onNavigateToReview: (String) -> Unit = {},
+    onNavigateToDetail: (String) -> Unit = {}
+) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .let { base ->
+                when (expense.status) {
+                    ExpenseStatus.PENDING -> base.clickable { onNavigateToReview(expense.id) }
+                    ExpenseStatus.APPROVED -> base.clickable { onNavigateToDetail(expense.id) }
+                    else -> base
+                }
+            },
         colors = CardDefaults.cardColors(containerColor = Color.White),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
         shape = RoundedCornerShape(12.dp)
@@ -365,102 +412,123 @@ private fun ModernExpenseCard(expense: DetailedExpense) {
                 .fillMaxWidth()
                 .padding(16.dp)
         ) {
-            // Amount and Date Row
+            // Top row: Amount (left) and date + status + chat (right)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.Top
             ) {
+                // Amount
                 Text(
                     text = FormatUtils.formatCurrency(expense.amount),
-                    fontSize = 18.sp,
+                    fontSize = 20.sp,
                     fontWeight = FontWeight.Bold,
                     color = Color.Black
                 )
                 
-                Text(
-                    text = expense.date?.let { FormatUtils.formatDateShort(it) } ?: "No date",
-                    fontSize = 14.sp,
-                    color = Color.Gray
-                )
+                Column(
+                    horizontalAlignment = Alignment.End
+                ) {
+                    Text(
+                        text = expense.date?.let { FormatUtils.formatDate(it) } ?: "No date",
+                        fontSize = 12.sp,
+                        color = Color.Gray
+                    )
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        // Softer status pill with icon
+                        val statusBg: Color
+                        val statusFg: Color
+                        val statusLabel: String
+                        val statusIcon = when (expense.status) {
+                            ExpenseStatus.APPROVED -> {
+                                statusBg = Color(0xFFE8F5E9); statusFg = Color(0xFF4CAF50); statusLabel = "Approved"; Icons.Default.CheckCircle
+                            }
+                            ExpenseStatus.PENDING -> {
+                                statusBg = Color(0xFFFFF3E0); statusFg = Color(0xFFFF9800); statusLabel = "Pending"; Icons.Default.Info
+                            }
+                            ExpenseStatus.REJECTED -> {
+                                statusBg = Color(0xFFFFEBEE); statusFg = Color(0xFFD32F2F); statusLabel = "Rejected"; Icons.Default.Close
+                            }
+                            ExpenseStatus.DRAFT -> {
+                                statusBg = Color(0xFFE0E0E0); statusFg = Color(0xFF616161); statusLabel = "Draft"; Icons.Default.Edit
+                            }
+                        }
+                        Card(
+                            colors = CardDefaults.cardColors(containerColor = statusBg),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
+                            ) {
+                                Icon(statusIcon, contentDescription = null, tint = statusFg, modifier = Modifier.size(14.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text(statusLabel, color = statusFg, fontSize = 12.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+                        // Chat bubble
+                        if (expense.status == ExpenseStatus.PENDING) {
+                            Box(
+                                modifier = Modifier
+                                    .size(28.dp)
+                                    .clip(CircleShape)
+                                    .background(Color(0xFFE3F2FD))
+                                    .clickable { onNavigateToExpenseChat(expense.id) },
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Chat,
+                                    contentDescription = "Chat",
+                                    tint = Color(0xFF1976D2),
+                                    modifier = Modifier.size(16.dp)
+                                )
+                            }
+                        }
+                    }
+                }
             }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Description (using invoice as description for DetailedExpense)
+
+            Spacer(modifier = Modifier.height(12.dp))
+
+            // Description (invoice used as description)
             if (expense.invoice.isNotEmpty() && expense.invoice != "N/A") {
                 Text(
                     text = expense.invoice,
-                    fontSize = 16.sp,
+                    fontSize = 14.sp,
                     color = Color.Black
                 )
-                Spacer(modifier = Modifier.height(8.dp))
+                Spacer(modifier = Modifier.height(12.dp))
             }
-            
-            // Department and Status Row
+
+            // Subcategory and Submitted By row
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Department
+                // Sub category / department
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Icon(
                         Icons.Default.Payment,
-                        contentDescription = "Department",
+                        contentDescription = "Category",
                         tint = Color(0xFF4285F4),
                         modifier = Modifier.size(16.dp)
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = expense.department,
-                        fontSize = 14.sp,
+                        fontSize = 13.sp,
                         color = Color(0xFF4285F4),
                         fontWeight = FontWeight.Medium
                     )
                 }
                 
-                // Status Badge (dynamic based on actual status)
-                val statusColor = when (expense.status) {
-                    ExpenseStatus.APPROVED -> Color(0xFF4CAF50)
-                    ExpenseStatus.PENDING -> Color(0xFFFF9800)
-                    ExpenseStatus.REJECTED -> Color(0xFFF44336)
-                    ExpenseStatus.DRAFT -> Color(0xFF9E9E9E)
-                }
-                
-                val statusText = when (expense.status) {
-                    ExpenseStatus.APPROVED -> "Approved"
-                    ExpenseStatus.PENDING -> "Pending"
-                    ExpenseStatus.REJECTED -> "Rejected"
-                    ExpenseStatus.DRAFT -> "Draft"
-                }
-                
-                Card(
-                    colors = CardDefaults.cardColors(
-                        containerColor = statusColor
-                    ),
-                    shape = RoundedCornerShape(16.dp)
-                ) {
-                    Text(
-                        text = statusText,
-                        fontSize = 12.sp,
-                        color = Color.White,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp)
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(8.dp))
-            
-            // Submitted By and Payment Method Row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
                 // Submitted By
                 Row(
                     verticalAlignment = Alignment.CenterVertically
@@ -474,29 +542,6 @@ private fun ModernExpenseCard(expense: DetailedExpense) {
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
                         text = "Submitted by: ${expense.by}",
-                        fontSize = 12.sp,
-                        color = Color.Black
-                    )
-                }
-                
-                // Payment Method
-                Row(
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(
-                        Icons.Default.Payment,
-                        contentDescription = "Payment method",
-                        tint = Color(0xFF4CAF50),
-                        modifier = Modifier.size(16.dp)
-                    )
-                    Spacer(modifier = Modifier.width(4.dp))
-                    Text(
-                        text = when (expense.modeOfPayment) {
-                            "cash" -> "By cash"
-                            "upi" -> "By UPI"
-                            "check" -> "By Cheque"
-                            else -> expense.modeOfPayment.ifEmpty { "Not specified" }
-                        },
                         fontSize = 12.sp,
                         color = Color.Black
                     )

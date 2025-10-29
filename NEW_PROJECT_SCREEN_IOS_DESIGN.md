@@ -207,3 +207,4 @@ The remaining sections (TIMELINE, TEAM ASSIGNMENT, DEPARTMENTS) still need to be
 - Add total budget display with iOS styling
 
 
+

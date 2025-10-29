@@ -38,6 +38,7 @@ import com.deeksha.avr.ui.view.approver.ApproverProjectDashboardScreen
 import com.deeksha.avr.ui.view.approver.ApproverProjectSelectionScreen
 import com.deeksha.avr.ui.view.approver.ApproverNotificationScreen
 import com.deeksha.avr.ui.view.approver.CategoryDetailScreen
+import com.deeksha.avr.ui.view.approver.ApprovedExpenseDetailScreen
 import com.deeksha.avr.ui.view.approver.PendingApprovalsScreen
 import com.deeksha.avr.ui.view.approver.ReviewExpenseScreen
 import com.deeksha.avr.ui.view.approver.ApproverExpenseChatScreen
@@ -1011,6 +1012,27 @@ fun AppNavHost(
             DepartmentDetailScreen(
                 projectId = projectId,
                 departmentName = departmentName,
+                onNavigateBack = { navController.popBackStack() },
+                onNavigateToExpenseChat = { expenseId ->
+                    navController.navigate(Screen.ApproverExpenseChat.createRoute(expenseId))
+                },
+                onNavigateToReview = { expenseId ->
+                    navController.navigate(Screen.ReviewExpense.createRoute(expenseId))
+                },
+                onNavigateToDetail = { expenseId ->
+                    navController.navigate(Screen.ExpenseDetail.createRoute(expenseId))
+                }
+            )
+        }
+
+        // Read-only detail for approved expenses
+        composable(
+            route = Screen.ExpenseDetail.route,
+            arguments = listOf(navArgument("expenseId") { type = NavType.StringType })
+        ) { backStackEntry ->
+            val expenseId = backStackEntry.arguments?.getString("expenseId") ?: ""
+            ApprovedExpenseDetailScreen(
+                expenseId = expenseId,
                 onNavigateBack = { navController.popBackStack() }
             )
         }
