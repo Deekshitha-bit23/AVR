@@ -24,6 +24,7 @@ import androidx.compose.material.icons.filled.CalendarToday
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.People
 import androidx.compose.material.icons.filled.ArrowForward
+import androidx.compose.material.icons.filled.Remove
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -142,33 +143,39 @@ fun DelegationScreen(
                         text = "Delegate Management",
                         fontSize = 18.sp,
                         fontWeight = FontWeight.Bold,
-                        color = Color.White
+                        color = Color.Black,
+                        modifier = Modifier.fillMaxWidth(),
+                        textAlign = TextAlign.Center
                     )
                 },
                 navigationIcon = {
                     TextButton(onClick = onNavigateBack) {
                         Text(
                             text = "Cancel",
-                            color = Color.White,
-                            fontSize = 16.sp
+                            color = Color(0xFF007AFF),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 },
                 actions = {
-                    TextButton(onClick = { /* Save functionality can be added here */ }) {
+                    TextButton(
+                        onClick = { /* Save functionality can be added here */ }
+                    ) {
                         Text(
                             text = "Save",
-                            color = Color.White,
-                            fontSize = 16.sp
+                            color = Color(0xFF007AFF),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
                         )
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(
-                    containerColor = Color(0xFF1976D2) // Blue color
+                    containerColor = Color(0xFFF8F8F8) // Light gray background
                 )
             )
         },
-        containerColor = Color(0xFFF5F5F5)
+        containerColor = Color(0xFFF8F8F5)
     ) { paddingValues ->
         Column(
             modifier = Modifier
@@ -239,19 +246,91 @@ fun DelegationScreen(
                 
                 Spacer(modifier = Modifier.height(16.dp))
                 
-                // Action Buttons Card
-                ActionButtonsCard(
-                    currentApprover = currentApprover,
-                    onChangeTempApprover = {
-                        showingApproverSelection = true
-                    },
-                    onRemoveTempApprover = {
-                        showingDeleteConfirmation = true
-                    },
-                    onRefreshDetails = {
-                        temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+                // Action Buttons - No card wrapper, just buttons
+                Column(
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    // Change Temp Approver Button
+                    Button(
+                        onClick = {
+                            showingApproverSelection = true
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = Color(0xFF1976D2)
+                        ),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.People,
+                            contentDescription = if (currentApprover != null) "Change Temp Approver" else "Add Temp Approver",
+                            tint = Color.White,
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = if (currentApprover != null) "Change Temp Approver" else "Add Temp Approver",
+                            color = Color.White,
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
                     }
-                )
+                    
+                    // Remove Temp Approver Button - only show if there's a current approver
+                    if (currentApprover != null) {
+                        Button(
+                            onClick = {
+                                showingDeleteConfirmation = true
+                            },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = ButtonDefaults.buttonColors(
+                                containerColor = Color(0xFFD32F2F)
+                            ),
+                            shape = RoundedCornerShape(12.dp)
+                        ) {
+                            Icon(
+                                Icons.Default.Delete,
+                                contentDescription = "Remove Temp Approver",
+                                tint = Color.White,
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Remove Temp Approver",
+                                color = Color.White,
+                                fontSize = 16.sp,
+                                fontWeight = FontWeight.Medium
+                            )
+                        }
+                    }
+                    
+                    // Refresh Details Button
+                    OutlinedButton(
+                        onClick = {
+                            temporaryApproverViewModel.loadTemporaryApprovers(projectId)
+                        },
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = ButtonDefaults.outlinedButtonColors(
+                            contentColor = Color(0xFF1976D2)
+                        ),
+                        border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp),
+                        shape = RoundedCornerShape(12.dp)
+                    ) {
+                        Icon(
+                            Icons.Default.Refresh,
+                            contentDescription = "Refresh Details",
+                            tint = Color(0xFF1976D2),
+                            modifier = Modifier.size(20.dp)
+                        )
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text(
+                            text = "Refresh Details",
+                            color = Color(0xFF1976D2),
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium
+                        )
+                    }
+                }
             }
         }
         
@@ -466,27 +545,38 @@ fun DelegationScreen(
 private fun DelegateManagementSummaryCard(
     currentApprover: TemporaryApprover?
 ) {
+    // Determine status - Active if accepted and currently active
+    val isActiveStatus = currentApprover?.status == "ACCEPTED" && currentApprover.isActive
+    
+    // Format last updated date with time
+    val lastUpdatedDate = currentApprover?.updatedAt ?: Timestamp.now()
+    val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+    val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+    val formattedDate = dateFormat.format(lastUpdatedDate.toDate())
+    val formattedTime = timeFormat.format(lastUpdatedDate.toDate())
+    val lastUpdatedText = "Last updated: $formattedDate at $formattedTime"
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(20.dp)
         ) {
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Person with clock icon
+                // Large circular blue icon with person icon
                 Box(
                     modifier = Modifier
-                        .size(40.dp)
+                        .size(56.dp)
                         .background(
                             Color(0xFF1976D2),
-                            shape = RoundedCornerShape(20.dp)
+                            shape = RoundedCornerShape(28.dp)
                         ),
                     contentAlignment = Alignment.Center
                 ) {
@@ -494,10 +584,10 @@ private fun DelegateManagementSummaryCard(
                         Icons.Default.People,
                         contentDescription = "Delegate Management",
                         tint = Color.White,
-                        modifier = Modifier.size(24.dp)
+                        modifier = Modifier.size(28.dp)
                     )
                 }
-                Spacer(modifier = Modifier.width(12.dp))
+                Spacer(modifier = Modifier.width(16.dp))
                 Column {
                     Text(
                         text = "Delegate Management",
@@ -505,32 +595,33 @@ private fun DelegateManagementSummaryCard(
                         fontWeight = FontWeight.Bold,
                         color = Color.Black
                     )
+                    Spacer(modifier = Modifier.height(4.dp))
                     Text(
-                        text = "Manage temporary approver details.",
+                        text = "Manage temporary approver details",
                         fontSize = 14.sp,
-                        color = Color.Gray
+                        color = Color(0xFF757575)
                     )
                 }
             }
             
-            Spacer(modifier = Modifier.height(12.dp))
+            Spacer(modifier = Modifier.height(16.dp))
             
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                // Pending status pill
+                // Status pill - green for Active
                 Box(
                     modifier = Modifier
                         .background(
-                            Color(0xFFFF9800),
-                            shape = RoundedCornerShape(12.dp)
+                            if (isActiveStatus) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                            shape = RoundedCornerShape(16.dp)
                         )
                         .padding(horizontal = 12.dp, vertical = 6.dp)
                 ) {
                     Text(
-                        text = "Pending",
+                        text = if (isActiveStatus) "Active" else "Pending",
                         color = Color.White,
                         fontSize = 12.sp,
                         fontWeight = FontWeight.Medium
@@ -539,9 +630,9 @@ private fun DelegateManagementSummaryCard(
                 
                 // Last updated text
                 Text(
-                    text = "Last updated: ${FormatUtils.formatDate(Timestamp.now())}",
+                    text = lastUpdatedText,
                     fontSize = 12.sp,
-                    color = Color.Gray
+                    color = Color(0xFF757575)
                 )
             }
         }
@@ -554,27 +645,49 @@ private fun DelegateInformationCard(
     onStartDateClick: () -> Unit = {},
     onEndDateClick: () -> Unit = {}
 ) {
+    // Helper function to format date with time
+    fun formatDateWithTime(timestamp: Timestamp?): String {
+        if (timestamp == null) return "Ongoing"
+        val dateFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+        val timeFormat = SimpleDateFormat("h:mm a", Locale.getDefault())
+        val date = timestamp.toDate()
+        return "${dateFormat.format(date)} at ${timeFormat.format(date)}"
+    }
+    
+    // Determine status
+    val isActiveStatus = currentApprover?.status == "ACCEPTED" && currentApprover.isActive
+    
     Card(
         modifier = Modifier.fillMaxWidth(),
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
         shape = RoundedCornerShape(12.dp)
     ) {
         Column(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(16.dp)
+                .padding(20.dp)
         ) {
-            // Header
+            // Header with circular blue icon
             Row(
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Icon(
-                    Icons.Default.Person,
-                    contentDescription = "Delegate Information",
-                    tint = Color(0xFF1976D2),
-                    modifier = Modifier.size(20.dp)
-                )
+                Box(
+                    modifier = Modifier
+                        .size(24.dp)
+                        .background(
+                            Color(0xFF1976D2),
+                            shape = RoundedCornerShape(12.dp)
+                        ),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        Icons.Default.Person,
+                        contentDescription = "Delegate Information",
+                        tint = Color.White,
+                        modifier = Modifier.size(16.dp)
+                    )
+                }
                 Spacer(modifier = Modifier.width(8.dp))
                 Text(
                     text = "Delegate Information",
@@ -584,7 +697,7 @@ private fun DelegateInformationCard(
                 )
             }
             
-            Spacer(modifier = Modifier.height(16.dp))
+            Spacer(modifier = Modifier.height(20.dp))
             
             if (currentApprover != null) {
                 // Name section
@@ -594,7 +707,7 @@ private fun DelegateInformationCard(
                     value = currentApprover.approverName
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Phone section
                 InfoRow(
@@ -603,31 +716,42 @@ private fun DelegateInformationCard(
                     value = currentApprover.approverPhone
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
-                // Start date section
+                // Divider line
+                Divider(
+                    color = Color(0xFFE0E0E0),
+                    thickness = 1.dp,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                
+                Spacer(modifier = Modifier.height(16.dp))
+                
+                // Start date section - with Add icon overlay
                 InfoRowWithArrow(
                     icon = Icons.Default.CalendarToday,
                     label = "START DATE & TIME",
-                    value = FormatUtils.formatDate(currentApprover.startDate),
-                    onClick = onStartDateClick
+                    value = formatDateWithTime(currentApprover.startDate),
+                    onClick = onStartDateClick,
+                    showAddIcon = true
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
-                // End date section
+                // End date section - with Remove icon overlay
                 InfoRowWithArrow(
                     icon = Icons.Default.CalendarToday,
                     label = "END DATE & TIME",
                     value = if (currentApprover.expiringDate != null) {
-                        FormatUtils.formatDate(currentApprover.expiringDate)
+                        formatDateWithTime(currentApprover.expiringDate)
                     } else {
                         "Ongoing"
                     },
-                    onClick = onEndDateClick
+                    onClick = onEndDateClick,
+                    showRemoveIcon = true
                 )
                 
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(16.dp))
                 
                 // Current status section
                 Row(
@@ -653,17 +777,17 @@ private fun DelegateInformationCard(
                         )
                     }
                     
-                    // Pending status pill
+                    // Status pill - green for Active
                     Box(
                         modifier = Modifier
                             .background(
-                                Color(0xFFFF9800),
-                                shape = RoundedCornerShape(12.dp)
+                                if (isActiveStatus) Color(0xFF4CAF50) else Color(0xFFFF9800),
+                                shape = RoundedCornerShape(16.dp)
                             )
                             .padding(horizontal = 12.dp, vertical = 6.dp)
                     ) {
                         Text(
-                            text = "Pending",
+                            text = if (isActiveStatus) "Active" else "Pending",
                             color = Color.White,
                             fontSize = 12.sp,
                             fontWeight = FontWeight.Medium
@@ -696,7 +820,9 @@ private fun InfoRow(
     value: String
 ) {
     Row(
-        verticalAlignment = Alignment.CenterVertically
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.Start
     ) {
         Icon(
             icon,
@@ -705,12 +831,17 @@ private fun InfoRow(
             modifier = Modifier.size(16.dp)
         )
         Spacer(modifier = Modifier.width(8.dp))
-        Column {
+        Column(
+            modifier = Modifier.weight(1f)
+        ) {
             Text(
                 text = label,
-                fontSize = 12.sp,
-                color = Color.Gray
+                fontSize = 11.sp,
+                color = Color(0xFF757575),
+                fontWeight = FontWeight.Medium,
+                letterSpacing = 0.5.sp
             )
+            Spacer(modifier = Modifier.height(4.dp))
             Text(
                 text = value,
                 fontSize = 14.sp,
@@ -726,7 +857,9 @@ private fun InfoRowWithArrow(
     icon: ImageVector,
     label: String,
     value: String,
-    onClick: () -> Unit = {}
+    onClick: () -> Unit = {},
+    showAddIcon: Boolean = false,
+    showRemoveIcon: Boolean = false
 ) {
     Row(
         modifier = Modifier
@@ -736,25 +869,62 @@ private fun InfoRowWithArrow(
         verticalAlignment = Alignment.CenterVertically
     ) {
         Row(
+            modifier = Modifier.weight(1f),
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Icon(
-                icon,
-                contentDescription = label,
-                tint = Color(0xFF1976D2),
-                modifier = Modifier.size(16.dp)
-            )
+            // Icon with optional Add/Remove overlay
+            Box(
+                modifier = Modifier.size(20.dp)
+            ) {
+                Icon(
+                    icon,
+                    contentDescription = label,
+                    tint = Color(0xFF1976D2),
+                    modifier = Modifier
+                        .size(16.dp)
+                        .align(Alignment.Center)
+                )
+                // Add icon overlay (top-right corner)
+                if (showAddIcon) {
+                    Icon(
+                        Icons.Default.Add,
+                        contentDescription = "Add",
+                        tint = Color(0xFF1976D2),
+                        modifier = Modifier
+                            .size(10.dp)
+                            .align(Alignment.TopEnd)
+                            .offset(x = 2.dp, y = (-2).dp)
+                    )
+                }
+                // Remove icon overlay (bottom-right corner)
+                if (showRemoveIcon) {
+                    Icon(
+                        Icons.Default.Remove,
+                        contentDescription = "Remove",
+                        tint = Color(0xFF1976D2),
+                        modifier = Modifier
+                            .size(10.dp)
+                            .align(Alignment.BottomEnd)
+                            .offset(x = 2.dp, y = 2.dp)
+                    )
+                }
+            }
             Spacer(modifier = Modifier.width(8.dp))
-            Column {
+            Column(
+                modifier = Modifier.weight(1f)
+            ) {
                 Text(
                     text = label,
-                    fontSize = 12.sp,
-                    color = Color.Gray
+                    fontSize = 11.sp,
+                    color = Color(0xFF757575),
+                    fontWeight = FontWeight.Medium,
+                    letterSpacing = 0.5.sp
                 )
+                Spacer(modifier = Modifier.height(4.dp))
                 Text(
                     text = value,
                     fontSize = 14.sp,
-                    fontWeight = FontWeight.Bold,
+                    fontWeight = FontWeight.Normal,
                     color = Color.Black
                 )
             }
@@ -763,114 +933,12 @@ private fun InfoRowWithArrow(
         Icon(
             Icons.Default.ArrowForward,
             contentDescription = "Arrow",
-            tint = Color.Gray,
+            tint = Color(0xFF757575),
             modifier = Modifier.size(16.dp)
         )
     }
 }
 
-@Composable
-private fun ActionButtonsCard(
-    currentApprover: TemporaryApprover?,
-    onChangeTempApprover: () -> Unit,
-    onRemoveTempApprover: () -> Unit,
-    onRefreshDetails: () -> Unit
-) {
-    Card(
-        modifier = Modifier.fillMaxWidth(),
-        colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp),
-        shape = RoundedCornerShape(12.dp)
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp)
-        ) {
-            // Add/Change Temp Approver Button
-            Button(
-                onClick = onChangeTempApprover,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(
-                    containerColor = Color(0xFF1976D2)
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.People,
-                    contentDescription = if (currentApprover != null) "Change Temp Approver" else "Add Temp Approver",
-                    tint = Color.White,
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = if (currentApprover != null) "Change Temp Approver" else "Add Temp Approver",
-                    color = Color.White,
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-            
-            // Only show remove button if there's a current approver
-            if (currentApprover != null) {
-                Spacer(modifier = Modifier.height(12.dp))
-                
-                // Remove Temp Approver Button
-                Button(
-                    onClick = onRemoveTempApprover,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = ButtonDefaults.buttonColors(
-                        containerColor = Color(0xFFD32F2F)
-                    ),
-                    shape = RoundedCornerShape(8.dp)
-                ) {
-                    Icon(
-                        Icons.Default.Delete,
-                        contentDescription = "Remove Temp Approver",
-                        tint = Color.White,
-                        modifier = Modifier.size(20.dp)
-                    )
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text(
-                        text = "Remove Temp Approver",
-                        color = Color.White,
-                        fontSize = 16.sp,
-                        fontWeight = FontWeight.Medium
-                    )
-                }
-            }
-            
-            Spacer(modifier = Modifier.height(12.dp))
-            
-            // Refresh Details Button
-            OutlinedButton(
-                onClick = onRefreshDetails,
-                modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.outlinedButtonColors(
-                    contentColor = Color(0xFF1976D2)
-                ),
-                border = ButtonDefaults.outlinedButtonBorder.copy(
-                    width = 1.dp
-                ),
-                shape = RoundedCornerShape(8.dp)
-            ) {
-                Icon(
-                    Icons.Default.Refresh,
-                    contentDescription = "Refresh Details",
-                    tint = Color(0xFF1976D2),
-                    modifier = Modifier.size(20.dp)
-                )
-                Spacer(modifier = Modifier.width(8.dp))
-                Text(
-                    text = "Refresh Details",
-                    color = Color(0xFF1976D2),
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium
-                )
-            }
-        }
-    }
-}
 
 @Composable
 private fun ApproverSelectionDialog(

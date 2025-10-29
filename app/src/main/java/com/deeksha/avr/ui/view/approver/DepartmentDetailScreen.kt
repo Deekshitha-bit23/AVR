@@ -63,8 +63,11 @@ fun DepartmentDetailScreen(
     }
     
     // Calculate budget summary for this specific department
+    // Only count APPROVED expenses for total spent
     val departmentBudget = currentProject?.departmentBudgets?.get(departmentName) ?: 0.0
-    val totalSpent = departmentExpenses.sumOf { it.amount }
+    val totalSpent = departmentExpenses
+        .filter { it.status == ExpenseStatus.APPROVED }
+        .sumOf { it.amount }
     val remaining = departmentBudget - totalSpent
     val budgetUtilization = if (departmentBudget > 0) (totalSpent / departmentBudget * 100).toInt() else 0
     
@@ -429,11 +432,11 @@ private fun ModernExpenseCard(
                 Column(
                     horizontalAlignment = Alignment.End
                 ) {
-                    Text(
+                Text(
                         text = expense.date?.let { FormatUtils.formatDate(it) } ?: "No date",
                         fontSize = 12.sp,
-                        color = Color.Gray
-                    )
+                    color = Color.Gray
+                )
                     Spacer(modifier = Modifier.height(8.dp))
                     Row(
                         verticalAlignment = Alignment.CenterVertically,
@@ -494,23 +497,18 @@ private fun ModernExpenseCard(
 
             Spacer(modifier = Modifier.height(12.dp))
 
-            // Description (invoice used as description)
-            if (expense.invoice.isNotEmpty() && expense.invoice != "N/A") {
+            // Description - below the amount/date
+            if (expense.description.isNotEmpty()) {
                 Text(
-                    text = expense.invoice,
+                    text = expense.description,
                     fontSize = 14.sp,
                     color = Color.Black
                 )
-                Spacer(modifier = Modifier.height(12.dp))
+                Spacer(modifier = Modifier.height(8.dp))
             }
-
-            // Subcategory and Submitted By row
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                // Sub category / department
+            
+            // Category - below description
+            if (expense.category.isNotEmpty()) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -522,14 +520,22 @@ private fun ModernExpenseCard(
                     )
                     Spacer(modifier = Modifier.width(4.dp))
                     Text(
-                        text = expense.department,
+                        text = expense.category,
                         fontSize = 13.sp,
                         color = Color(0xFF4285F4),
                         fontWeight = FontWeight.Medium
                     )
                 }
-                
-                // Submitted By
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            
+            // Bottom row: Submitted By (left) and Mode of Payment (right)
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                // Submitted By - left side
                 Row(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
@@ -545,6 +551,32 @@ private fun ModernExpenseCard(
                         fontSize = 12.sp,
                         color = Color.Black
                     )
+                }
+                
+                // Mode of Payment - right side
+                if (expense.modeOfPayment.isNotEmpty()) {
+                    val paymentLabel = when (expense.modeOfPayment.lowercase()) {
+                        "cash" -> "By cash"
+                        "upi" -> "By UPI"
+                        "check", "cheque" -> "By Cheque"
+                        else -> "By ${expense.modeOfPayment}"
+                    }
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(
+                            Icons.Default.Payment,
+                            contentDescription = "Payment mode",
+                            tint = Color(0xFF4CAF50),
+                            modifier = Modifier.size(16.dp)
+                        )
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text(
+                            text = paymentLabel,
+                            fontSize = 12.sp,
+                            color = Color.Black
+                        )
+                    }
                 }
             }
         }

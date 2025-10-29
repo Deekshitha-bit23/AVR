@@ -113,6 +113,8 @@ class ReportsViewModel @Inject constructor(
                         by = expense.userName,
                         amount = expense.amount,
                         department = expense.department,
+                        category = expense.category,
+                        description = expense.description,
                         modeOfPayment = expense.modeOfPayment,
                         status = expense.status
                     )

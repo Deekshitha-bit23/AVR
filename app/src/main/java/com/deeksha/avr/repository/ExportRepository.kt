@@ -251,6 +251,8 @@ class ExportRepository @Inject constructor(
                         by = "John Doe",
                         amount = 20000.0,
                         department = "Test Department",
+                        category = "Test Category",
+                        description = "Test Description",
                         modeOfPayment = "UPI"
                     ),
                     DetailedExpense(
@@ -260,6 +262,8 @@ class ExportRepository @Inject constructor(
                         by = "Jane Smith",
                         amount = 15000.0,
                         department = "Test Department",
+                        category = "Test Category",
+                        description = "Test Description",
                         modeOfPayment = "Cash"
                     )
                 ),

@@ -6,6 +6,7 @@ import android.net.Uri
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -21,6 +22,8 @@ import androidx.compose.material.icons.filled.AccountCircle
 import androidx.compose.material.icons.filled.Chat
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Notifications
+import androidx.compose.material.icons.filled.Business
+import androidx.compose.material.icons.filled.AttachFile
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -186,60 +189,31 @@ fun AddExpenseScreen(
             .fillMaxSize()
             .background(Color(0xFFF5F5F5))
     ) {
-        // Top Bar
+        // Top Bar - iOS style with Cancel button and New Expense title
         TopAppBar(
             title = { 
                 Text(
-                    "AVR Entertainment",
+                    "New Expense",
                     fontSize = 18.sp,
-                    fontWeight = FontWeight.Bold
+                    fontWeight = FontWeight.Bold,
+                    color = Color.Black,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
                 ) 
             },
             navigationIcon = {
-                IconButton(onClick = onNavigateBack) {
-                    Icon(Icons.Default.ArrowBack, contentDescription = "Back")
+                TextButton(onClick = onNavigateBack) {
+                    Text(
+                        "Cancel",
+                        color = Color(0xFF4285F4),
+                        fontSize = 16.sp
+                    )
                 }
             },
             actions = {
-                Box {
-                    IconButton(
-                        onClick = { 
-                            authState.user?.uid?.let { userId ->
-                                onNavigateToNotifications(project.id)
-                            }
-                        }
-                    ) {
-                        if (isNotificationsLoading) {
-                            CircularProgressIndicator(
-                                modifier = Modifier.size(20.dp),
-                                strokeWidth = 2.dp,
-                                color = Color(0xFF4285F4)
-                            )
-                        } else {
-                            Icon(
-                                Icons.Default.Notifications,
-                                contentDescription = "Project Notifications",
-                                tint = Color(0xFF4285F4)
-                            )
-                        }
-                    }
-                    
-                    // Project-specific notification badge - only show when not loading
-                    if (!isNotificationsLoading) {
-                        NotificationBadgeComponent(
-                            badge = projectNotificationBadge,
-                            modifier = Modifier.align(Alignment.TopEnd)
-                        )
-                        
-                        // Pulse indicator for better visibility
-                        NotificationPulseIndicator(
-                            hasUnread = projectNotificationBadge.hasUnread,
-                            modifier = Modifier
-                                .align(Alignment.TopEnd)
-                                .offset(x = (-4).dp, y = (-4).dp)
-                        )
-                    }
-                }
+                // No notification icon - removed as per requirement
+                // Add empty box to balance the navigation icon for center alignment
+                Spacer(modifier = Modifier.width(80.dp))
             },
             colors = TopAppBarDefaults.topAppBarColors(
                 containerColor = Color.White
@@ -249,12 +223,14 @@ fun AddExpenseScreen(
         LazyColumn(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(0.dp)
         ) {
-            // Project Info
+            // Project Details Card (matching design)
             item {
-                SelectedProjectCard(project = project)
+                Spacer(modifier = Modifier.height(8.dp))
+                ProjectDetailsCard(project = project)
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
             // Success Message
@@ -273,6 +249,7 @@ fun AddExpenseScreen(
                             fontWeight = FontWeight.Medium
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
             
@@ -292,6 +269,7 @@ fun AddExpenseScreen(
                             fontWeight = FontWeight.Medium
                         )
                     }
+                    Spacer(modifier = Modifier.height(16.dp))
                 }
             }
             
@@ -301,305 +279,424 @@ fun AddExpenseScreen(
                     budgetValidationResult = budgetValidationResult,
                     modifier = Modifier.fillMaxWidth()
                 )
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
-            
-            // Date Field
-            item {
-                OutlinedTextField(
-                    value = formData.date,
-                    onValueChange = { /* Handle via date picker */ },
-                    label = { Text("Date") },
-                    placeholder = { Text("DD/MM/YYYY") },
-                    readOnly = true,
-                    trailingIcon = {
-                        IconButton(onClick = { showDatePicker = true }) {
-                            Icon(Icons.Default.DateRange, contentDescription = "Select Date")
-                        }
-                    },
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF4285F4),
-                        unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
-                    )
-                )
-            }
-            
-            // Amount Field
-            item {
-                val budgetInfo = if (formData.department.isNotEmpty() && budgetValidationResult != null) {
-                    val result = budgetValidationResult!!
-                    "Budget: ₹${String.format("%.0f", result.departmentBudget)} | Spent: ₹${String.format("%.0f", result.currentSpent)} | Remaining: ₹${String.format("%.0f", result.remainingBudget)}"
-                } else {
-                    "Select department to see budget info"
-                }
-                
-                OutlinedTextField(
-                    value = formData.amount,
-                    onValueChange = { expenseViewModel.updateFormField("amount", it) },
-                    label = { Text("Amount") },
-                    placeholder = { Text("Enter amount") },
-                    supportingText = { 
-                        Text(
-                            text = budgetInfo,
-                            fontSize = 11.sp,
-                            color = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF666666)
-                        )
-                    },
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF4285F4),
-                        unfocusedBorderColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color.Gray.copy(alpha = 0.5f)
-                    )
-                )
-            }
-            
-            // Department Dropdown
-            item {
-                val departmentBudgetInfo = if (formData.department.isNotEmpty() && budgetValidationResult != null) {
-                    val result = budgetValidationResult!!
-                    val progress = if (result.departmentBudget > 0) (result.currentSpent / result.departmentBudget * 100) else 0.0
-                    "${String.format("%.0f", progress)}% used (₹${String.format("%.0f", result.remainingBudget)} remaining)"
-                } else {
-                    "Select department to see budget status"
-                }
-                
-                ExposedDropdownMenuBox(
-                    expanded = showDepartmentDropdown,
-                    onExpandedChange = { showDepartmentDropdown = !showDepartmentDropdown }
-                ) {
-                    OutlinedTextField(
-                        value = formData.department,
-                        onValueChange = { },
-                        readOnly = true,
-                        label = { Text("Department") },
-                        placeholder = { Text("Select department") },
-                        supportingText = {
-                            Text(
-                                text = departmentBudgetInfo,
-                                fontSize = 11.sp,
-                                color = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF666666)
-                            )
-                        },
-                        trailingIcon = {
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF4285F4),
-                            unfocusedBorderColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color.Gray.copy(alpha = 0.5f)
-                        )
-                    )
-                    
-                    ExposedDropdownMenu(
-                        expanded = showDepartmentDropdown,
-                        onDismissRequest = { showDepartmentDropdown = false }
-                    ) {
-                        if (expenseViewModel.departments.isEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("No departments available") },
-                                onClick = { }
-                            )
-                        } else {
-                            expenseViewModel.departments.forEach { department ->
-                                DropdownMenuItem(
-                                    text = { Text(department) },
-                                    onClick = {
-                                        expenseViewModel.updateFormField("department", department)
-                                        showDepartmentDropdown = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Category Input with Dropdown Suggestions
-            item {
-                ExposedDropdownMenuBox(
-                    expanded = showCategoryDropdown,
-                    onExpandedChange = { showCategoryDropdown = !showCategoryDropdown }
-                ) {
-                    OutlinedTextField(
-                        value = formData.category,
-                        onValueChange = { expenseViewModel.updateFormField("category", it) },
-                        label = { Text("Category") },
-                        placeholder = { 
-                            Text(
-                                if (expenseViewModel.categories.isEmpty()) 
-                                    "No categories configured - contact project manager" 
-                                else 
-                                    "Type or select category..."
-                            ) 
-                        },
-                        trailingIcon = {
-                            Icon(Icons.Default.ArrowDropDown, contentDescription = null)
-                        },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .menuAnchor(),
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = Color(0xFF4285F4),
-                            unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
-                        )
-                    )
-                    
-                    ExposedDropdownMenu(
-                        expanded = showCategoryDropdown,
-                        onDismissRequest = { showCategoryDropdown = false }
-                    ) {
-                        // Show available categories that match the input
-                        val availableCategories = expenseViewModel.categories.filter { 
-                            it.contains(formData.category, ignoreCase = true) || formData.category.isEmpty()
-                        }
-                        
-                        if (expenseViewModel.categories.isEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("No categories configured for this project") },
-                                onClick = { }
-                            )
-                        } else if (availableCategories.isEmpty()) {
-                            DropdownMenuItem(
-                                text = { Text("No matching categories") },
-                                onClick = { }
-                            )
-                        } else {
-                            availableCategories.forEach { category ->
-                                DropdownMenuItem(
-                                    text = { Text(category) },
-                                    onClick = {
-                                        expenseViewModel.updateFormField("category", category)
-                                        showCategoryDropdown = false
-                                    }
-                                )
-                            }
-                        }
-                    }
-                }
-            }
-            
-            // Description Field
-            item {
-                OutlinedTextField(
-                    value = formData.description,
-                    onValueChange = { expenseViewModel.updateFormField("description", it) },
-                    label = { Text("Description") },
-                    placeholder = { Text("Enter description") },
-                    minLines = 3,
-                    modifier = Modifier.fillMaxWidth(),
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = Color(0xFF4285F4),
-                        unfocusedBorderColor = Color.Gray.copy(alpha = 0.5f)
-                    )
-                )
-            }
-            
-            // Mode of Payment
+            // EXPENSE DETAILS Section
             item {
                 Text(
-                    text = "Mode of Payment",
-                    fontSize = 16.sp,
-                    fontWeight = FontWeight.Medium,
-                    color = Color.Black
+                    text = "EXPENSE DETAILS",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF999999),
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
                 )
-                
-                Spacer(modifier = Modifier.height(8.dp))
-                
-                Column(
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
                 ) {
-                    expenseViewModel.paymentModes.forEach { (value, label) ->
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
+                    ) {
+                        // Date Field - Pill-shaped button
                         Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .selectable(
-                                    selected = formData.modeOfPayment == value,
-                                    onClick = { expenseViewModel.updateFormField("modeOfPayment", value) }
-                                ),
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            RadioButton(
-                                selected = formData.modeOfPayment == value,
-                                onClick = { expenseViewModel.updateFormField("modeOfPayment", value) },
-                                colors = RadioButtonDefaults.colors(
-                                    selectedColor = Color(0xFF4285F4)
-                                )
-                            )
                             Text(
-                                text = label,
+                                text = "Date",
                                 fontSize = 16.sp,
-                                modifier = Modifier.padding(start = 8.dp)
+                                color = Color.Black,
+                                fontWeight = FontWeight.Normal
+                            )
+                            // Format date display
+                            val displayDate = if (formData.date.isNotEmpty()) {
+                                try {
+                                    val inputFormat = SimpleDateFormat("dd/MM/yyyy", Locale.getDefault())
+                                    val outputFormat = SimpleDateFormat("MMM dd, yyyy", Locale.getDefault())
+                                    val date = inputFormat.parse(formData.date)
+                                    date?.let { outputFormat.format(it) } ?: formData.date
+                                } catch (e: Exception) {
+                                    formData.date
+                                }
+                            } else {
+                                SimpleDateFormat("MMM dd, yyyy", Locale.getDefault()).format(Date())
+                            }
+                            
+                            TextButton(
+                                onClick = { showDatePicker = true },
+                                colors = ButtonDefaults.textButtonColors(
+                                    contentColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(20.dp),
+                                modifier = Modifier
+                                    .background(
+                                        Color(0xFFF5F5F5),
+                                        shape = RoundedCornerShape(20.dp)
+                                    )
+                            ) {
+                                Text(
+                                    text = displayDate,
+                                    fontSize = 14.sp,
+                                    color = Color.Black
+                                )
+                            }
+                        }
+                        
+                        // Amount Field
+                        Column {
+                            Text(
+                                text = "Amount",
+                                fontSize = 16.sp,
+                                color = Color.Black,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            OutlinedTextField(
+                                value = formData.amount,
+                                onValueChange = { expenseViewModel.updateFormField("amount", it) },
+                                placeholder = { Text("0", color = Color(0xFF999999)) },
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF4285F4),
+                                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(8.dp),
+                                singleLine = true
                             )
                         }
-                    }
-                }
-            }
-            
-            // Add Attachment Button
-            item {
-                Column {
-                    Button(
-                        onClick = { showAttachmentDialog = true },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .height(48.dp),
-                        colors = ButtonDefaults.buttonColors(
-                            containerColor = Color(0xFF4285F4)
-                        ),
-                        shape = RoundedCornerShape(24.dp)
-                    ) {
-                        Text(
-                            text = "📎 Add Attachment",
-                            fontSize = 16.sp,
-                            fontWeight = FontWeight.Medium
-                        )
-                    }
-                    
-                    // Show selected attachment info
-                    selectedAttachmentName?.let { name ->
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Card(
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(
-                                containerColor = Color(0xFFE8F5E8)
+                        
+                        // Department Field
+                        Column {
+                            Text(
+                                text = "Department",
+                                fontSize = 16.sp,
+                                color = Color.Black,
+                                modifier = Modifier.padding(bottom = 8.dp)
                             )
-                        ) {
-                            Row(
-                                modifier = Modifier
-                                    .fillMaxWidth()
-                                    .padding(12.dp),
-                                verticalAlignment = Alignment.CenterVertically
+                            ExposedDropdownMenuBox(
+                                expanded = showDepartmentDropdown,
+                                onExpandedChange = { showDepartmentDropdown = !showDepartmentDropdown }
                             ) {
-                                Icon(
-                                    Icons.Default.AccountCircle,
-                                    contentDescription = null,
-                                    tint = Color(0xFF4CAF50),
-                                    modifier = Modifier.size(20.dp)
+                                OutlinedTextField(
+                                    value = formData.department,
+                                    onValueChange = { },
+                                    readOnly = true,
+                                    placeholder = { Text("Labour", color = Color.Black) },
+                                    trailingIcon = {
+                                        Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF999999))
+                                    },
+                                    modifier = Modifier
+                                        .fillMaxWidth()
+                                        .menuAnchor(),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedBorderColor = Color(0xFF4285F4),
+                                        unfocusedBorderColor = Color(0xFFE0E0E0),
+                                        focusedTextColor = Color.Black,
+                                        unfocusedTextColor = Color.Black
+                                    ),
+                                    shape = RoundedCornerShape(8.dp)
                                 )
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text(
-                                    text = "Attachment: $name",
-                                    fontSize = 14.sp,
-                                    color = Color(0xFF2E7D32),
-                                    modifier = Modifier.weight(1f)
-                                )
-                                TextButton(
-                                    onClick = {
-                                        selectedAttachmentUri = null
-                                        selectedAttachmentName = null
-                                        expenseViewModel.updateFormField("attachmentUri", "")
-                                    }
+                                
+                                ExposedDropdownMenu(
+                                    expanded = showDepartmentDropdown,
+                                    onDismissRequest = { showDepartmentDropdown = false }
                                 ) {
-                                    Text("Remove", color = Color(0xFFF44336))
+                                    if (expenseViewModel.departments.isEmpty()) {
+                                        DropdownMenuItem(
+                                            text = { Text("No departments available") },
+                                            onClick = { }
+                                        )
+                                    } else {
+                                        expenseViewModel.departments.forEach { department ->
+                                            DropdownMenuItem(
+                                                text = { Text(department) },
+                                                onClick = {
+                                                    expenseViewModel.updateFormField("department", department)
+                                                    showDepartmentDropdown = false
+                                                }
+                                            )
+                                        }
+                                    }
                                 }
                             }
                         }
+                        
+                        // Category Field
+                        Column {
+                            Text(
+                                text = "Category",
+                                fontSize = 16.sp,
+                                color = Color.Black,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                ExposedDropdownMenuBox(
+                                    expanded = showCategoryDropdown,
+                                    onExpandedChange = { showCategoryDropdown = !showCategoryDropdown },
+                                    modifier = Modifier.weight(1f)
+                                ) {
+                                    OutlinedTextField(
+                                        value = formData.category,
+                                        onValueChange = { expenseViewModel.updateFormField("category", it) },
+                                        placeholder = { 
+                                            Text(
+                                                "Enter category name",
+                                                color = Color(0xFF999999)
+                                            ) 
+                                        },
+                                        trailingIcon = {
+                                            Icon(Icons.Default.ArrowDropDown, contentDescription = null, tint = Color(0xFF999999))
+                                        },
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .menuAnchor(),
+                                        colors = OutlinedTextFieldDefaults.colors(
+                                            focusedBorderColor = Color(0xFF4285F4),
+                                            unfocusedBorderColor = Color(0xFFE0E0E0),
+                                            focusedTextColor = Color.Black,
+                                            unfocusedTextColor = Color.Black
+                                        ),
+                                        shape = RoundedCornerShape(8.dp),
+                                        singleLine = true
+                                    )
+                                    
+                                    ExposedDropdownMenu(
+                                        expanded = showCategoryDropdown,
+                                        onDismissRequest = { showCategoryDropdown = false }
+                                    ) {
+                                        val availableCategories = expenseViewModel.categories.filter { 
+                                            it.contains(formData.category, ignoreCase = true) || formData.category.isEmpty()
+                                        }
+                                        
+                                        if (expenseViewModel.categories.isEmpty()) {
+                                            DropdownMenuItem(
+                                                text = { Text("No categories configured for this project") },
+                                                onClick = { }
+                                            )
+                                        } else if (availableCategories.isEmpty()) {
+                                            DropdownMenuItem(
+                                                text = { Text("No matching categories") },
+                                                onClick = { }
+                                            )
+                                        } else {
+                                            availableCategories.forEach { category ->
+                                                DropdownMenuItem(
+                                                    text = { Text(category) },
+                                                    onClick = {
+                                                        expenseViewModel.updateFormField("category", category)
+                                                        showCategoryDropdown = false
+                                                    }
+                                                )
+                                            }
+                                        }
+                                    }
+                                }
+                                
+                                // Plus button for adding categories
+                                IconButton(
+                                    onClick = { 
+                                        // Placeholder for adding category functionality
+                                        // Currently just allows typing in the field
+                                    },
+                                    modifier = Modifier
+                                        .size(40.dp)
+                                        .background(Color(0xFF4285F4), RoundedCornerShape(20.dp))
+                                ) {
+                                    Icon(
+                                        Icons.Default.Add,
+                                        contentDescription = "Add category",
+                                        tint = Color.White
+                                    )
+                                }
+                            }
+                            // Hint text for multiple categories
+                            Text(
+                                text = "Add multiple categories by tapping the + button",
+                                fontSize = 12.sp,
+                                color = Color(0xFF999999),
+                                modifier = Modifier.padding(top = 8.dp)
+                            )
+                        }
+                        
+                        // Description Field
+                        Column {
+                            Text(
+                                text = "Description",
+                                fontSize = 16.sp,
+                                color = Color.Black,
+                                modifier = Modifier.padding(bottom = 8.dp)
+                            )
+                            OutlinedTextField(
+                                value = formData.description,
+                                onValueChange = { expenseViewModel.updateFormField("description", it) },
+                                placeholder = { Text("Enter description", color = Color(0xFF999999)) },
+                                minLines = 3,
+                                modifier = Modifier.fillMaxWidth(),
+                                colors = OutlinedTextFieldDefaults.colors(
+                                    focusedBorderColor = Color(0xFF4285F4),
+                                    unfocusedBorderColor = Color(0xFFE0E0E0),
+                                    focusedTextColor = Color.Black,
+                                    unfocusedTextColor = Color.Black
+                                ),
+                                shape = RoundedCornerShape(8.dp)
+                            )
+                        }
                     }
                 }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // MODE OF PAYMENT Section
+            item {
+                Text(
+                    text = "MODE OF PAYMENT",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF999999),
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                Card(
+                    modifier = Modifier.fillMaxWidth(),
+                    shape = RoundedCornerShape(12.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+                ) {
+                    Column(
+                        modifier = Modifier.padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
+                    ) {
+                        expenseViewModel.paymentModes.forEach { (value, label) ->
+                            Row(
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .selectable(
+                                        selected = formData.modeOfPayment == value,
+                                        onClick = { expenseViewModel.updateFormField("modeOfPayment", value) }
+                                    )
+                                    .padding(vertical = 4.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                RadioButton(
+                                    selected = formData.modeOfPayment == value,
+                                    onClick = { expenseViewModel.updateFormField("modeOfPayment", value) },
+                                    colors = RadioButtonDefaults.colors(
+                                        selectedColor = Color(0xFF4285F4)
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                // Simple icons - you can replace with custom icons if available
+                                val iconText = when (value) {
+                                    "cash" -> "💵"
+                                    "upi" -> "📱"
+                                    "check" -> "📄"
+                                    else -> ""
+                                }
+                                Text(
+                                    text = iconText,
+                                    fontSize = 20.sp,
+                                    modifier = Modifier.padding(end = 8.dp)
+                                )
+                                Text(
+                                    text = label,
+                                    fontSize = 16.sp,
+                                    color = Color.Black
+                                )
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
+            }
+            
+            // ATTACHMENT Section
+            item {
+                Text(
+                    text = "ATTACHMENT (OPTIONAL)",
+                    fontSize = 12.sp,
+                    fontWeight = FontWeight.SemiBold,
+                    color = Color(0xFF999999),
+                    letterSpacing = 0.5.sp,
+                    modifier = Modifier.padding(bottom = 8.dp)
+                )
+                OutlinedButton(
+                    onClick = { showAttachmentDialog = true },
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(48.dp),
+                    colors = ButtonDefaults.outlinedButtonColors(
+                        contentColor = Color(0xFF4285F4)
+                    ),
+                    border = ButtonDefaults.outlinedButtonBorder.copy(width = 1.dp),
+                    shape = RoundedCornerShape(8.dp)
+                ) {
+                    Icon(
+                        Icons.Default.AttachFile,
+                        contentDescription = "Add Attachment",
+                        tint = Color(0xFF4285F4),
+                        modifier = Modifier.size(20.dp)
+                    )
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text(
+                        text = "Add Attachment",
+                        fontSize = 16.sp,
+                        color = Color(0xFF4285F4)
+                    )
+                }
+                
+                // Show selected attachment info
+                selectedAttachmentName?.let { name ->
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(
+                            containerColor = Color(0xFFE8F5E8)
+                        )
+                    ) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(
+                                Icons.Default.AccountCircle,
+                                contentDescription = null,
+                                tint = Color(0xFF4CAF50),
+                                modifier = Modifier.size(20.dp)
+                            )
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(
+                                text = "Attachment: $name",
+                                fontSize = 14.sp,
+                                color = Color(0xFF2E7D32),
+                                modifier = Modifier.weight(1f)
+                            )
+                            TextButton(
+                                onClick = {
+                                    selectedAttachmentUri = null
+                                    selectedAttachmentName = null
+                                    expenseViewModel.updateFormField("attachmentUri", "")
+                                }
+                            ) {
+                                Text("Remove", color = Color(0xFFF44336))
+                            }
+                        }
+                    }
+                }
+                Spacer(modifier = Modifier.height(16.dp))
             }
             
             // Submit Button
@@ -621,11 +718,13 @@ fun AddExpenseScreen(
                     enabled = !isSubmitting && formData.amount.isNotEmpty() && formData.department.isNotEmpty() && formData.category.isNotEmpty(),
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp),
+                        .height(56.dp)
+                        .padding(bottom = 16.dp),
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = if (budgetValidationResult?.isValid == false) Color(0xFFD32F2F) else Color(0xFF4285F4)
+                        containerColor = if (isSubmitting || (!formData.amount.isNotEmpty() || !formData.department.isNotEmpty() || !formData.category.isNotEmpty())) Color(0xFFCCCCCC) else Color(0xFF4285F4),
+                        disabledContainerColor = Color(0xFFCCCCCC)
                     ),
-                    shape = RoundedCornerShape(28.dp)
+                    shape = RoundedCornerShape(12.dp)
                 ) {
                     if (isSubmitting) {
                         CircularProgressIndicator(
@@ -634,12 +733,10 @@ fun AddExpenseScreen(
                         )
                     } else {
                         Text(
-                            text = when {
-                                budgetValidationResult?.isValid == false -> "Budget Exceeded"
-                                else -> "Submit for Approval"
-                            },
-                            fontSize = 18.sp,
-                            fontWeight = FontWeight.Bold
+                            text = "Submit for Approval",
+                            fontSize = 16.sp,
+                            fontWeight = FontWeight.Medium,
+                            color = Color.White
                         )
                     }
                 }
@@ -716,12 +813,12 @@ fun AddExpenseScreen(
 }
 
 @Composable
-fun SelectedProjectCard(project: Project) {
+fun ProjectDetailsCard(project: Project) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(12.dp),
-        colors = CardDefaults.cardColors(containerColor = Color(0xFFE3F2FD)),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier
@@ -729,28 +826,30 @@ fun SelectedProjectCard(project: Project) {
                 .padding(16.dp)
         ) {
             Text(
-                text = "Selected Project",
-                fontSize = 14.sp,
-                color = Color.Gray,
-                fontWeight = FontWeight.Medium
-            )
-            
-            Spacer(modifier = Modifier.height(4.dp))
-            
-            Text(
                 text = project.name,
-                fontSize = 18.sp,
+                fontSize = 20.sp,
                 fontWeight = FontWeight.Bold,
-                color = Color(0xFF4285F4)
+                color = Color.Black
             )
             
             Spacer(modifier = Modifier.height(4.dp))
             
-            Text(
-                text = "Budget: ${java.text.NumberFormat.getCurrencyInstance(java.util.Locale("en", "IN")).format(project.budget)}",
-                fontSize = 14.sp,
-                color = Color.Gray
-            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Icon(
+                    Icons.Default.Business,
+                    contentDescription = null,
+                    tint = Color(0xFF999999),
+                    modifier = Modifier.size(16.dp)
+                )
+                Spacer(modifier = Modifier.width(4.dp))
+                Text(
+                    text = "AVR Entertainment",
+                    fontSize = 14.sp,
+                    color = Color(0xFF999999)
+                )
+            }
         }
     }
 }

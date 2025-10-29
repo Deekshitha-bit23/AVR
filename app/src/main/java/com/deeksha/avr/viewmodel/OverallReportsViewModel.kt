@@ -40,6 +40,7 @@ data class DetailedExpenseWithProject(
     val amount: Double = 0.0,
     val department: String = "",
     val category: String = "",
+    val description: String = "",
     val modeOfPayment: String = "",
     val projectName: String = ""
 )
@@ -334,6 +335,7 @@ class OverallReportsViewModel @Inject constructor(
                         amount = expense.amount,
                         department = expense.department,
                         category = expense.category,
+                        description = expense.description,
                         modeOfPayment = expense.modeOfPayment,
                         projectName = projectName
                     )
@@ -513,7 +515,10 @@ class OverallReportsViewModel @Inject constructor(
                             by = detailedExpense.by,
                             amount = detailedExpense.amount,
                             department = detailedExpense.department,
-                            modeOfPayment = detailedExpense.modeOfPayment
+                            category = detailedExpense.category,
+                            description = detailedExpense.description,
+                            modeOfPayment = detailedExpense.modeOfPayment,
+                            status = ExpenseStatus.APPROVED
                         )
                     },
                     generatedAt = Timestamp.now()
@@ -566,7 +571,10 @@ class OverallReportsViewModel @Inject constructor(
                             by = detailedExpense.by,
                             amount = detailedExpense.amount,
                             department = detailedExpense.department,
-                            modeOfPayment = detailedExpense.modeOfPayment
+                            category = detailedExpense.category,
+                            description = detailedExpense.description,
+                            modeOfPayment = detailedExpense.modeOfPayment,
+                            status = ExpenseStatus.APPROVED
                         )
                     },
                     generatedAt = Timestamp.now()
